@@ -512,6 +512,15 @@ const BUILTIN_COMMANDS = [
     closesMenu: true,
   },
   {
+    id: "hunk.review.editSelectedFileSplit",
+    title: "Open the selected file in your editor, in a split Herdr pane",
+    category: "review",
+    defaultKeys: ["ctrl+e"],
+    locus: "host-only",
+    publicToExtensions: true,
+    closesMenu: true,
+  },
+  {
     id: "hunk.review.previousHunk",
     title: "Previous hunk",
     category: "review",

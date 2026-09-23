@@ -105,6 +105,10 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
         description: "lines / wrap / metadata / menu",
       },
       { commandIds: ["hunk.review.editSelectedFile"], description: "open file in $EDITOR" },
+      {
+        commandIds: ["hunk.review.editSelectedFileSplit"],
+        description: "open file in $EDITOR (Herdr split)",
+      },
     ],
   },
   {

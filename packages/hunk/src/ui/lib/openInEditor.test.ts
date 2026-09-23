@@ -6,11 +6,13 @@ import { createTestDiffFile } from "../../../../../test/helpers/diff-helpers";
 import {
   buildEditorCommand,
   openSelectedFileInEditor,
+  openSelectedFileInEditorSplit,
   resolveEditableFilePath,
   shouldSuspendForEditor,
 } from "./openInEditor";
 
 const originalEditor = process.env.EDITOR;
+const originalHerdrEnv = process.env.HERDR_ENV;
 const originalSpawnSync = Bun.spawnSync;
 const tempDirs: string[] = [];
 
@@ -25,6 +27,12 @@ function restoreEditorEnv() {
     delete process.env.EDITOR;
   } else {
     process.env.EDITOR = originalEditor;
+  }
+
+  if (originalHerdrEnv === undefined) {
+    delete process.env.HERDR_ENV;
+  } else {
+    process.env.HERDR_ENV = originalHerdrEnv;
   }
 }
 
@@ -534,5 +542,200 @@ describe("open in editor helpers", () => {
 
     expect(renderer.suspend).toHaveBeenCalledTimes(1);
     expect(renderer.resume).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("openSelectedFileInEditorSplit", () => {
+  test("returns an error when not running inside a Herdr-managed pane", () => {
+    delete process.env.HERDR_ENV;
+    process.env.EDITOR = "hx";
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      return { exitCode: 0 };
+    });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        file: createTestDiffFile({ path: "example.ts" }),
+        selectedHunk: undefined,
+      }),
+    ).toBe("Not running inside a Herdr-managed pane.");
+
+    expect(spawnCalls).toEqual([]);
+  });
+
+  test("returns an error when no file is selected", () => {
+    process.env.HERDR_ENV = "1";
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      return { exitCode: 0 };
+    });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        file: undefined,
+        selectedHunk: undefined,
+      }),
+    ).toBe("No file selected.");
+
+    expect(spawnCalls).toEqual([]);
+  });
+
+  test("returns an error when $EDITOR is unset", () => {
+    process.env.HERDR_ENV = "1";
+    delete process.env.EDITOR;
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      return { exitCode: 0 };
+    });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        file: createTestDiffFile({ path: "missing-editor.ts" }),
+        selectedHunk: undefined,
+      }),
+    ).toBe("$EDITOR is not set.");
+
+    expect(spawnCalls).toEqual([]);
+  });
+
+  test("returns an error when the file does not exist on disk", () => {
+    process.env.HERDR_ENV = "1";
+    process.env.EDITOR = "hx";
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      return { exitCode: 0 };
+    });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        basePath: createTempDir(),
+        file: createTestDiffFile({ path: "missing-on-disk.ts" }),
+        selectedHunk: undefined,
+      }),
+    ).toBe("Cannot edit missing-on-disk.ts: file does not exist on disk.");
+
+    expect(spawnCalls).toEqual([]);
+  });
+
+  test("splits a Herdr pane below and runs the editor command in it", () => {
+    process.env.HERDR_ENV = "1";
+    process.env.EDITOR = "hx";
+    const basePath = createTempDir();
+    writeFileSync(join(basePath, "example.ts"), "const value = 1;\n");
+
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      if (cmds[1] === "pane" && cmds[2] === "split") {
+        return { exitCode: 0, stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p2" } } }) };
+      }
+      return { exitCode: 0, stdout: "" };
+    });
+
+    const file = createTestDiffFile({ path: "example.ts" });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        basePath,
+        file,
+        selectedHunk: file.metadata.hunks[0],
+      }),
+    ).toBeNull();
+
+    expect(spawnCalls).toEqual([
+      ["herdr", "pane", "split", "--current", "--direction", "down", "--focus", "--cwd", process.cwd()],
+      [
+        "herdr",
+        "pane",
+        "run",
+        "w1:p2",
+        `hx ${join(basePath, "example.ts")}:1; herdr pane close w1:p2`,
+      ],
+    ]);
+  });
+
+  test("leaves the bareword command unquoted but quotes a file path with a space", () => {
+    // Nushell parses a quoted leading token as a string literal rather than a command
+    // to run, so quoting the editor name (e.g. `'hx' '/path'`) fails there even though
+    // it works in bash. Only arguments that actually need quoting should be quoted.
+    process.env.HERDR_ENV = "1";
+    process.env.EDITOR = "hx";
+    const basePath = createTempDir();
+    writeFileSync(join(basePath, "my file.ts"), "const value = 1;\n");
+
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      if (cmds[1] === "pane" && cmds[2] === "split") {
+        return { exitCode: 0, stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p2" } } }) };
+      }
+      return { exitCode: 0, stdout: "" };
+    });
+
+    const file = createTestDiffFile({ path: "my file.ts" });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        basePath,
+        file,
+        selectedHunk: file.metadata.hunks[0],
+      }),
+    ).toBeNull();
+
+    expect(spawnCalls[1]).toEqual([
+      "herdr",
+      "pane",
+      "run",
+      "w1:p2",
+      `hx '${join(basePath, "my file.ts")}:1'; herdr pane close w1:p2`,
+    ]);
+  });
+
+  test("reports a failure when the pane split fails", () => {
+    process.env.HERDR_ENV = "1";
+    process.env.EDITOR = "hx";
+    const basePath = createTempDir();
+    writeFileSync(join(basePath, "example.ts"), "const value = 1;\n");
+
+    mockSpawnSync(() => ({ exitCode: 1, stdout: "", stderr: "no such pane" }));
+
+    const file = createTestDiffFile({ path: "example.ts" });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        basePath,
+        file,
+        selectedHunk: file.metadata.hunks[0],
+      }),
+    ).toBe("Failed to split Herdr pane: no such pane");
+  });
+
+  test("reports a failure when launching the editor in the split pane fails", () => {
+    process.env.HERDR_ENV = "1";
+    process.env.EDITOR = "hx";
+    const basePath = createTempDir();
+    writeFileSync(join(basePath, "example.ts"), "const value = 1;\n");
+
+    mockSpawnSync((cmds) => {
+      if (cmds[1] === "pane" && cmds[2] === "split") {
+        return { exitCode: 0, stdout: JSON.stringify({ result: { pane: { pane_id: "w1:p2" } } }) };
+      }
+      return { exitCode: 1, stdout: "", stderr: "pane busy" };
+    });
+
+    const file = createTestDiffFile({ path: "example.ts" });
+
+    expect(
+      openSelectedFileInEditorSplit({
+        basePath,
+        file,
+        selectedHunk: file.metadata.hunks[0],
+      }),
+    ).toBe("Failed to launch editor in split pane: pane busy");
   });
 });

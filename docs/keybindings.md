@@ -122,6 +122,7 @@ Review and shared commands:
 | `hunk.review.deleteActiveNote`                 | Delete active review note                      | `D`                          |
 | `hunk.review.editActiveNote`                   | Edit active review note                        | `E`                          |
 | `hunk.review.editSelectedFile`                 | Open the selected file in your editor          | `e`                          |
+| `hunk.review.editSelectedFileSplit`            | Open the selected file in your editor, in a split Herdr pane | `ctrl+e`       |
 | `hunk.review.focusFilter`                      | Focus the file filter                          | _(none)_                     |
 | `hunk.review.halfPageDown`                     | Scroll down half a page                        | `d`, `ctrl+d`                |
 | `hunk.review.halfPageUp`                       | Scroll up half a page                          | `u`, `ctrl+u`                |

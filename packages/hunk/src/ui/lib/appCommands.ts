@@ -154,6 +154,7 @@ export interface BuildAppCommandsOptions {
   toggleMenuBar: () => void;
   toggleFilesPane: () => void;
   triggerEditSelectedFile: () => void;
+  triggerEditSelectedFileSplit: () => void;
   triggerRefreshCurrentInput: () => void;
 }
 
@@ -276,6 +277,7 @@ function builtinCommandHandlers(
     "hunk.view.toggleCopyDecorations": { run: () => options.toggleCopyDecorations() },
     "hunk.review.toggleHunkGap": { run: () => options.toggleGapForSelectedHunk() },
     "hunk.review.editSelectedFile": { run: () => options.triggerEditSelectedFile() },
+    "hunk.review.editSelectedFileSplit": { run: () => options.triggerEditSelectedFileSplit() },
     "hunk.review.previousHunk": {
       run: (_key, count, entry) => runSelectionMove(options, entry, count),
     },
@@ -383,6 +385,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     toggleMenuBar: noop,
     toggleFilesPane: noop,
     triggerEditSelectedFile: noop,
+    triggerEditSelectedFileSplit: noop,
     triggerRefreshCurrentInput: noop,
   };
 })();

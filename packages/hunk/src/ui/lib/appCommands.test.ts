@@ -74,6 +74,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     toggleMenuBar: record("toggleMenuBar"),
     toggleFilesPane: record("toggleFilesPane"),
     triggerEditSelectedFile: record("triggerEditSelectedFile"),
+    triggerEditSelectedFileSplit: record("triggerEditSelectedFileSplit"),
     triggerRefreshCurrentInput: record("triggerRefreshCurrentInput"),
   };
 

@@ -119,7 +119,7 @@ import {
 import { HUNK_FILES_PANE_KEY } from "../extensions/extensionIds";
 import { maxFileHeaderStatsWidth } from "./lib/fileHeader";
 import { setMouseCapture } from "./lib/mouseCapture";
-import { openSelectedFileInEditor } from "./lib/openInEditor";
+import { openSelectedFileInEditor, openSelectedFileInEditorSplit } from "./lib/openInEditor";
 import { resolveResponsiveLayout } from "./lib/responsive";
 import type { WorkspaceRefreshRequest } from "./currentReviewRefresh";
 import { ThemeController } from "./theme/controller";
@@ -1127,6 +1127,22 @@ export function App({
     triggerRefreshCurrentInput,
   ]);
 
+  const triggerEditSelectedFileSplit = useCallback(() => {
+    const basePath = isVcsReviewInput(bootstrap.input)
+      ? bootstrap.changeset.sourceLabel
+      : undefined;
+    const message = openSelectedFileInEditorSplit({
+      basePath,
+      file: selectedFile,
+      lineCursor: activeLineCursor,
+      selectedHunk: review.selectedHunk,
+    });
+
+    if (message) {
+      showSessionNotice(message);
+    }
+  }, [activeLineCursor, bootstrap.changeset.sourceLabel, bootstrap.input.kind, review.selectedHunk, selectedFile, showSessionNotice]);
+
   /** Close the agent skill setup overlay. */
   const closeAgentSkill = useCallback(() => {
     setShowAgentSkill(false);
@@ -1319,6 +1335,7 @@ export function App({
         toggleMenuBar,
         toggleFilesPane,
         triggerEditSelectedFile,
+        triggerEditSelectedFileSplit,
         triggerRefreshCurrentInput,
       }).map((command) =>
         returnToHistory && command.id === "hunk.app.quit"

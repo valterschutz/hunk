@@ -65,6 +65,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     toggleMenuBar: noop,
     toggleFilesPane: record("toggleFilesPane"),
     triggerEditSelectedFile: noop,
+    triggerEditSelectedFileSplit: noop,
     triggerRefreshCurrentInput: noop,
     ...overrides,
   });
@@ -120,6 +121,7 @@ describe("buildAppMenus", () => {
       "Toggle files/filter focus",
       "Focus filter",
       "Open file in editor",
+      "Open file in editor (Herdr split pane)",
       "Reload",
       "Quit",
     ]);
@@ -162,6 +164,7 @@ describe("buildAppMenus", () => {
       "hunk.app.toggleFocusArea",
       "hunk.review.focusFilter",
       "hunk.review.editSelectedFile",
+      "hunk.review.editSelectedFileSplit",
       "hunk.app.refresh",
       "hunk.app.quit",
     ]);
@@ -236,6 +239,7 @@ describe("buildAppMenus", () => {
       "Toggle files/filter focus",
       "Focus filter",
       "Open file in editor",
+      "Open file in editor (Herdr split pane)",
       "Quit",
     ]);
   });

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { chmodSync, copyFileSync, cpSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -38,10 +38,14 @@ if (build.exitCode !== 0) {
 }
 
 mkdirSync(installDir, { recursive: true });
-copyFileSync(binaryPath, installPath);
+// Copy beside the installed binary and rename over it: a running Hunk keeps the
+// old inode, whereas writing into the busy file itself fails with ETXTBSY.
+const stagedInstallPath = `${installPath}.new`;
+copyFileSync(binaryPath, stagedInstallPath);
 if (!isWindows) {
-  chmodSync(installPath, 0o755);
+  chmodSync(stagedInstallPath, 0o755);
 }
+renameSync(stagedInstallPath, installPath);
 rmSync(legacyInstallPath, { force: true });
 
 // Keep source installs compatible with npm/prebuilt skill discovery without placing

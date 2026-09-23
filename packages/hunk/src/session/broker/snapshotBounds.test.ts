@@ -114,6 +114,34 @@ describe("boundHunkSessionSnapshot", () => {
     });
   });
 
+  // Intent: a reload that retires a file keeps that file's notes in the window's store but
+  // drops them from the summaries; a count taken from the store then fails the daemon's
+  // equality check and every later snapshot is refused until the notes are removed.
+  test("restates the note counts from the arrays so a retired note cannot skew them", () => {
+    const snapshot = createTestSessionSnapshot({
+      liveComments: [
+        {
+          commentId: "mcp:1",
+          filePath: "src/example.ts",
+          hunkIndex: 0,
+          side: "new",
+          line: 2,
+          summary: "kept",
+          createdAt: "2026-03-22T00:00:00.000Z",
+        },
+      ],
+      liveCommentCount: 3,
+      reviewNotes: [],
+      reviewNoteCount: 2,
+    });
+
+    expect(diagnoseSessionSnapshot(snapshot)).not.toBeNull();
+    const bounded = boundHunkSessionSnapshot(snapshot);
+    expect(diagnoseSessionSnapshot(bounded)).toBeNull();
+    expect(bounded.state.liveCommentCount).toBe(1);
+    expect(bounded.state.reviewNoteCount).toBe(0);
+  });
+
   test("leaves an in-bounds snapshot equal to itself", () => {
     const snapshot = createTestSessionSnapshot({
       reviewNotes: [

@@ -81,14 +81,22 @@ function boundReviewNote(note: SessionReviewNoteSummary): SessionReviewNoteSumma
   });
 }
 
-/** Bound the app-owned state of one snapshot to what the daemon's wire parsers accept. */
+/**
+ * Bound the app-owned state of one snapshot to what the daemon's wire parsers accept.
+ *
+ * The parsers also require the asserted note counts to equal the arrays they describe, so the
+ * counts are restated from the arrays here rather than trusted from the caller.
+ */
 export function boundHunkSessionState(state: HunkSessionState): HunkSessionState {
+  const liveComments = state.liveComments.map(boundLiveComment);
+  const reviewNotes = state.reviewNotes?.map(boundReviewNote);
   return withoutUndefined({
     ...state,
     selectedFileId: boundOptional(state.selectedFileId),
     selectedFilePath: boundOptional(state.selectedFilePath),
-    liveComments: state.liveComments.map(boundLiveComment),
-    ...(state.reviewNotes ? { reviewNotes: state.reviewNotes.map(boundReviewNote) } : {}),
+    liveCommentCount: liveComments.length,
+    liveComments,
+    ...(reviewNotes ? { reviewNoteCount: reviewNotes.length, reviewNotes } : {}),
   });
 }
 

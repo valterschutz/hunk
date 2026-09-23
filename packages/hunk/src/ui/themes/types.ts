@@ -24,6 +24,12 @@ export interface AppTheme {
   removedSignColor: string;
   lineNumberBg: string;
   lineNumberFg: string;
+  /** Rail marker beside added lines of the active hunk; inactive hunks show it dimmed. */
+  addedRailColor: string;
+  /** Rail marker beside removed lines of the active hunk; inactive hunks show it dimmed. */
+  removedRailColor: string;
+  /** Rail marker beside context lines and hunk headers of the active hunk. */
+  contextRailColor: string;
   selectedHunk: string;
   badgeAdded: string;
   badgeRemoved: string;

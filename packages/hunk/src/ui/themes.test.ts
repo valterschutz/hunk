@@ -406,6 +406,44 @@ describe("themes", () => {
     expect(custom.syntaxColors).toBe(resolveTheme("catppuccin-mocha", null).syntaxColors);
   });
 
+  test("gives the hunk rail its own colors that fall back to the sign and line-number colors", () => {
+    const mocha = resolveTheme("catppuccin-mocha", null);
+    expect(mocha.addedRailColor).toBe(mocha.addedSignColor);
+    expect(mocha.removedRailColor).toBe(mocha.removedSignColor);
+    expect(mocha.contextRailColor).toBe(mocha.lineNumberFg);
+
+    const railOnly = resolveTheme(
+      "custom",
+      null,
+      createTestCustomThemes({
+        base: "catppuccin-mocha",
+        addedRailColor: "#cba6f7",
+        removedRailColor: "#cba6f7",
+        contextRailColor: "#cba6f7",
+      }),
+    );
+    expect(railOnly.addedRailColor).toBe("#cba6f7");
+    expect(railOnly.removedRailColor).toBe("#cba6f7");
+    expect(railOnly.contextRailColor).toBe("#cba6f7");
+    expect(railOnly.addedSignColor).toBe(mocha.addedSignColor);
+    expect(railOnly.removedSignColor).toBe(mocha.removedSignColor);
+    expect(railOnly.lineNumberFg).toBe(mocha.lineNumberFg);
+
+    const legacy = resolveTheme(
+      "custom",
+      null,
+      createTestCustomThemes({
+        base: "catppuccin-mocha",
+        addedSignColor: "#11aa11",
+        removedSignColor: "#aa1111",
+        lineNumberFg: "#123456",
+      }),
+    );
+    expect(legacy.addedRailColor).toBe("#11aa11");
+    expect(legacy.removedRailColor).toBe("#aa1111");
+    expect(legacy.contextRailColor).toBe("#123456");
+  });
+
   test("lists custom themes after the bundled themes in declaration order", () => {
     const customThemes = [
       { id: "custom", base: "nord" },

@@ -347,6 +347,9 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.removedSignColor`    | Override the removedSignColor semantic color.    |
 | `custom_theme.lineNumberBg`        | Override the lineNumberBg semantic color.        |
 | `custom_theme.lineNumberFg`        | Override the lineNumberFg semantic color.        |
+| `custom_theme.addedRailColor`      | Override the addedRailColor semantic color.      |
+| `custom_theme.removedRailColor`    | Override the removedRailColor semantic color.    |
+| `custom_theme.contextRailColor`    | Override the contextRailColor semantic color.    |
 | `custom_theme.selectedHunk`        | Override the selectedHunk semantic color.        |
 | `custom_theme.badgeAdded`          | Override the badgeAdded semantic color.          |
 | `custom_theme.badgeRemoved`        | Override the badgeRemoved semantic color.        |

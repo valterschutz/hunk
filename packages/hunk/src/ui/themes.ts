@@ -256,6 +256,9 @@ function buildShikiTheme(themeId: BundledShikiThemeId): AppTheme {
     removedSignColor,
     lineNumberBg: editorBackground,
     lineNumberFg: lineNumberForeground,
+    addedRailColor: addedSignColor,
+    removedRailColor: removedSignColor,
+    contextRailColor: lineNumberForeground,
     copyAction: lineNumberForeground,
     selectedHunk: blendHex(modifiedColor, editorBackground, selectedTint),
     noteBackground: neutralPanel,
@@ -322,6 +325,14 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
     removedSignColor: customTheme.removedSignColor ?? baseTheme.removedSignColor,
     lineNumberBg: customTheme.lineNumberBg ?? baseTheme.lineNumberBg,
     lineNumberFg: customTheme.lineNumberFg ?? baseTheme.lineNumberFg,
+    // Rails borrowed the sign and line-number colors before they had slots of their own, so a
+    // theme that overrides only those keeps rendering exactly as it always has.
+    addedRailColor:
+      customTheme.addedRailColor ?? customTheme.addedSignColor ?? baseTheme.addedRailColor,
+    removedRailColor:
+      customTheme.removedRailColor ?? customTheme.removedSignColor ?? baseTheme.removedRailColor,
+    contextRailColor:
+      customTheme.contextRailColor ?? customTheme.lineNumberFg ?? baseTheme.contextRailColor,
     copyAction: customTheme.lineNumberFg ?? baseTheme.copyAction,
     selectedHunk: customTheme.selectedHunk ?? baseTheme.selectedHunk,
     badgeAdded: customTheme.badgeAdded ?? baseTheme.badgeAdded,

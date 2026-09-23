@@ -5,8 +5,12 @@ import {
   createTestReviewState,
   createTestStoredNote,
 } from "../../../../../test/helpers/review-store-helpers";
+import { createTestDiffFile, lines } from "../../../../../test/helpers/diff-helpers";
+import { reviewLineAnchor } from "./anchors";
+import { projectReviewDocument } from "./document";
 import { reduceReviewState } from "./reducer";
-import type { ReviewState } from "./state";
+import { createInitialReviewState, type ReviewState, type ReviewStoredNote } from "./state";
+import type { ReviewDocumentV1 } from "./types";
 
 /** Apply several actions in order, as one dispatch batch would. */
 function reduceAll(state: ReviewState, ...actions: Parameters<typeof reduceReviewState>[1][]) {
@@ -628,5 +632,158 @@ describe("filter and note visibility", () => {
     expect(
       reduceReviewState(state, { type: "notes/set-visibility", visible: true }).showAgentNotes,
     ).toBe(true);
+  });
+});
+
+describe("document reconcile with changed content", () => {
+  const BASE = lines(
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "epsilon",
+    "zeta",
+    "eta",
+    "theta",
+    "iota",
+    "kappa",
+  );
+
+  function documentOf(after: string): ReviewDocumentV1 {
+    return projectReviewDocument(
+      [
+        createTestDiffFile({
+          before: BASE,
+          after,
+          context: 2,
+          id: "sample.txt",
+          path: "sample.txt",
+        }),
+      ],
+      { sourceLabel: "repo" },
+    );
+  }
+
+  function agentNote(document: ReviewDocumentV1, id: string, line: number): ReviewStoredNote {
+    const file = document.files[0]!;
+    return {
+      note: {
+        id,
+        source: "agent",
+        fileKey: file.key,
+        anchor: reviewLineAnchor(file.hunks, { hunkIndex: 0, side: "new", line }),
+        summary: id,
+        editable: false,
+      },
+      resolution: "active",
+    };
+  }
+
+  test("moves notes and the selection with their text, and drops notes whose hunk left", () => {
+    const previous = documentOf(
+      lines(
+        "alpha!",
+        "beta",
+        "gamma",
+        "delta",
+        "epsilon",
+        "zeta",
+        "eta",
+        "theta!",
+        "iota",
+        "kappa",
+      ),
+    );
+    const first = agentNote(previous, "first", 1);
+    const second = agentNote(previous, "second", 8);
+    const reply: ReviewStoredNote = {
+      note: { ...second.note, id: "reply", parentId: "second", source: "user", editable: true },
+      resolution: "active",
+    };
+    const state = reduceAll(
+      { ...createInitialReviewState(previous), userNotes: [reply] },
+      { type: "notes/add-live", notes: [first, second] },
+      {
+        type: "selection/select",
+        fileKey: previous.files[0]!.key,
+        hunkIndex: 1,
+        activeNoteId: "first",
+      },
+    );
+    expect(state.selection.hunkIndex).toBe(1);
+
+    // Stage the first hunk ("alpha!" enters the index) and insert two lines above "theta!".
+    const next = projectReviewDocument(
+      [
+        createTestDiffFile({
+          before: lines(
+            "alpha!",
+            "beta",
+            "gamma",
+            "delta",
+            "epsilon",
+            "zeta",
+            "eta",
+            "theta",
+            "iota",
+            "kappa",
+          ),
+          after: lines(
+            "alpha!",
+            "beta",
+            "gamma",
+            "delta",
+            "epsilon",
+            "zeta",
+            "eta",
+            "one",
+            "two",
+            "theta!",
+            "iota",
+            "kappa",
+          ),
+          context: 2,
+          id: "sample.txt",
+          path: "sample.txt",
+        }),
+      ],
+      { sourceLabel: "repo" },
+    );
+    const reconciled = reduceReviewState(state, { type: "document/reconcile", document: next });
+
+    expect(reconciled.liveNotes.map((entry) => entry.note.id)).toEqual(["second"]);
+    expect(reconciled.liveNotes[0]?.note.anchor.preferred).toEqual({ side: "new", line: 10 });
+    expect(reconciled.userNotes[0]?.note.anchor.preferred).toEqual({ side: "new", line: 10 });
+    expect(reconciled.activeNoteId).toBeNull();
+    expect(reconciled.selection).toEqual({ fileKey: next.files[0]!.key, hunkIndex: 0 });
+  });
+
+  test("keeps note arrays by identity when the document did not change content", () => {
+    const previous = documentOf(
+      lines("alpha!", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa"),
+    );
+    const state = reduceReviewState(createInitialReviewState(previous), {
+      type: "notes/add-live",
+      notes: [agentNote(previous, "first", 1)],
+    });
+    const reconciled = reduceReviewState(state, {
+      type: "document/reconcile",
+      document: documentOf(
+        lines(
+          "alpha!",
+          "beta",
+          "gamma",
+          "delta",
+          "epsilon",
+          "zeta",
+          "eta",
+          "theta",
+          "iota",
+          "kappa",
+        ),
+      ),
+    });
+
+    expect(reconciled.liveNotes).toBe(state.liveNotes);
   });
 });

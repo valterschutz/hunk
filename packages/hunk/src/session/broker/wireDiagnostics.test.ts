@@ -108,20 +108,22 @@ describe("session wire rejection diagnostics", () => {
     expect(description).not.toContain("secret-value");
   });
 
-  test("logs only under HUNK_DEBUG=1", () => {
+  // Intent: the line carries no payload, so it is written whether or not HUNK_DEBUG is set;
+  // the daemon log is the only place a rejected payload is ever explained.
+  test("logs with and without HUNK_DEBUG=1", () => {
     const registration = createTestSessionRegistration();
     (registration.info as unknown as Record<string, unknown>).surprise = true;
+    const expected =
+      "[session:daemon] rejected registration from session session-1: parseHunkSessionInfo returned null at info";
     const lines: string[] = [];
     const write = (line: string) => lines.push(line);
 
     delete process.env.HUNK_DEBUG;
     reportSessionWireRejection("registration", registration, write);
-    expect(lines).toEqual([]);
+    expect(lines).toEqual([expected]);
 
     process.env.HUNK_DEBUG = "1";
     reportSessionWireRejection("registration", registration, write);
-    expect(lines).toEqual([
-      "[session:daemon] rejected registration from session session-1: parseHunkSessionInfo returned null at info",
-    ]);
+    expect(lines).toEqual([expected, expected]);
   });
 });

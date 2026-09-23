@@ -19,6 +19,7 @@ import {
   readSessionBrokerLaunchFingerprint,
 } from "./brokerLauncher";
 import { hunkSessionProtocolParsers } from "./protocolParsers";
+import { boundHunkSessionSnapshot } from "./snapshotBounds";
 import {
   loadOrCreateHunkSessionBrokerCredentials,
   type HunkSessionBrokerCredentials,
@@ -171,6 +172,10 @@ export class SessionBrokerClient {
     private timing: SessionBrokerClientOptions = {},
   ) {
     this.lifecycleClock = timing.lifecycleClock ?? createNativeSessionBrokerLifecycleClock();
+    // Every snapshot leaves this client bounded to the daemon's wire limits (see
+    // snapshotBounds.ts): the daemon refuses an out-of-bounds payload whole, and a refused
+    // registration or snapshot is how a window loses its session.
+    this.snapshot = boundHunkSessionSnapshot(snapshot);
   }
 
   start() {
@@ -273,11 +278,12 @@ export class SessionBrokerClient {
     registration: SessionRegistration<HunkSessionInfo>,
     snapshot: SessionSnapshot<HunkSessionState>,
   ) {
+    const bounded = boundHunkSessionSnapshot(snapshot);
     // Let the connection validate/send first. If it throws, the client keeps
     // serving the previous registration and snapshot as one coherent pair.
-    this.connection?.replaceSession(registration, snapshot);
+    this.connection?.replaceSession(registration, bounded);
     this.registration = registration;
-    this.snapshot = snapshot;
+    this.snapshot = bounded;
   }
 
   private resolveConfig() {
@@ -340,8 +346,9 @@ export class SessionBrokerClient {
   }
 
   updateSnapshot(snapshot: SessionSnapshot<HunkSessionState>) {
-    this.snapshot = snapshot;
-    this.connection?.updateSnapshot(snapshot);
+    const bounded = boundHunkSessionSnapshot(snapshot);
+    this.snapshot = bounded;
+    this.connection?.updateSnapshot(bounded);
   }
 
   private connect(config: ResolvedSessionBrokerConfig) {

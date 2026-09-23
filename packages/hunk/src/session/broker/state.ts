@@ -95,6 +95,7 @@ const hunkSessionBrokerView: SessionBrokerViewAdapter<
 
 /** How the daemon identifies itself when it reads a resource on an agent's behalf. */
 const DAEMON_ACTOR: HunkReviewActorV1 = { clientId: "hunk-daemon", kind: "agent" };
+const SNAPSHOT_REJECTION_LOG_INTERVAL_MS = 60_000;
 
 /** Raised when a read or action names a generation the session is no longer serving. */
 export class ReviewGenerationRetiredError extends Error {
@@ -192,6 +193,8 @@ export class HunkSessionBrokerState extends SessionBrokerState<
 > {
   private readonly mirror = new ReviewMirror();
   private readonly resources: ReviewResourceCache;
+  /** When each session's rejected snapshot was last logged, to throttle repeats. */
+  private readonly snapshotRejectionLoggedAt = new Map<string, number>();
   /** One load per resource; concurrent callers await the same assembly. */
   private readonly loads = new Map<string, Promise<Uint8Array>>();
   /** Capability verifiers by session, as their registrations declared them. */
@@ -242,7 +245,9 @@ export class HunkSessionBrokerState extends SessionBrokerState<
 
   override updateSnapshot(socket: HunkBrokerConnection, sessionId: string, snapshotInput: unknown) {
     const result = super.updateSnapshot(socket, sessionId, snapshotInput);
-    if (result === "invalid") {
+    if (result === "invalid" && this.shouldLogSnapshotRejection(sessionId)) {
+      // The daemon keeps the session and drops the snapshot, so a window that keeps publishing
+      // an out-of-bounds state would otherwise fill the log on every cursor move.
       reportSessionWireRejection("snapshot", snapshotInput, undefined, sessionId);
     }
     if (result === "updated") {
@@ -261,6 +266,14 @@ export class HunkSessionBrokerState extends SessionBrokerState<
   override unregisterSocket(socket: HunkBrokerConnection) {
     super.unregisterSocket(socket);
     this.reconcileMirroredSessions();
+  }
+
+  /** Allow one rejected-snapshot log line per session per minute. */
+  private shouldLogSnapshotRejection(sessionId: string, now = Date.now()) {
+    const last = this.snapshotRejectionLoggedAt.get(sessionId);
+    if (last !== undefined && now - last < SNAPSHOT_REJECTION_LOG_INTERVAL_MS) return false;
+    this.snapshotRejectionLoggedAt.set(sessionId, now);
+    return true;
   }
 
   override pruneStaleSessions(options: { ttlMs: number; now?: number }) {

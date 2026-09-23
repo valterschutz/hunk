@@ -1,11 +1,13 @@
 import { diagnoseSessionRegistration, diagnoseSessionSnapshot } from "./wire";
 
 /**
- * Reports why the daemon rejected a session registration or snapshot, for `HUNK_DEBUG=1`.
+ * Reports why the daemon rejected a session registration or snapshot.
  *
- * A rejection today closes the producer socket with a fixed reason and nothing else, which
- * turns a daemon/client version skew into a bisect. The description names the rejecting parser
- * and its top-level key path and never includes payload contents.
+ * A rejected registration closes the producer socket with a fixed reason and nothing else, and
+ * a rejected snapshot is dropped silently, which turns a daemon/client version skew or an
+ * out-of-bounds payload into a bisect. The description names the rejecting parser and its
+ * top-level key path and never includes payload contents, so it is always written to the
+ * daemon's log rather than only under `HUNK_DEBUG=1`.
  */
 export type SessionWirePayloadKind = "registration" | "snapshot";
 
@@ -33,14 +35,13 @@ export function describeSessionWireRejection(
   return `rejected ${kind}${origin}: ${rejection.parser} returned null${location}`;
 }
 
-/** Log one rejected payload to the daemon's stderr when `HUNK_DEBUG=1`. */
+/** Log one rejected payload to the daemon's stderr, which the launcher routes to its log file. */
 export function reportSessionWireRejection(
   kind: SessionWirePayloadKind,
   input: unknown,
   write: (line: string) => void = (line) => console.error(line),
   sessionId?: string | null,
 ) {
-  if (process.env.HUNK_DEBUG !== "1") return;
   write(
     `[session:daemon] ${describeSessionWireRejection(kind, input, sessionId ?? readSessionId(input))}`,
   );

@@ -12,6 +12,7 @@ import {
   isSessionBrokerHealthy,
   launchSessionBrokerDaemonAndRecord,
   readSessionBrokerLaunchMetadata,
+  resolveSessionBrokerRuntimePaths,
   tryAcquireDaemonLaunchLock,
   waitForSessionBrokerHealth,
   type SessionBrokerLaunchMetadata,
@@ -66,6 +67,8 @@ export interface DaemonCommandDependencies {
   waitForHealth: (expected: boolean, timeoutMs: number) => Promise<"ready" | "timeout">;
   killProcess: (pid: number, signal: "SIGTERM") => void;
   isTerminal: boolean;
+  /** Where a launched daemon writes its output; shown so a failure has somewhere to be read. */
+  logPath?: string;
 }
 
 /** What `status` learned, in the shape both commands and both output formats consume. */
@@ -99,6 +102,7 @@ export function createDaemonCommandDependencies(
       waitForSessionBrokerHealth({ config, expected, timeoutMs, lifecycleClock }),
     killProcess: (pid, signal) => process.kill(pid, signal),
     isTerminal: Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY),
+    logPath: resolveSessionBrokerRuntimePaths(config).logPath,
   };
 }
 
@@ -138,7 +142,8 @@ function describeLaunch(launch: SessionBrokerLaunchMetadata) {
 }
 
 /** Render the status summary lines shown by both commands. */
-export function formatDaemonStatusReport(report: DaemonStatusReport) {
+export function formatDaemonStatusReport(report: DaemonStatusReport, logPath?: string) {
+  const logLine = logPath === undefined ? [] : [`Daemon log: ${logPath}`];
   if (report.kind === "none") return ["No session daemon is running."];
   if (report.kind === "pre-admin") {
     return [
@@ -146,6 +151,7 @@ export function formatDaemonStatusReport(report: DaemonStatusReport) {
         ? `A session daemon is running (${describeLaunch(report.launch)}), but it is from a build that predates \`hunk daemon status\` and cannot report itself.`
         : "A session daemon is running, but it is from a build that predates `hunk daemon status` and cannot report itself; no launch metadata was found.",
       `This CLI is ${HUNK_BUILD_RELATION.newer}.`,
+      ...logLine,
     ];
   }
   const { status, direction } = report;
@@ -169,7 +175,7 @@ export function formatDaemonStatusReport(report: DaemonStatusReport) {
       lines.push(`  ${session.sessionId.slice(0, 8)}  ${session.title}  ${session.cwd}`);
     }
   }
-  return lines;
+  return [...lines, ...logLine];
 }
 
 /** The JSON body for `status --json` and the `before` half of `restart --json`. */
@@ -219,7 +225,7 @@ export async function runDaemonStatusCommand(
   if (input.output === "json") {
     io.stdout(stringifyJson(statusReportJson(report, deps.clientBuild)));
   } else {
-    io.stdout(`${formatDaemonStatusReport(report).join("\n")}\n`);
+    io.stdout(`${formatDaemonStatusReport(report, deps.logPath).join("\n")}\n`);
   }
   return 0;
 }
@@ -254,7 +260,7 @@ export async function runDaemonRestartCommand(
   deps: DaemonCommandDependencies = createDaemonCommandDependencies(),
 ) {
   const before = await readDaemonStatusReport(deps);
-  const summary = formatDaemonStatusReport(before);
+  const summary = formatDaemonStatusReport(before, deps.logPath);
   const log = (line: string) => {
     if (input.output !== "json") io.stdout(`${line}\n`);
   };

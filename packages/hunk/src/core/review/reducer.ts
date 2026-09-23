@@ -9,6 +9,7 @@ import type { ReviewAction } from "./actions";
 import { resolveReviewNoteAnchor, reviewGapOwnerHunkIndex, reviewLineAnchor } from "./anchors";
 import { reviewLineCoveredByHunks, reviewRangeTargetCoverageIssue } from "./geometry";
 import { clamp } from "./navigation";
+import { reanchorReviewNotes, reanchorReviewSelection } from "./reanchor";
 import {
   isReviewNoteWithinClearScope,
   reviewFileKeysWithRetiredContent,
@@ -35,6 +36,11 @@ function sourceStatusesEqual(left: ReviewSourceStatus | undefined, right: Review
     return left.reason === right.reason;
   }
   return true;
+}
+
+/** Whether two note lists hold the same entries in the same order. */
+function sameNotes(left: ReviewStoredNote[], right: ReviewStoredNote[]) {
+  return left.length === right.length && left.every((entry, index) => entry === right[index]);
 }
 
 /** Drop one note by id from a stored-note list, or return the same list when absent. */
@@ -142,12 +148,31 @@ export function reduceReviewState(state: ReviewState, action: ReviewAction): Rev
         ),
       );
       const draftNote = reconcileDraftNote(state, action.document);
+      // Notes follow the text they were written beside, and the selection follows the
+      // hunk it named, so a reload that inserted or removed lines above them lands both
+      // where the reviewer left them rather than at the same line numbers.
+      const combined = reanchorReviewNotes(state.document, action.document, [
+        ...state.liveNotes,
+        ...state.userNotes,
+      ]);
+      const liveIds = new Set(state.liveNotes.map((entry) => entry.note.id));
+      const liveNotes = combined.filter((entry) => liveIds.has(entry.note.id));
+      const userNotes = combined.filter((entry) => !liveIds.has(entry.note.id));
+      const activeNoteId =
+        state.activeNoteId !== null &&
+        combined.some((entry) => entry.note.id === state.activeNoteId)
+          ? state.activeNoteId
+          : null;
       return {
         ...state,
         document: action.document,
         draftNote,
         expandedGaps,
         sourceStatusByFileKey,
+        liveNotes: sameNotes(liveNotes, state.liveNotes) ? state.liveNotes : liveNotes,
+        userNotes: sameNotes(userNotes, state.userNotes) ? state.userNotes : userNotes,
+        activeNoteId,
+        selection: reanchorReviewSelection(state.document, action.document, state.selection),
       };
     }
     case "selection/select": {

@@ -662,8 +662,8 @@ export class SessionBrokerDaemon<
           connection.close?.(INCOMPATIBLE_PAYLOAD_CLOSE_CODE, "Session producer scope rejected.");
           return;
         }
-        // Snapshot updates are only valid after registration. Closing missing or invalid sessions
-        // keeps the broker state single-sourced instead of guessing how to recover.
+        // Snapshot updates are only valid after registration. Closing a peer that asserts a
+        // session it does not own keeps the broker state single-sourced.
         const updateResult = this.broker.updateSnapshot(
           brokerPeer,
           parsed.sessionId,
@@ -674,13 +674,15 @@ export class SessionBrokerDaemon<
           return;
         }
 
-        if (updateResult === "invalid") {
-          connection.close?.(INCOMPATIBLE_PAYLOAD_CLOSE_CODE, "Incompatible session snapshot.");
-          return;
-        }
-        if (updateResult === "capacity-exceeded") {
-          connection.close?.(1013, "Session broker capacity exceeded.");
-          return;
+        // A snapshot the broker cannot retain is dropped, not fatal: the session keeps its
+        // previous snapshot and stays registered. Closing here made the producer reconnect and
+        // re-register with the same state, which failed the same way; with no session left the
+        // daemon idled out, the window respawned it, and the loop lost every note. Registration
+        // still closes on an invalid payload, so a build skew is caught when the window connects.
+        if (updateResult === "invalid" || updateResult === "capacity-exceeded") {
+          this.broker.markSessionSeen(brokerPeer, parsed.sessionId);
+          this.noteActivity();
+          break;
         }
 
         this.noteActivity();

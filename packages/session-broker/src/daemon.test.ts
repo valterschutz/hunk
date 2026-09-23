@@ -743,6 +743,55 @@ describe("session broker daemon", () => {
     daemon.shutdown();
   });
 
+  // Intent: a snapshot the broker cannot parse must not cost the window its session. Closing
+  // the socket made the producer re-register with the same state and fail the same way.
+  test("keeps a registered session and its previous snapshot when a later snapshot is invalid", () => {
+    const daemon = createSessionBrokerDaemon({
+      broker: createBroker(),
+      capabilities: { version: 1 },
+    });
+    const session = createConnection();
+    const { connection } = session;
+
+    daemon.handleConnectionMessage(
+      connection,
+      JSON.stringify({
+        type: "register",
+        registration: createRegistration({ sessionId: "session-1" }),
+        snapshot: createSnapshot({ selectedIndex: 3 }),
+      }),
+    );
+    expect(session.closed).toBeNull();
+
+    daemon.handleConnectionMessage(
+      connection,
+      JSON.stringify({
+        type: "snapshot",
+        sessionId: "session-1",
+        snapshot: createSnapshot({ selectedIndex: "not-an-index" as never }),
+      }),
+    );
+
+    expect(session.closed).toBeNull();
+    expect(daemon.getSession({ sessionId: "session-1" })).toMatchObject({
+      snapshot: { state: { selectedIndex: 3 } },
+    });
+
+    daemon.handleConnectionMessage(
+      connection,
+      JSON.stringify({
+        type: "snapshot",
+        sessionId: "session-1",
+        snapshot: createSnapshot({ selectedIndex: 4 }),
+      }),
+    );
+    expect(session.closed).toBeNull();
+    expect(daemon.getSession({ sessionId: "session-1" })).toMatchObject({
+      snapshot: { state: { selectedIndex: 4 } },
+    });
+    daemon.shutdown();
+  });
+
   test("closes snapshot assertions from unregistered peers", () => {
     const daemon = createSessionBrokerDaemon({
       broker: createBroker(),

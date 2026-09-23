@@ -643,6 +643,12 @@ export interface CustomThemeConfig {
   removedSignColor?: string;
   lineNumberBg?: string;
   lineNumberFg?: string;
+  /** Rail marker beside added lines; defaults to addedSignColor. */
+  addedRailColor?: string;
+  /** Rail marker beside removed lines; defaults to removedSignColor. */
+  removedRailColor?: string;
+  /** Rail marker beside context lines and hunk headers; defaults to lineNumberFg. */
+  contextRailColor?: string;
   selectedHunk?: string;
   badgeAdded?: string;
   badgeRemoved?: string;

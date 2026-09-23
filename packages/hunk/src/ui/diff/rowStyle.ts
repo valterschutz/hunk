@@ -69,7 +69,7 @@ export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
 
 /** Return the neutral active-hunk rail color for the current theme. */
 export function neutralRailColor(theme: AppTheme) {
-  return theme.lineNumberFg;
+  return theme.contextRailColor;
 }
 
 /** Dim a rail color for inactive hunks by blending toward the panel background. */
@@ -86,9 +86,9 @@ export function unifiedRailColor(
   let color: string;
 
   if (kind === "addition") {
-    color = theme.addedSignColor;
+    color = theme.addedRailColor;
   } else if (kind === "deletion") {
-    color = theme.removedSignColor;
+    color = theme.removedRailColor;
   } else {
     color = neutralRailColor(theme);
   }
@@ -102,7 +102,7 @@ export function splitLeftRailColor(
   theme: AppTheme,
   selected: boolean,
 ) {
-  const color = kind === "deletion" ? theme.removedSignColor : neutralRailColor(theme);
+  const color = kind === "deletion" ? theme.removedRailColor : neutralRailColor(theme);
   return selected ? color : dimRailColor(color, theme);
 }
 
@@ -112,7 +112,7 @@ export function splitRightRailColor(
   theme: AppTheme,
   selected: boolean,
 ) {
-  const color = kind === "addition" ? theme.addedSignColor : neutralRailColor(theme);
+  const color = kind === "addition" ? theme.addedRailColor : neutralRailColor(theme);
   return selected ? color : dimRailColor(color, theme);
 }
 

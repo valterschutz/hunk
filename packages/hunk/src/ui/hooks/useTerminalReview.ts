@@ -1718,8 +1718,11 @@ export function useTerminalReview({
     draftNote,
     expandedGapsByFileId,
     filter,
-    // Counted from the store, so notes on a file a reload retired still count as tracked.
-    liveCommentCount: state.liveNotes.length,
+    // The daemon parses a snapshot only when this count equals the summaries it carries, so
+    // it is taken from the summaries rather than the store: a note on a file a reload retired
+    // stays in the store but has no summary, and counting it would get every later snapshot
+    // refused until the note is removed.
+    liveCommentCount: liveCommentSummaries.length,
     liveCommentSummaries,
     liveCommentsByFileId,
     lineCursor,

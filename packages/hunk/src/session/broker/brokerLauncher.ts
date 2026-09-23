@@ -1,9 +1,18 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { connect } from "node:net";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   createNativeSessionBrokerLifecycleClock,
   type SessionBrokerLifecycleClock,
@@ -30,6 +39,8 @@ export interface SessionBrokerRuntimePaths {
   runtimeDir: string;
   lockPath: string;
   metadataPath: string;
+  /** Where a launched daemon's stdout and stderr go; truncated on every launch. */
+  logPath: string;
 }
 
 interface SessionBrokerLaunchLockFile {
@@ -77,6 +88,7 @@ export interface EnsureSessionBrokerAvailableOptions {
     env?: NodeJS.ProcessEnv;
     argv?: string[];
     execPath?: string;
+    logPath?: string;
   }) => ChildProcess;
 }
 
@@ -366,6 +378,7 @@ export function resolveSessionBrokerRuntimePaths(
     runtimeDir,
     lockPath: join(runtimeDir, `daemon-${fileStem}.lock`),
     metadataPath: join(runtimeDir, `daemon-${fileStem}.json`),
+    logPath: join(runtimeDir, `daemon-${fileStem}.log`),
   };
 }
 
@@ -684,28 +697,53 @@ export function isLoopbackPortReachable(
   });
 }
 
+/**
+ * Open the daemon's owner-private log file, or return null when the runtime dir refuses it.
+ *
+ * The daemon runs detached with no terminal, so without this file nothing it prints — the
+ * listening lines, a rejected registration, a crash — is ever seen. A launch that cannot open
+ * the log still proceeds; losing diagnostics must not cost the user the daemon.
+ */
+function openDaemonLog(logPath: string): number | null {
+  try {
+    mkdirSync(dirname(logPath), { recursive: true, mode: 0o700 });
+    return openSync(logPath, "w", 0o600);
+  } catch {
+    return null;
+  }
+}
+
 /** Launch the broker daemon in the background without tying it to the current TTY session. */
 export function launchSessionBrokerDaemon({
   cwd = process.cwd(),
   env = process.env,
   argv = process.argv,
   execPath = process.execPath,
+  logPath,
 }: {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   argv?: string[];
   execPath?: string;
+  /** Route the daemon's stdout and stderr here; without it they are discarded. */
+  logPath?: string;
 } = {}): ChildProcess {
   const command = resolveDaemonLaunchCommand(argv, execPath);
-  const child = spawn(command.command, command.args, {
-    cwd,
-    env,
-    detached: true,
-    stdio: "ignore",
-  });
+  const log = logPath === undefined ? null : openDaemonLog(logPath);
+  try {
+    const child = spawn(command.command, command.args, {
+      cwd,
+      env,
+      detached: true,
+      stdio: log === null ? "ignore" : ["ignore", log, log],
+    });
 
-  child.unref();
-  return child;
+    child.unref();
+    return child;
+  } finally {
+    // The child holds its own descriptors once spawned; the parent's copy only leaks otherwise.
+    if (log !== null) closeSync(log);
+  }
 }
 
 /**
@@ -732,7 +770,7 @@ export function launchSessionBrokerDaemonAndRecord({
   const paths = resolveSessionBrokerRuntimePaths(config, env);
   const launchCommand = resolveDaemonLaunchCommand(argv, execPath);
   const launched = settleForeignCall(
-    () => launchDaemon({ cwd, env, argv, execPath }),
+    () => launchDaemon({ cwd, env, argv, execPath, logPath: paths.logPath }),
     isCommitAuthorized,
   );
   if (!launched.current) return null;

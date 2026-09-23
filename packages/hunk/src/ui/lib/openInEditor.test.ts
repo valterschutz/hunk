@@ -118,6 +118,39 @@ describe("open in editor helpers", () => {
     });
   });
 
+  test("builds path:line targets for hx and wrapper scripts around it", () => {
+    expect(
+      buildEditorCommand({
+        editor: "hx",
+        filePath: "/tmp/project/file.ts",
+        line: 123,
+      }),
+    ).toEqual({
+      command: "hx",
+      args: ["/tmp/project/file.ts:123"],
+    });
+    expect(
+      buildEditorCommand({
+        editor: "helix",
+        filePath: "/tmp/project/file.ts",
+        line: 123,
+      }),
+    ).toEqual({
+      command: "helix",
+      args: ["/tmp/project/file.ts:123"],
+    });
+    expect(
+      buildEditorCommand({
+        editor: "/home/user/bin/hx-wrapper",
+        filePath: "/tmp/project/file.ts",
+        line: 123,
+      }),
+    ).toEqual({
+      command: "/home/user/bin/hx-wrapper",
+      args: ["/tmp/project/file.ts:123"],
+    });
+  });
+
   test("defaults unknown editors to opening the file path only", () => {
     expect(
       buildEditorCommand({

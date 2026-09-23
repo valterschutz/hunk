@@ -95,6 +95,7 @@ function editorProgram(editor: string) {
 
 const VI_STYLE_EDITORS = ["vim", "nvim", "vi"];
 const CODE_STYLE_EDITORS = ["code", "code-insiders", "cursor"];
+const HELIX_STYLE_EDITORS = ["hx", "helix", "hx-wrapper"];
 
 /** Suspend for terminal editors. */
 export function shouldSuspendForEditor(editor: string) {
@@ -127,7 +128,7 @@ export function buildEditorCommand({
     return { command, args: [...editorArgs, "--goto", `${filePath}:${line}`] };
   }
 
-  if (program == "hx") {
+  if (HELIX_STYLE_EDITORS.includes(program)) {
     return { command, args: [...editorArgs, `${filePath}:${line}`] };
   }
 

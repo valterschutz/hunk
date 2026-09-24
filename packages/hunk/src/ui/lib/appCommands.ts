@@ -12,7 +12,7 @@ import { matchesAnyKeyChord, parseKeyChordOrUndefined } from "../../lib/commandK
 import { formatKeyChord, type CommandKeyDefaults } from "./keymap";
 import { synthesizeKeyEvent } from "./syntheticKeyEvent";
 
-type ScrollUnit = "step" | "viewport" | "content" | "half";
+type ScrollUnit = "step" | "viewport" | "half";
 
 /** Chords each command answers to after user keybindings are folded in, by command id. */
 export type ResolvedCommandKeys = ReadonlyMap<string, readonly string[]>;
@@ -121,6 +121,7 @@ export interface BuildAppCommandsOptions {
   alignCurrentLine: (alignment: "top" | "center" | "bottom") => void;
   applyFilePresentationToAllMatching: () => void;
   focusFilter: () => void;
+  jumpLineCursorToFileEdge: (edge: "start" | "end") => void;
   deleteActiveNote?: () => void;
   editActiveNote?: () => void;
   replyToActiveNote?: () => void;
@@ -193,8 +194,8 @@ function builtinCommandHandlers(
   options: BuildAppCommandsOptions,
 ): Record<AppCommandId, BuiltinCommandHandler> {
   return {
-    "hunk.review.jumpToBottom": { run: () => options.scrollDiff(1, "content") },
-    "hunk.review.jumpToTop": { run: () => options.scrollDiff(-1, "content") },
+    "hunk.review.jumpToBottom": { run: () => options.jumpLineCursorToFileEdge("end") },
+    "hunk.review.jumpToTop": { run: () => options.jumpLineCursorToFileEdge("start") },
     "hunk.app.quit": { run: () => options.requestQuit() },
     "hunk.app.toggleHelp": { run: () => options.toggleHelp() },
     "hunk.app.openAgentSkill": { run: () => options.openAgentSkill() },
@@ -369,6 +370,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     alignCurrentLine: noop,
     applyFilePresentationToAllMatching: noop,
     focusFilter: noop,
+    jumpLineCursorToFileEdge: noop,
     moveSelection: noop,
     moveNoteCursor: noop,
     openAgentSkill: noop,

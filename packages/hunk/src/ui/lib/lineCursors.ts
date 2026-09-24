@@ -177,6 +177,16 @@ export function firstLineCursorInHunk(
   );
 }
 
+/** Return the first or last rendered line in one file. */
+export function lineCursorAtFileEdge(
+  cursors: LineCursor[],
+  fileId: string,
+  edge: "start" | "end",
+): LineCursor | null {
+  const matchesFile = (cursor: LineCursor) => cursor.fileId === fileId;
+  return (edge === "start" ? cursors.find(matchesFile) : cursors.findLast(matchesFile)) ?? null;
+}
+
 /**
  * Find the current hunk's landing row when the cursor has not crossed that hunk yet.
  *

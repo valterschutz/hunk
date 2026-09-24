@@ -97,6 +97,7 @@ import {
   firstLineCursorInHunk,
   hasLineCursor,
   lineCursorAt,
+  lineCursorAtFileEdge,
   resolveLineCursor,
   type LineCursor,
 } from "../lib/lineCursors";
@@ -240,6 +241,7 @@ export interface TerminalReview {
   anchorLineCursor: (cursor: LineCursor) => void;
   /** Adopt the hunk a viewport settled on, without asking any viewport to move. */
   anchorSelection: (fileId: string, hunkIndex: number) => void;
+  jumpLineCursorToFileEdge: (edge: "start" | "end") => void;
   moveLineCursor: (delta: number) => void;
   /** Select a visible semantic note without moving the viewport. */
   activateNote: (noteId: string) => void;
@@ -819,6 +821,15 @@ export function useTerminalReview({
       });
     },
     [applyLineCursor, runIntent, store],
+  );
+
+  /** Select and reveal the first or last rendered line in the selected file. */
+  const jumpLineCursorToFileEdge = useCallback(
+    (edge: "start" | "end") => {
+      const cursor = lineCursorAtFileEdge(lineCursors, selectedFileId, edge);
+      if (cursor) revealLineCursor(cursor);
+    },
+    [lineCursors, revealLineCursor, selectedFileId],
   );
 
   /** Move through source lines and semantic note cards in exact rendered order. */
@@ -1907,6 +1918,7 @@ export function useTerminalReview({
     clearFilter,
     cancelDraftNote,
     clearLiveComments,
+    jumpLineCursorToFileEdge,
     moveLineCursor,
     moveNoteCursor,
     moveSelection,

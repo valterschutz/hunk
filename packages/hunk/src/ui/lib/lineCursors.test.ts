@@ -17,6 +17,7 @@ import {
   findLineCursorAt,
   findNextLineCursor,
   firstLineCursorInHunk,
+  lineCursorAtFileEdge,
   reuseEquivalentLineCursors,
   resolveLineCursor,
   type LineCursor,
@@ -384,6 +385,29 @@ describe("firstLineCursorInHunk", () => {
 
   test("returns nothing when the stream is empty", () => {
     expect(firstLineCursorInHunk([], "alpha", 0)).toBeNull();
+  });
+});
+
+describe("lineCursorAtFileEdge", () => {
+  const cursors = cursorsFor(
+    [createTwoHunkFile("alpha", "alpha.ts"), createTwoHunkFile("beta", "beta.ts")],
+    "unified",
+  );
+
+  test("returns the first rendered line in the selected file", () => {
+    expect(lineCursorAtFileEdge(cursors, "beta", "start")).toEqual(
+      cursors.find((cursor) => cursor.fileId === "beta") ?? null,
+    );
+  });
+
+  test("returns the last rendered line in the selected file", () => {
+    expect(lineCursorAtFileEdge(cursors, "alpha", "end")).toEqual(
+      cursors.findLast((cursor) => cursor.fileId === "alpha") ?? null,
+    );
+  });
+
+  test("returns nothing when the selected file has no rendered lines", () => {
+    expect(lineCursorAtFileEdge(cursors, "gamma", "start")).toBeNull();
   });
 });
 

@@ -12,6 +12,7 @@ import {
   type BundledShikiThemeId,
 } from "../core/theme/catalog";
 import type { AppTheme, SyntaxColors, ThemeBase } from "./themes/types";
+import { DEFAULT_THEME_TUNING, type ThemeTuning } from "../core/run/themeTuning";
 
 export type { AppTheme } from "./themes/types";
 
@@ -408,6 +409,21 @@ export function resolveTheme(
   }
 
   return fallbackTheme(themeMode);
+}
+
+/**
+ * Return a copy of a theme carrying the effect strengths one session tuned.
+ *
+ * Renderers read tuning off the theme, so a session applies it once beside the other
+ * config-driven theme adjustments rather than threading six numbers through every row view.
+ */
+export function withThemeTuning(theme: AppTheme, tuning: ThemeTuning): AppTheme {
+  return { ...theme, tuning };
+}
+
+/** Return the effect strengths a theme carries, or the built-in ones when it carries none. */
+export function themeTuning(theme: AppTheme): ThemeTuning {
+  return theme.tuning ?? DEFAULT_THEME_TUNING;
 }
 
 /**

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ThemeSelectorItem } from "../components/chrome/ThemeSelectorDialog";
 import type { ThemeController } from "../theme/controller";
-import { availableThemes, resolveTheme, withTransparentSurfaces } from "../themes";
+import { DEFAULT_THEME_TUNING, type ThemeTuning } from "../../core/run/themeTuning";
+import { availableThemes, resolveTheme, withThemeTuning, withTransparentSurfaces } from "../themes";
 
 interface ThemeSelectorControllerState {
   open: boolean;
@@ -13,6 +14,8 @@ export interface UseThemeSelectorControllerOptions {
   onTransientNotice: (text: string) => void;
   themeController: ThemeController;
   transparentBackground: boolean;
+  /** Effect strengths this session's config resolved; unset keeps the built-in ones. */
+  tuning?: ThemeTuning;
 }
 
 /** Drive theme resolution, committed selection, and transient selector previews. */
@@ -20,6 +23,7 @@ export function useThemeSelectorController({
   onTransientNotice,
   themeController,
   transparentBackground,
+  tuning = DEFAULT_THEME_TUNING,
 }: UseThemeSelectorControllerOptions) {
   const { themeId: committedThemeId, customThemes } = useSyncExternalStore(
     themeController.subscribe,
@@ -55,8 +59,12 @@ export function useThemeSelectorController({
     [committedTheme, customThemes, previewThemeId, themeController.themeMode],
   );
   const activeTheme = useMemo(
-    () => (transparentBackground ? withTransparentSurfaces(baseTheme) : baseTheme),
-    [baseTheme, transparentBackground],
+    () =>
+      withThemeTuning(
+        transparentBackground ? withTransparentSurfaces(baseTheme) : baseTheme,
+        tuning,
+      ),
+    [baseTheme, transparentBackground, tuning],
   );
   const items = useMemo<ThemeSelectorItem[]>(
     () =>

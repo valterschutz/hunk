@@ -17,7 +17,12 @@ import type { DiffFile, DiffLineMoveKind } from "../../core/changeset/model";
 import { blendHex, hexColorDistance } from "../lib/color";
 import { measureTextWidth } from "../lib/text";
 import { sanitizeTerminalLine } from "../../lib/terminalText";
-import { MIN_EMPHASIS_SEPARATION, TRANSPARENT_BACKGROUND, type AppTheme } from "../themes";
+import {
+  MIN_EMPHASIS_SEPARATION,
+  themeTuning,
+  TRANSPARENT_BACKGROUND,
+  type AppTheme,
+} from "../themes";
 import { expandDiffTabs } from "./codeColumns";
 import type { DiffRow, RenderSpan, SplitLineCell, UnifiedLineCell } from "./diffRowModel";
 import {
@@ -131,8 +136,41 @@ export function resolveWordDiffHighlightBg(contentBg: string, lineBg: string, si
     : strengthenWordDiffBg(lineBg, signColor);
 }
 
+// A reader who wants louder emphasis than the theme paints gets it by blending toward the diff
+// sign color, but only halfway at the top of the range: a fully saturated sign color would read
+// as a solid block rather than as changed words inside a line.
+const MAX_WORD_DIFF_EMPHASIS_PUSH = 0.5;
+
+/**
+ * Scale one resolved emphasis background by the strength this session tuned.
+ *
+ * Below 100% the emphasis falls back toward the line it sits in, and above it the emphasis
+ * pushes toward the diff sign color. Scaling happens after the theme's own colors are resolved,
+ * so a reader asking for less emphasis is not overruled by the visibility floor that exists to
+ * rescue themes whose emphasis is too subtle to see.
+ */
+function scaleWordDiffEmphasis(
+  contentBg: string,
+  lineBg: string,
+  signColor: string,
+  emphasis: number,
+) {
+  if (emphasis === 1 || !isHexThemeColor(contentBg) || !isHexThemeColor(lineBg)) {
+    return contentBg;
+  }
+
+  if (emphasis < 1) {
+    return blendHex(contentBg, lineBg, emphasis);
+  }
+
+  return isHexThemeColor(signColor)
+    ? blendHex(signColor, contentBg, (emphasis - 1) * MAX_WORD_DIFF_EMPHASIS_PUSH)
+    : contentBg;
+}
+
 /** Resolve the inline word-diff background, strengthening theme colors that are too subtle to see. */
 function wordDiffHighlightBg(kind: SplitLineCell["kind"], theme: AppTheme) {
+  const emphasis = themeTuning(theme).wordDiffEmphasis;
   const cacheKey = [
     theme.addedContentBg,
     theme.addedBg,
@@ -142,18 +180,21 @@ function wordDiffHighlightBg(kind: SplitLineCell["kind"], theme: AppTheme) {
     theme.removedSignColor,
     theme.contextContentBg,
     theme.panelAlt,
+    emphasis,
   ].join(":");
   let cached = wordDiffBackgroundCache.get(cacheKey);
   if (!cached) {
-    const addition = resolveWordDiffHighlightBg(
-      theme.addedContentBg,
+    const addition = scaleWordDiffEmphasis(
+      resolveWordDiffHighlightBg(theme.addedContentBg, theme.addedBg, theme.addedSignColor),
       theme.addedBg,
       theme.addedSignColor,
+      emphasis,
     );
-    const deletion = resolveWordDiffHighlightBg(
-      theme.removedContentBg,
+    const deletion = scaleWordDiffEmphasis(
+      resolveWordDiffHighlightBg(theme.removedContentBg, theme.removedBg, theme.removedSignColor),
       theme.removedBg,
       theme.removedSignColor,
+      emphasis,
     );
 
     cached = {

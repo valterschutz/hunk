@@ -1,12 +1,9 @@
-import { TRANSPARENT_BACKGROUND, type AppTheme } from "../themes";
+import { themeTuning, TRANSPARENT_BACKGROUND, type AppTheme } from "../themes";
 import { blendHex, contrastRatio, hexColorDistance } from "../lib/color";
 import type { ExtensionLineHighlightTone } from "../../extension-api/types";
 import type { DiffRow, RenderSpan } from "./diffRowModel";
 import type { SplitLineCell, UnifiedLineCell } from "./diffRows";
 
-const INACTIVE_RAIL_BLEND = 0.35;
-const SELECTION_BG_BLEND = 0.75;
-const CURSOR_LINE_BG_BLEND = 0.2;
 const selectionBackgroundCache = new WeakMap<AppTheme, Map<string, string>>();
 const cursorLineBackgroundCache = new WeakMap<AppTheme, Map<string, string>>();
 
@@ -44,7 +41,7 @@ export function diffRailMarker() {
  */
 export function selectionHighlightBg(baseBg: string, theme: AppTheme) {
   return cachedRowColor(selectionBackgroundCache, theme, baseBg, () =>
-    blendHex(theme.selectedHunk, baseBg, SELECTION_BG_BLEND),
+    blendHex(theme.selectedHunk, baseBg, themeTuning(theme).copySelectionStrength),
   );
 }
 
@@ -64,7 +61,7 @@ export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
           ? "#000000"
           : "#ffffff"
         : baseBg;
-    return blendHex(theme.text, source, CURSOR_LINE_BG_BLEND);
+    return blendHex(theme.text, source, themeTuning(theme).cursorLineStrength);
   });
 }
 
@@ -75,7 +72,7 @@ export function neutralRailColor(theme: AppTheme) {
 
 /** Dim a rail color for inactive hunks by blending toward the panel background. */
 export function dimRailColor(color: string, theme: AppTheme) {
-  return blendHex(color, theme.panel, INACTIVE_RAIL_BLEND);
+  return blendHex(color, theme.panel, 1 - themeTuning(theme).inactiveRailFade);
 }
 
 /**
@@ -93,14 +90,13 @@ export function metaRailColor(theme: AppTheme, selected: boolean, verified = fal
 }
 
 // An unfocused hunk recedes instead of disappearing: every color it paints contracts toward the
-// surface by a fixed fraction, backgrounds harder than text. Contracting both ends together keeps
-// the row's own relationships — word-diff emphasis against its line, code against its background —
-// rather than flattening the hunk into one muddy block.
-const UNFOCUSED_BG_BLEND = 0.35;
-const UNFOCUSED_FG_BLEND = 0.55;
+// surface by the fraction this session tuned, backgrounds harder than text. Contracting both ends
+// together keeps the row's own relationships — word-diff emphasis against its line, code against
+// its background — rather than flattening the hunk into one muddy block.
 // Unfocused code is still part of the review, so fading stops while it can be read at a glance.
 const MIN_UNFOCUSED_TEXT_CONTRAST = 2.2;
 const UNFOCUSED_FG_RECOVERY_STEP = 0.05;
+const UNFOCUSED_BG_RECOVERY_STEP = 0.05;
 
 const unfocusedBackgroundCache = new WeakMap<AppTheme, Map<string, string>>();
 const unfocusedForegroundCache = new WeakMap<AppTheme, Map<string, string>>();
@@ -123,7 +119,7 @@ function unfocusedHunkBg(color: string, theme: AppTheme) {
   }
 
   return cachedRowColor(unfocusedBackgroundCache, theme, color, () =>
-    blendHex(color, unfocusedSurface(theme), UNFOCUSED_BG_BLEND),
+    blendHex(color, unfocusedSurface(theme), 1 - themeTuning(theme).unfocusedHunkBackgroundFade),
   );
 }
 
@@ -131,9 +127,10 @@ function unfocusedHunkBg(color: string, theme: AppTheme) {
  * Fade one foreground toward the surface, backing off before it stops being readable.
  *
  * `paintedBg` is the background the text actually lands on — already contracted — so the guard
- * measures the pair the reader sees rather than the theme's original pairing. When even the
- * undimmed color cannot clear the floor on that background, the original is the most readable
- * answer available.
+ * measures the pair the reader sees rather than the theme's original pairing. A color the theme
+ * paired with a light background can be too dark to read once that background has faded, and no
+ * amount of fading toward the surface rescues it; such a color is lifted toward the theme's text
+ * color instead, which is the direction readability actually lies in.
  */
 function unfocusedHunkFg(color: string, paintedBg: string, theme: AppTheme) {
   if (!isHexThemeColor(color)) {
@@ -144,14 +141,33 @@ function unfocusedHunkFg(color: string, paintedBg: string, theme: AppTheme) {
     const surface = unfocusedSurface(theme);
     const background = effectiveHighlightBackground(paintedBg, theme);
 
-    for (let retained = UNFOCUSED_FG_BLEND; retained < 1; retained += UNFOCUSED_FG_RECOVERY_STEP) {
+    for (
+      let retained = 1 - themeTuning(theme).unfocusedHunkTextFade;
+      retained < 1;
+      retained += UNFOCUSED_FG_RECOVERY_STEP
+    ) {
       const candidate = blendHex(color, surface, retained);
       if (contrastRatio(candidate, background) >= MIN_UNFOCUSED_TEXT_CONTRAST) {
         return candidate;
       }
     }
 
-    return color;
+    if (contrastRatio(color, background) >= MIN_UNFOCUSED_TEXT_CONTRAST) {
+      return color;
+    }
+
+    for (
+      let lifted = UNFOCUSED_FG_RECOVERY_STEP;
+      lifted < 1;
+      lifted += UNFOCUSED_FG_RECOVERY_STEP
+    ) {
+      const candidate = blendHex(theme.text, color, lifted);
+      if (contrastRatio(candidate, background) >= MIN_UNFOCUSED_TEXT_CONTRAST) {
+        return candidate;
+      }
+    }
+
+    return theme.text;
   });
 }
 
@@ -200,14 +216,93 @@ export function unfocusedHunkTheme(theme: AppTheme): AppTheme {
   return unfocused;
 }
 
-/** Fade one cell's spans against the background the unfocused row paints them on. */
-function unfocusedHunkSpans(spans: RenderSpan[], contentBg: string, theme: AppTheme) {
+const unfocusedSpanColorCache = new WeakMap<AppTheme, Map<string, SpanColors>>();
+
+/** One span's own colors, as the unfocused row paints them. */
+interface SpanColors {
+  bg: string;
+  fg?: string;
+}
+
+/**
+ * Fade a span that carries its own background, holding the pair at a readable contrast.
+ *
+ * Word-diff emphasis is a background and the text on it, and a theme is free to pair dark text
+ * with a light one. Fading both toward a dark surface collapses that pair, so the background
+ * walks back toward its own color until the text on it clears the floor again — the emphasis
+ * recedes as far as it can while still being emphasis.
+ */
+function unfocusedHunkSpanColors(fg: string | undefined, bg: string, theme: AppTheme): SpanColors {
+  let cache = unfocusedSpanColorCache.get(theme);
+  if (!cache) {
+    cache = new Map();
+    unfocusedSpanColorCache.set(theme, cache);
+  }
+  const cacheKey = `${fg ?? ""}:${bg}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const surface = unfocusedSurface(theme);
+  // A span with no color of its own is painted in the theme's already faded syntax default, so
+  // that is the text the pair has to stay readable for.
+  const inheritedFg = unfocusedHunkTheme(theme).syntaxColors.default;
+  let resolved: SpanColors = { bg, fg };
+
+  for (
+    let retained = 1 - themeTuning(theme).unfocusedHunkBackgroundFade;
+    retained < 1;
+    retained += UNFOCUSED_BG_RECOVERY_STEP
+  ) {
+    const candidateBg = isHexThemeColor(bg) ? blendHex(bg, surface, retained) : bg;
+    const candidateFg = fg === undefined ? undefined : unfocusedHunkFg(fg, candidateBg, theme);
+    const candidate: SpanColors = { bg: candidateBg, fg: candidateFg };
+    if (
+      contrastRatio(candidateFg ?? inheritedFg, effectiveHighlightBackground(candidateBg, theme)) >=
+      MIN_UNFOCUSED_TEXT_CONTRAST
+    ) {
+      resolved = candidate;
+      break;
+    }
+
+    if (!isHexThemeColor(bg)) {
+      // There is no background to walk back, so the faded text is the whole answer.
+      resolved = candidate;
+      break;
+    }
+  }
+
+  cache.set(cacheKey, resolved);
+  return resolved;
+}
+
+/**
+ * Fade one cell's spans against the background the unfocused row paints them on.
+ *
+ * `contentBg` is the cell's faded background and `cellBg` the theme's own: a span painting the
+ * latter carries no emphasis of its own — word-diff emphasis can be tuned flat — so it fades
+ * with the line rather than being held readable as a pair.
+ */
+function unfocusedHunkSpans(
+  spans: RenderSpan[],
+  contentBg: string,
+  cellBg: string,
+  theme: AppTheme,
+) {
   return spans.map((span) => {
-    const bg = span.bg === undefined ? undefined : unfocusedHunkBg(span.bg, theme);
-    // A span with no color of its own inherits the theme's already faded syntax default, and
-    // leaving it uncolored keeps the renderer's uncolored-row fast path intact.
-    const fg = span.fg === undefined ? undefined : unfocusedHunkFg(span.fg, bg ?? contentBg, theme);
-    return fg === span.fg && bg === span.bg ? span : { ...span, bg, fg };
+    // Leaving an uncolored span uncolored keeps the renderer's uncolored-row fast path intact.
+    const faded =
+      span.bg === undefined || span.bg === cellBg
+        ? {
+            bg: span.bg === undefined ? undefined : contentBg,
+            fg: span.fg === undefined ? undefined : unfocusedHunkFg(span.fg, contentBg, theme),
+          }
+        : unfocusedHunkSpanColors(span.fg, span.bg, theme);
+
+    return faded.fg === span.fg && faded.bg === span.bg
+      ? span
+      : { ...span, bg: faded.bg, fg: faded.fg };
   });
 }
 
@@ -230,6 +325,7 @@ export function unfocusedHunkRow(row: DiffRow, theme: AppTheme): DiffRow {
         spans: unfocusedHunkSpans(
           row.left.spans,
           splitCellPalette(row.left.kind, unfocusedTheme, row.left.moveKind).contentBg,
+          splitCellPalette(row.left.kind, theme, row.left.moveKind).contentBg,
           theme,
         ),
       },
@@ -238,6 +334,7 @@ export function unfocusedHunkRow(row: DiffRow, theme: AppTheme): DiffRow {
         spans: unfocusedHunkSpans(
           row.right.spans,
           splitCellPalette(row.right.kind, unfocusedTheme, row.right.moveKind).contentBg,
+          splitCellPalette(row.right.kind, theme, row.right.moveKind).contentBg,
           theme,
         ),
       },
@@ -252,6 +349,7 @@ export function unfocusedHunkRow(row: DiffRow, theme: AppTheme): DiffRow {
         spans: unfocusedHunkSpans(
           row.cell.spans,
           unifiedCellPalette(row.cell.kind, unfocusedTheme, row.cell.moveKind).contentBg,
+          unifiedCellPalette(row.cell.kind, theme, row.cell.moveKind).contentBg,
           theme,
         ),
       },

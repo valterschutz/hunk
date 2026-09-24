@@ -14,6 +14,7 @@ import type {
   ExtensionVcsStashShowInput,
 } from "../../extension-api/types";
 import type { InstallSource } from "../install/installSource";
+import type { ThemeTuningPercents } from "./themeTuning";
 import type { WheelScrollLines } from "./wheelScrollLines";
 
 export type LayoutMode = "auto" | "split" | "unified";
@@ -33,7 +34,8 @@ export type CursorLine = "row" | "number" | "off";
 export type SidebarVisibility = boolean | "auto";
 export type VcsMode = string;
 
-export interface CommonOptions {
+/** Resolved CLI and config state for one launch, including the theme tuning percents. */
+export interface CommonOptions extends ThemeTuningPercents {
   mode?: LayoutMode;
   cursorLine?: CursorLine;
   vcs?: VcsMode;

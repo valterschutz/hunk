@@ -26,6 +26,12 @@ import {
   validateReviewGap,
 } from "./reviewGap";
 import { DEFAULT_TAB_WIDTH, validateTabWidth } from "./tabWidth";
+import {
+  DEFAULT_TUNING_PERCENTS,
+  MAX_TUNING_PERCENT,
+  MAX_WORD_DIFF_EMPHASIS_PERCENT,
+  validateTuningPercent,
+} from "./themeTuning";
 import { DEFAULT_WHEEL_SCROLL_LINES, validateWheelScrollLines } from "./wheelScrollLines";
 import { findProjectRootCandidate } from "../process/projectRoot";
 import { createVcsCatalog, detectVcs } from "../vcs";
@@ -298,6 +304,19 @@ function normalizeReviewGap(value: unknown, key: "file_gap" | "hunk_gap") {
   return validateReviewGap(value, key);
 }
 
+/** Accept one whole-percent tuning value from TOML configuration. */
+function normalizeTuningPercent(value: unknown, key: string, max = MAX_TUNING_PERCENT) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`Expected ${key} to be a whole percent from 0 to ${max}.`);
+  }
+
+  return validateTuningPercent(value, key, max);
+}
+
 /** Accept `auto` or a bounded integer wheel step from TOML configuration. */
 function normalizeWheelScrollLines(value: unknown) {
   if (value === undefined || value === DEFAULT_WHEEL_SCROLL_LINES) {
@@ -519,6 +538,58 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     description: "Let the terminal background show through Hunk surfaces.",
     aliases: [{ key: "transparentBackground", deprecated: true }],
     runtimeKeys: ["transparentBackground", "transparent_background"],
+  },
+  {
+    key: "unfocused_hunk_background_fade",
+    property: "unfocusedHunkBackgroundFade",
+    type: "integer",
+    accepted: "a whole percent, 0 through 100",
+    runtimeDefault: DEFAULT_TUNING_PERCENTS.unfocusedHunkBackgroundFade,
+    description:
+      "How far the backgrounds of hunks outside the focused one fade toward the surface behind them. `0` leaves them at full strength.",
+  },
+  {
+    key: "unfocused_hunk_text_fade",
+    property: "unfocusedHunkTextFade",
+    type: "integer",
+    accepted: "a whole percent, 0 through 100",
+    runtimeDefault: DEFAULT_TUNING_PERCENTS.unfocusedHunkTextFade,
+    description:
+      "How far the text of hunks outside the focused one fades toward that surface. Fading stops early where the code would stop being readable.",
+  },
+  {
+    key: "inactive_rail_fade",
+    property: "inactiveRailFade",
+    type: "integer",
+    accepted: "a whole percent, 0 through 100",
+    runtimeDefault: DEFAULT_TUNING_PERCENTS.inactiveRailFade,
+    description: "How far the rail marker beside an unfocused hunk fades into the panel.",
+  },
+  {
+    key: "cursor_line_strength",
+    property: "cursorLineStrength",
+    type: "integer",
+    accepted: "a whole percent, 0 through 100",
+    runtimeDefault: DEFAULT_TUNING_PERCENTS.cursorLineStrength,
+    description:
+      "How far the current line's background lifts toward the theme's text color. `0` hides the marker even when `cursor_line` paints a row.",
+  },
+  {
+    key: "copy_selection_strength",
+    property: "copySelectionStrength",
+    type: "integer",
+    accepted: "a whole percent, 0 through 100",
+    runtimeDefault: DEFAULT_TUNING_PERCENTS.copySelectionStrength,
+    description: "How far a copy-selected row pulls toward the theme's selection color.",
+  },
+  {
+    key: "word_diff_emphasis",
+    property: "wordDiffEmphasis",
+    type: "integer",
+    accepted: "a whole percent, 0 through 200",
+    runtimeDefault: DEFAULT_TUNING_PERCENTS.wordDiffEmphasis,
+    description:
+      "How loud intra-line word-diff emphasis is against the theme's own. `100` keeps the theme's colors, `0` flattens emphasis into its line, and higher values push it toward the diff sign color.",
   },
   {
     key: "color_moved",
@@ -1033,6 +1104,18 @@ function normalizeConfigReferenceValue(property: keyof CommonOptions, value: unk
       return normalizeReviewGap(value, "hunk_gap");
     case "wheelScrollLines":
       return normalizeWheelScrollLines(value);
+    case "unfocusedHunkBackgroundFade":
+      return normalizeTuningPercent(value, "unfocused_hunk_background_fade");
+    case "unfocusedHunkTextFade":
+      return normalizeTuningPercent(value, "unfocused_hunk_text_fade");
+    case "inactiveRailFade":
+      return normalizeTuningPercent(value, "inactive_rail_fade");
+    case "cursorLineStrength":
+      return normalizeTuningPercent(value, "cursor_line_strength");
+    case "copySelectionStrength":
+      return normalizeTuningPercent(value, "copy_selection_strength");
+    case "wordDiffEmphasis":
+      return normalizeTuningPercent(value, "word_diff_emphasis", MAX_WORD_DIFF_EMPHASIS_PERCENT);
     case "sidebar":
       return normalizeSidebarVisibility(value);
     default:
@@ -1101,6 +1184,13 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     fileGap: overrides.fileGap ?? base.fileGap,
     hunkGap: overrides.hunkGap ?? base.hunkGap,
     wheelScrollLines: overrides.wheelScrollLines ?? base.wheelScrollLines,
+    unfocusedHunkBackgroundFade:
+      overrides.unfocusedHunkBackgroundFade ?? base.unfocusedHunkBackgroundFade,
+    unfocusedHunkTextFade: overrides.unfocusedHunkTextFade ?? base.unfocusedHunkTextFade,
+    inactiveRailFade: overrides.inactiveRailFade ?? base.inactiveRailFade,
+    cursorLineStrength: overrides.cursorLineStrength ?? base.cursorLineStrength,
+    copySelectionStrength: overrides.copySelectionStrength ?? base.copySelectionStrength,
+    wordDiffEmphasis: overrides.wordDiffEmphasis ?? base.wordDiffEmphasis,
     wrapLines: overrides.wrapLines ?? base.wrapLines,
     hunkHeaders: overrides.hunkHeaders ?? base.hunkHeaders,
     menuBar: overrides.menuBar ?? base.menuBar,

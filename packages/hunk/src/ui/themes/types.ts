@@ -1,3 +1,5 @@
+import type { ThemeTuning } from "../../core/run/themeTuning";
+
 export interface AppTheme {
   id: string;
   label: string;
@@ -53,6 +55,14 @@ export interface AppTheme {
   /** Exact Shiki/TextMate scope colors layered onto the base syntax theme. */
   syntaxScopeOverrides?: Record<string, string>;
   syntaxColors: SyntaxColors;
+  /**
+   * Effect strengths this session tuned, or unset for the built-in ones.
+   *
+   * A theme names colors; tuning says how hard the renderers lean on them. It rides on the theme
+   * because every consumer of a derived color — faded rows, the cursor line, copy selection,
+   * word-diff emphasis — already has the theme in hand, and one session resolves it once.
+   */
+  tuning?: ThemeTuning;
 }
 
 export type SyntaxColors = {

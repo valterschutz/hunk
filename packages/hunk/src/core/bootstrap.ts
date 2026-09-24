@@ -15,6 +15,7 @@ import type { ExtensionReviewDescriptor, NamedCustomThemeConfig } from "../exten
 import type { Changeset } from "./changeset/model";
 import type { CliInput, CursorLine, LayoutMode, SidebarVisibility } from "./run/commandInputs";
 import type { UserKeyBinding } from "./run/config";
+import type { ThemeTuning } from "./run/themeTuning";
 import type { WheelScrollLines } from "./run/wheelScrollLines";
 import type { StartupNotice } from "./process/startupNotice";
 import type { TerminalThemeMode } from "./theme/detection";
@@ -49,6 +50,8 @@ export interface AppBootstrap<ExtensionState = unknown> {
   initialFileGap?: number;
   initialHunkGap?: number;
   initialWheelScrollLines?: WheelScrollLines;
+  /** Effect strengths this launch resolved for the active theme. */
+  initialThemeTuning?: ThemeTuning;
   initialWrapLines?: boolean;
   initialShowHunkHeaders?: boolean;
   initialShowMenuBar?: boolean;

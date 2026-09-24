@@ -47,7 +47,8 @@ import {
   sanitizeTerminalLine,
   sanitizeTerminalText,
 } from "../lib/terminalText";
-import { resolveTheme, withTransparentSurfaces, type AppTheme } from "./themes";
+import { resolveTheme, withThemeTuning, withTransparentSurfaces, type AppTheme } from "./themes";
+import { resolveThemeTuning } from "../core/run/themeTuning";
 
 const DEFAULT_STATIC_WIDTH = 120;
 const MIN_STATIC_WIDTH = 20;
@@ -438,9 +439,10 @@ export async function renderStaticDiff(
   deps: StaticDiffPagerDeps = {},
 ) {
   const resolvedTheme = resolveTheme(options.theme, null, deps.customThemes);
-  const theme = options.transparentBackground
-    ? withTransparentSurfaces(resolvedTheme)
-    : resolvedTheme;
+  const theme = withThemeTuning(
+    options.transparentBackground ? withTransparentSurfaces(resolvedTheme) : resolvedTheme,
+    resolveThemeTuning(options),
+  );
   const width = resolveStaticWidth(deps);
   const rendered = await Promise.all(
     changeset.files.map((file) =>

@@ -36,6 +36,7 @@ const REVIEW_INPUT_KINDS = new Set<CliInput["kind"]>([
   "diff",
   "patch",
   "difftool",
+  "address",
 ]);
 const EXPERIMENTAL_FEATURE_SET = new Set<string>(EXPERIMENTAL_FEATURES);
 

@@ -1,3 +1,4 @@
+import type { HunkDecision } from "../../../core/review/reviewFile";
 import { memo } from "react";
 import type { DiffFile } from "../../../core/changeset/model";
 import type { LayoutMode } from "../../../core/run/commandInputs";
@@ -33,8 +34,8 @@ interface DiffSectionProps {
   headerStatsWidth: number;
   layout: Exclude<LayoutMode, "auto">;
   selectedHunkIndex: number;
-  /** Hunks of this file the reviewer marked verified, when verified hunks are shown. */
-  verifiedHunkIndices?: ReadonlySet<number>;
+  /** Decisions on this file's hunks by hunk index, when decided hunks are shown. */
+  hunkDecisions?: ReadonlyMap<number, HunkDecision>;
   copySelectedRowRanges?: Map<string, CopySelectedRowRange>;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -78,7 +79,7 @@ function DiffSectionComponent({
   headerStatsWidth,
   layout,
   selectedHunkIndex,
-  verifiedHunkIndices,
+  hunkDecisions,
   copySelectedRowRanges,
   copySelectedSide,
   cursorHighlight,
@@ -217,7 +218,7 @@ function DiffSectionComponent({
           onRowPlanChange={onRowPlanChange}
           onToggleGap={onToggleGap}
           selectedHunkIndex={selectedHunkIndex}
-          verifiedHunkIndices={verifiedHunkIndices}
+          hunkDecisions={hunkDecisions}
           sectionGeometry={sectionGeometry}
           shouldLoadHighlight={shouldLoadHighlight}
           // The parent review stream owns scrolling across files.
@@ -246,7 +247,7 @@ export const DiffSection = memo(DiffSectionComponent, (previous, next) => {
     previous.headerStatsWidth === next.headerStatsWidth &&
     previous.layout === next.layout &&
     previous.selectedHunkIndex === next.selectedHunkIndex &&
-    previous.verifiedHunkIndices === next.verifiedHunkIndices &&
+    previous.hunkDecisions === next.hunkDecisions &&
     previous.copySelectedRowRanges === next.copySelectedRowRanges &&
     previous.copySelectedSide === next.copySelectedSide &&
     previous.cursorHighlight === next.cursorHighlight &&

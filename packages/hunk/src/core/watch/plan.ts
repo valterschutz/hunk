@@ -1,3 +1,4 @@
+import { createReviewFileStore } from "../process/reviewFileStore";
 import { posix, win32 } from "node:path";
 import type {
   ExtensionVcsDirectoryEntriesWatchTarget,
@@ -114,6 +115,14 @@ export function resolveWatchPlan(input: CliInput, context: WatchPlanContext): Wa
       }
       fileTargets.push({ path: input.file, source: "content" });
       break;
+    case "address": {
+      const reviewFile = createReviewFileStore(input.options.reviewFile).path;
+      if (reviewFile === undefined) {
+        return null;
+      }
+      fileTargets.push({ path: reviewFile, source: "content" });
+      break;
+    }
     case "vcs":
     case "show":
     case "stash-show": {

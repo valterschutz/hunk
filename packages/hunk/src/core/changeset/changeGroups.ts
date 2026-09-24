@@ -4,7 +4,7 @@
  * Git merges nearby changes into a single `@@` hunk whenever their context windows touch,
  * so with the default three lines of context two edits up to six lines apart arrive as one
  * hunk. For a reviewer stepping through a diff hunk by hunk that unit is too coarse: one
- * step can skip past several unrelated edits, and marking the hunk verified vouches for all
+ * step can skip past several unrelated edits, and accepting the hunk vouches for all
  * of them at once. This transform makes the review unit the change group instead — what
  * a `-U0` diff would call a hunk — while keeping every context line on screen.
  *

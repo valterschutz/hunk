@@ -263,6 +263,20 @@ export function reduceReviewState(state: ReviewState, action: ReviewAction): Rev
             activeNoteId: state.activeNoteId === action.noteId ? null : state.activeNoteId,
           };
     }
+    case "notes/restore": {
+      const present = new Set(
+        [...state.liveNotes, ...state.userNotes].map((entry) => entry.note.id),
+      );
+      const fresh = action.notes.filter((entry) => !present.has(entry.note.id));
+      if (fresh.length === 0) {
+        return state;
+      }
+      return {
+        ...state,
+        liveNotes: [...state.liveNotes, ...fresh.filter((entry) => entry.note.source !== "user")],
+        userNotes: [...state.userNotes, ...fresh.filter((entry) => entry.note.source === "user")],
+      };
+    }
     case "draft/start":
       return { ...state, draftNote: action.draft };
     case "draft/update":

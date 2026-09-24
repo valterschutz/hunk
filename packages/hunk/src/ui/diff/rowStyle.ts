@@ -1,4 +1,5 @@
 import { themeTuning, TRANSPARENT_BACKGROUND, type AppTheme } from "../themes";
+import type { HunkDecision } from "../../core/review/reviewFile";
 import { blendHex, contrastRatio, hexColorDistance } from "../lib/color";
 import type { ExtensionLineHighlightTone } from "../../extension-api/types";
 import type { DiffRow, RenderSpan } from "./diffRowModel";
@@ -75,18 +76,35 @@ export function dimRailColor(color: string, theme: AppTheme) {
   return blendHex(color, theme.panel, 1 - themeTuning(theme).inactiveRailFade);
 }
 
+/** The rail color that marks a decided hunk. */
+export function decisionRailColor(theme: AppTheme, decision: HunkDecision) {
+  switch (decision) {
+    case "accepted":
+      return theme.acceptedRailColor;
+    case "rejected":
+      return theme.rejectedRailColor;
+    case "addressed":
+      return theme.addressedRailColor;
+  }
+}
+
 /**
- * Finish one rail color: a verified hunk paints every row in the verified color so the mark
+ * Finish one rail color: a decided hunk paints every row in its decision's color so the mark
  * reads along the whole hunk, and any hunk outside the selection recedes.
  */
-function finishRailColor(color: string, theme: AppTheme, selected: boolean, verified: boolean) {
-  const resolved = verified ? theme.verifiedRailColor : color;
+function finishRailColor(
+  color: string,
+  theme: AppTheme,
+  selected: boolean,
+  decision: HunkDecision | undefined,
+) {
+  const resolved = decision ? decisionRailColor(theme, decision) : color;
   return selected ? resolved : dimRailColor(resolved, theme);
 }
 
 /** Pick the rail color for a hunk header or collapsed-gap row. */
-export function metaRailColor(theme: AppTheme, selected: boolean, verified = false) {
-  return finishRailColor(neutralRailColor(theme), theme, selected, verified);
+export function metaRailColor(theme: AppTheme, selected: boolean, decision?: HunkDecision) {
+  return finishRailColor(neutralRailColor(theme), theme, selected, decision);
 }
 
 // An unfocused hunk recedes instead of disappearing: every color it paints contracts toward the
@@ -364,7 +382,7 @@ export function unifiedRailColor(
   kind: UnifiedLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  verified = false,
+  decision?: HunkDecision,
 ) {
   let color: string;
 
@@ -376,7 +394,7 @@ export function unifiedRailColor(
     color = neutralRailColor(theme);
   }
 
-  return finishRailColor(color, theme, selected, verified);
+  return finishRailColor(color, theme, selected, decision);
 }
 
 /** Pick the left split-view rail color from the old-side cell state. */
@@ -384,10 +402,10 @@ export function splitLeftRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  verified = false,
+  decision?: HunkDecision,
 ) {
   const color = kind === "deletion" ? theme.removedRailColor : neutralRailColor(theme);
-  return finishRailColor(color, theme, selected, verified);
+  return finishRailColor(color, theme, selected, decision);
 }
 
 /** Pick the right split-view rail color from the new-side cell state. */
@@ -395,10 +413,10 @@ export function splitRightRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  verified = false,
+  decision?: HunkDecision,
 ) {
   const color = kind === "addition" ? theme.addedRailColor : neutralRailColor(theme);
-  return finishRailColor(color, theme, selected, verified);
+  return finishRailColor(color, theme, selected, decision);
 }
 
 /** Pick split-view colors from the semantic diff cell kind. */

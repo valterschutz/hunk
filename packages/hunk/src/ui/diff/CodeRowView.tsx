@@ -1,4 +1,5 @@
 /** Mounts split and unified code rows from the canonical code-row layout and paint plans. */
+import type { HunkDecision } from "../../core/review/reviewFile";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import { copySelectedRangeAtVisualLine, type CopySelectedRowRange } from "../lib/diffSpatial";
 import type { AppTheme } from "../themes";
@@ -33,8 +34,8 @@ export interface CodeRowViewProps {
   codeHorizontalOffset: number;
   theme: AppTheme;
   selected: boolean;
-  /** The row belongs to a hunk the reviewer marked verified. */
-  verified?: boolean;
+  /** The decision on the hunk the row belongs to, when decided hunks are shown. */
+  decision?: HunkDecision;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -120,7 +121,7 @@ export function CodeRowView({
   codeHorizontalOffset,
   theme,
   selected,
-  verified = false,
+  decision,
   copySelectedRowRange,
   copySelectedSide,
   cursorHighlight,
@@ -217,12 +218,12 @@ export function CodeRowView({
     const addBadgeWidth = splitLayout.addNoteBadgeWidth;
     const leftPrefix = {
       text: diffRailMarker(),
-      fg: splitLeftRailColor(row.left.kind, theme, selected, verified),
+      fg: splitLeftRailColor(row.left.kind, theme, selected, decision),
       bg: theme.panel,
     };
     const rightPrefix = {
       text: "▌",
-      fg: splitRightRailColor(row.right.kind, theme, selected, verified),
+      fg: splitRightRailColor(row.right.kind, theme, selected, decision),
       bg: theme.panel,
     };
 
@@ -344,7 +345,7 @@ export function CodeRowView({
   const addBadgeWidth = unifiedLayout.addNoteBadgeWidth;
   const prefix = {
     text: diffRailMarker(),
-    fg: unifiedRailColor(row.cell.kind, theme, selected, verified),
+    fg: unifiedRailColor(row.cell.kind, theme, selected, decision),
     bg: theme.panel,
   };
 

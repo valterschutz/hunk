@@ -3,7 +3,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { createTestDiffFile } from "../../../../../test/helpers/diff-helpers";
 import { buildDiffFile } from "./diffFile";
 import type { DiffFile } from "./model";
-import { hideVerifiedHunks, verifiedHunkIdentity } from "./verifiedHunks";
+import { diffHunkIdentity, hideDecidedHunks } from "./hunkDecisions";
 
 const HUNK_ONE = `@@ -1,6 +1,6 @@
  line 1
@@ -68,7 +68,7 @@ function geometry(hunk: DiffFile["metadata"]["hunks"][number]) {
   };
 }
 
-describe("verifiedHunkIdentity", () => {
+describe("diffHunkIdentity", () => {
   test("ignores line numbers but not content, kind, or path", () => {
     const original = fileFromHunks([HUNK_ONE, HUNK_TWO]);
     const shifted = fileFromHunks([HUNK_TWO.replace("@@ -12,7 +12,8 @@", "@@ -40,7 +41,8 @@")]);
@@ -78,14 +78,14 @@ describe("verifiedHunkIdentity", () => {
     ]);
     const otherPath = fileFromHunks([HUNK_TWO], "g.txt");
 
-    const identity = verifiedHunkIdentity(original, original.metadata.hunks[1]!);
+    const identity = diffHunkIdentity(original, original.metadata.hunks[1]!);
     expect(identity).toMatch(/^[0-9a-f]{32}$/);
-    expect(verifiedHunkIdentity(shifted, shifted.metadata.hunks[0]!)).toBe(identity);
-    expect(verifiedHunkIdentity(edited, edited.metadata.hunks[0]!)).not.toBe(identity);
+    expect(diffHunkIdentity(shifted, shifted.metadata.hunks[0]!)).toBe(identity);
+    expect(diffHunkIdentity(edited, edited.metadata.hunks[0]!)).not.toBe(identity);
     expect(
-      verifiedHunkIdentity(contextBecameAddition, contextBecameAddition.metadata.hunks[0]!),
+      diffHunkIdentity(contextBecameAddition, contextBecameAddition.metadata.hunks[0]!),
     ).not.toBe(identity);
-    expect(verifiedHunkIdentity(otherPath, otherPath.metadata.hunks[0]!)).not.toBe(identity);
+    expect(diffHunkIdentity(otherPath, otherPath.metadata.hunks[0]!)).not.toBe(identity);
   });
 
   test("agrees between a patch parse and a full-content parse of the same change", () => {
@@ -94,31 +94,31 @@ describe("verifiedHunkIdentity", () => {
     const fromContents = createTestDiffFile({ after, before, context: 3, path: "f.txt" });
     const fromPatch = fileFromHunks([HUNK_TWO]);
 
-    expect(verifiedHunkIdentity(fromContents, fromContents.metadata.hunks[0]!)).toBe(
-      verifiedHunkIdentity(fromPatch, fromPatch.metadata.hunks[0]!),
+    expect(diffHunkIdentity(fromContents, fromContents.metadata.hunks[0]!)).toBe(
+      diffHunkIdentity(fromPatch, fromPatch.metadata.hunks[0]!),
     );
   });
 });
 
-describe("hideVerifiedHunks", () => {
-  test("returns the same file object and every hunk identity when nothing is verified", () => {
+describe("hideDecidedHunks", () => {
+  test("returns the same file object and every hunk identity when nothing is decided", () => {
     const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
 
-    const projection = hideVerifiedHunks([file], new Set());
+    const projection = hideDecidedHunks([file], new Map());
 
     expect(projection.files[0]).toBe(file);
     expect(projection.hiddenHunkCount).toBe(0);
     expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual(
-      file.metadata.hunks.map((hunk) => verifiedHunkIdentity(file, hunk)),
+      file.metadata.hunks.map((hunk) => diffHunkIdentity(file, hunk)),
     );
   });
 
   test("lays the kept hunks out as Pierre would have parsed them alone", () => {
     const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
     const expected = fileFromHunks([HUNK_ONE, HUNK_THREE]);
-    const hidden = verifiedHunkIdentity(file, file.metadata.hunks[1]!);
+    const hidden = diffHunkIdentity(file, file.metadata.hunks[1]!);
 
-    const projection = hideVerifiedHunks([file], new Set([hidden]));
+    const projection = hideDecidedHunks([file], new Map([[hidden, "accepted"]]));
     const [kept] = projection.files;
 
     expect(projection.hiddenHunkCount).toBe(1);
@@ -132,8 +132,8 @@ describe("hideVerifiedHunks", () => {
     // The line arrays stay whole, so the kept hunks still index into them correctly.
     expect(kept?.metadata.additionLines).toBe(file.metadata.additionLines);
     expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual([
-      verifiedHunkIdentity(file, file.metadata.hunks[0]!),
-      verifiedHunkIdentity(file, file.metadata.hunks[2]!),
+      diffHunkIdentity(file, file.metadata.hunks[0]!),
+      diffHunkIdentity(file, file.metadata.hunks[2]!),
     ]);
   });
 
@@ -149,26 +149,26 @@ describe("hideVerifiedHunks", () => {
       context: 2,
       path: "f.txt",
     });
-    const hidden = verifiedHunkIdentity(file, file.metadata.hunks[0]!);
+    const hidden = diffHunkIdentity(file, file.metadata.hunks[0]!);
 
-    const [kept] = hideVerifiedHunks([file], new Set([hidden])).files;
+    const [kept] = hideDecidedHunks([file], new Map([[hidden, "accepted"]])).files;
 
     expect(kept?.metadata.hunks.map(geometry)).toEqual(expected.metadata.hunks.map(geometry));
     expect(kept?.metadata.splitLineCount).toBe(expected.metadata.splitLineCount);
     expect(kept?.metadata.unifiedLineCount).toBe(expected.metadata.unifiedLineCount);
   });
 
-  test("drops a file whose every hunk is verified and keeps the rest in order", () => {
+  test("drops a file whose every hunk is decided and keeps the rest in order", () => {
     const first = fileFromHunks([HUNK_ONE], "a.txt");
     const second = fileFromHunks([HUNK_ONE, HUNK_TWO], "b.txt");
     const third = fileFromHunks([HUNK_THREE], "c.txt");
-    const verified = new Set([
-      verifiedHunkIdentity(second, second.metadata.hunks[0]!),
-      verifiedHunkIdentity(second, second.metadata.hunks[1]!),
-      verifiedHunkIdentity(third, third.metadata.hunks[0]!),
+    const decided = new Map<string, "accepted" | "rejected">([
+      [diffHunkIdentity(second, second.metadata.hunks[0]!), "accepted"],
+      [diffHunkIdentity(second, second.metadata.hunks[1]!), "rejected"],
+      [diffHunkIdentity(third, third.metadata.hunks[0]!), "accepted"],
     ]);
 
-    const projection = hideVerifiedHunks([first, second, third], verified);
+    const projection = hideDecidedHunks([first, second, third], decided);
 
     expect(projection.files.map((file) => file.path)).toEqual(["a.txt"]);
     expect(projection.hiddenHunkCount).toBe(3);
@@ -178,7 +178,7 @@ describe("hideVerifiedHunks", () => {
   test("passes a file without hunks through untouched", () => {
     const file = fileFromHunks([]);
 
-    const projection = hideVerifiedHunks([file], new Set(["anything"]));
+    const projection = hideDecidedHunks([file], new Map([["anything", "accepted"]]));
 
     expect(projection.files[0]).toBe(file);
     expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual([]);

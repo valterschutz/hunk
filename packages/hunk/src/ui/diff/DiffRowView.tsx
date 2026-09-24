@@ -1,4 +1,5 @@
 /** Dispatches planned diff rows to their focused mounted row views. */
+import type { HunkDecision } from "../../core/review/reviewFile";
 import { memo } from "react";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import type { CopySelectedRowRange } from "../lib/diffSpatial";
@@ -25,8 +26,8 @@ export interface DiffRowViewProps {
   codeHorizontalOffset: number;
   theme: AppTheme;
   selected: boolean;
-  /** The row belongs to a hunk the reviewer marked verified. */
-  verified?: boolean;
+  /** The decision on the hunk the row belongs to, when decided hunks are shown. */
+  decision?: HunkDecision;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -60,7 +61,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
   codeHorizontalOffset,
   theme,
   selected,
-  verified = false,
+  decision,
   copySelectedRowRange,
   copySelectedSide,
   cursorHighlight,
@@ -77,7 +78,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
         width={width}
         theme={theme}
         selected={selected || copySelectedRowRange !== undefined}
-        verified={verified}
+        decision={decision}
         showHunkHeaders={showHunkHeaders}
         showAddNoteBadge={showAddNoteBadge}
         onHoverRow={onHoverRow}
@@ -98,7 +99,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
         codeHorizontalOffset={codeHorizontalOffset}
         theme={theme}
         selected={selected}
-        verified={verified}
+        decision={decision}
         copySelectedRowRange={copySelectedRowRange}
         copySelectedSide={copySelectedSide}
         cursorHighlight={cursorHighlight}

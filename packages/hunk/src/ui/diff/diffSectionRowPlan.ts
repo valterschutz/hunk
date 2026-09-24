@@ -6,7 +6,12 @@ import type { LayoutMode } from "../../core/run/commandInputs";
 import type { VisibleAgentNote } from "../lib/agentAnnotations";
 import type { AppTheme } from "../themes";
 import { findMaxLineNumber, findMaxLineNumberInRows } from "./codeColumns";
-import { expandCollapsedRows, type FileSourceStatus } from "./expandCollapsedRows";
+import {
+  expandCollapsedRows,
+  isWholeFileExpanded,
+  stripHunkChromeRows,
+  type FileSourceStatus,
+} from "./expandCollapsedRows";
 import {
   buildSplitRows,
   buildUnifiedRows,
@@ -72,7 +77,7 @@ export function buildDiffSectionRowPlan({
   }
 
   const baseRows = buildBaseRows(file, layout, highlightedDiff, theme, tabWidth);
-  const rows = expandCollapsedRows(baseRows, {
+  const expandedRows = expandCollapsedRows(baseRows, {
     layout,
     expandedKeys,
     sourceLineSpans,
@@ -80,6 +85,10 @@ export function buildDiffSectionRowPlan({
     tabWidth,
     side: reviewExpansionSide(file.metadata.type),
   });
+  // A whole file shows no hunk boundaries: the reviewer asked to read the file, not its hunks.
+  const rows = isWholeFileExpanded(file.metadata, expandedKeys, sourceStatus)
+    ? stripHunkChromeRows(expandedRows)
+    : expandedRows;
 
   return {
     lineNumberDigits: String(findMaxLineNumberInRows(rows, findMaxLineNumber(file))).length,

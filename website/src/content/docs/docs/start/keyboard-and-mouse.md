@@ -38,7 +38,7 @@ Hunk navigation stays review-wide: hunk and file shortcuts move through the same
 | `w`             | Toggle line wrapping                             |
 | `m`             | Toggle hunk metadata                             |
 | `M`             | Toggle menu bar                                  |
-| `z`             | Toggle unchanged context for the selected hunk   |
+| `z`             | Show or hide the whole selected file             |
 | `a`             | Toggle agent notes                               |
 | `e`             | Open the selected file in `$EDITOR`              |
 | `Tab`           | Move focus between the file list and file filter |

@@ -1,4 +1,4 @@
-import { reviewGapId } from "../../core/review/expansion";
+import { reviewGapId, reviewGapIds, type ReviewGapSource } from "../../core/review/expansion";
 import { normalizedReviewSourceLines } from "../../core/review/geometry";
 import { DEFAULT_TAB_WIDTH } from "../../core/run/tabWidth";
 import { sanitizeTerminalLine, sanitizeTerminalSpans } from "../../lib/terminalText";
@@ -223,4 +223,30 @@ export function expandCollapsedRows(
   }
 
   return result;
+}
+
+/**
+ * Whether the file reads as its whole source: every gap it offers is expanded and the source
+ * text that fills them has arrived. A file with no gaps is not "whole" — its hunks already
+ * are the file, and it keeps its hunk chrome like any other.
+ */
+export function isWholeFileExpanded(
+  source: ReviewGapSource,
+  expandedKeys: ReadonlySet<string>,
+  sourceStatus: FileSourceStatus | undefined,
+): boolean {
+  const gapIds = reviewGapIds(source);
+  return (
+    gapIds.length > 0 &&
+    sourceStatus?.kind === "loaded" &&
+    gapIds.every((gapId) => expandedKeys.has(gapId))
+  );
+}
+
+/**
+ * Drop the rows that mark hunk boundaries — hunk headers and expanded-gap toggles — so a
+ * whole file renders as one continuous listing.
+ */
+export function stripHunkChromeRows(rows: DiffRow[]): DiffRow[] {
+  return rows.filter((row) => row.type !== "hunk-header" && row.type !== "collapsed");
 }

@@ -6,6 +6,7 @@ import {
   reviewExpansionSide,
   reviewGapAddress,
   reviewGapId,
+  reviewGapIds,
   reviewLeadingGap,
   reviewTrailingGap,
   type ReviewGapHunk,
@@ -310,5 +311,53 @@ describe("resolveReviewExpandedLine", () => {
     expect(
       resolveReviewExpandedLine(createTestReviewFile({ key: "alpha" }), claim),
     ).toBeUndefined();
+  });
+});
+
+describe("gap ids for a whole file", () => {
+  test("lists each hunk's leading gap and the trailing gap in stream order", () => {
+    const ids = reviewGapIds(
+      source(
+        [
+          hunk({
+            collapsedBefore: 3,
+            additionStart: 4,
+            additionCount: 2,
+            deletionStart: 4,
+            deletionCount: 2,
+          }),
+          hunk({
+            collapsedBefore: 5,
+            additionStart: 11,
+            additionCount: 2,
+            deletionStart: 11,
+            deletionCount: 2,
+          }),
+        ],
+        { old: 20, new: 20 },
+      ),
+    );
+
+    expect(ids).toEqual(["before:0", "before:1", "trailing:1"]);
+  });
+
+  test("lists nothing when the geometry offers no gap", () => {
+    const ids = reviewGapIds({
+      ...source(
+        [
+          hunk({
+            collapsedBefore: 0,
+            additionStart: 1,
+            additionCount: 2,
+            deletionStart: 1,
+            deletionCount: 2,
+          }),
+        ],
+        { old: 10, new: 10 },
+      ),
+      isPartial: true,
+    });
+
+    expect(ids).toEqual([]);
   });
 });

@@ -295,7 +295,7 @@ describe("PTY current line", () => {
     }
   });
 
-  test("expanding a gap keeps the current line in place and collapsing from inside it puts it back", async () => {
+  test("showing the whole file keeps the current line and folding from inside a gap puts it back", async () => {
     const fixture = harness.createExpandableContextFilePair();
     const session = await harness.launchHunk({
       args: ["diff", "--files", fixture.before, fixture.after, "--mode", "unified"],
@@ -306,7 +306,6 @@ describe("PTY current line", () => {
     try {
       await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
       await session.waitIdle({ timeout: 300 });
-      const screenBeforeExpand = await session.text();
       const beforeExpand = await harness.pressAndWaitForText(session, "c", /Draft note/, {
         timeout: 5_000,
       });
@@ -326,11 +325,12 @@ describe("PTY current line", () => {
         5_000,
       );
       await session.waitIdle({ timeout: 500 });
-      // The revealed row grows the stream above the current line, which keeps both its source
-      // line and its screen row rather than following the gap up to the top of the file.
+      // `z` shows the whole file: the hunk header goes with the gap rows, and the current line
+      // keeps its source line rather than following the revealed rows to the top of the file.
       const screenAfterExpand = await session.text();
+      expect(screenAfterExpand).not.toContain("@@");
       expect(lineIndexOf(screenAfterExpand, "line02 = 2;")).toBe(
-        lineIndexOf(screenBeforeExpand, "line02 = 2;"),
+        lineIndexOf(screenAfterExpand, "hiddenLine01") + 1,
       );
       const expanded = await harness.pressAndWaitForText(session, "c", /Draft note/, {
         timeout: 5_000,

@@ -61,17 +61,11 @@ describe("cursorLineHighlightBg", () => {
     expect(shift(context)).toBeGreaterThan(1.2);
   });
 
-  test("blends toward a theme's own cursorLineBg instead of the computed extreme", () => {
+  test("uses a theme's own cursorLineBg as-is on a plain context row", () => {
     const context = unifiedCellPalette("context", DARK).contentBg;
     const withSurface = { ...DARK, cursorLineBg: "#313244" };
 
-    const marked = cursorLineHighlightBg(context, withSurface);
-    const towardWhite = cursorLineHighlightBg(context, DARK);
-
-    expect(marked).not.toBe(towardWhite);
-    // The surface color sits closer to the row's own dark background than pure white does, so a
-    // theme naming it should move the row less far, not just to a different hue.
-    expect(contrastRatio(marked, context)).toBeLessThan(contrastRatio(towardWhite, context));
+    expect(cursorLineHighlightBg(context, withSurface)).toBe("#313244");
   });
 
   test("uses a theme's own cursorLineBg as-is on a transparent surface", () => {
@@ -85,6 +79,18 @@ describe("cursorLineHighlightBg", () => {
     const marked = cursorLineHighlightBg(context, theme);
     expect(marked).toBe("#313244");
     expect(relativeLuminance(marked)).toBeGreaterThan(relativeLuminance("#000000"));
+  });
+
+  test("ignores cursorLineBg on added and removed rows, keeping the hue-preserving lift", () => {
+    // A fixed named swatch has no reliable lightness relationship to every diff color's own
+    // background — on a removed row already close to the swatch's own tone, blending toward it
+    // barely moved the row (the bug this test guards against). Added/removed rows always lift
+    // toward the appearance's own extreme instead, exactly as with no override at all.
+    const withSurface = { ...DARK, cursorLineBg: "#313244" };
+    for (const kind of ["addition", "deletion"] as const) {
+      const baseBg = unifiedCellPalette(kind, DARK).contentBg;
+      expect(cursorLineHighlightBg(baseBg, withSurface)).toBe(cursorLineHighlightBg(baseBg, DARK));
+    }
   });
 });
 

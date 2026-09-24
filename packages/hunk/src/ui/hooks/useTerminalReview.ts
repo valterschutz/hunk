@@ -92,6 +92,7 @@ import {
 import type { LineRevealPlacement } from "../lib/hunkScroll";
 import {
   EMPTY_LINE_CURSORS,
+  findCurrentHunkLandingCursor,
   findLineCursorAt,
   firstLineCursorInHunk,
   hasLineCursor,
@@ -859,14 +860,37 @@ export function useTerminalReview({
   /**
    * Step the selection through one navigable scope.
    *
-   * The walk itself — which hunk or file is next, whether the scope wraps, and what the
-   * landing asks the viewport to reveal — lives in the shared planner, so the keyboard,
-   * the session's comment navigation, and later a browser client all move identically.
+   * Whole-file context can put the terminal's current line just outside its selected hunk;
+   * moving toward that hunk lands on it before spending any remaining steps. The semantic
+   * walk — boundaries, wrapping, and viewport reveal — stays in the shared planner.
    */
   const moveSelection = useCallback(
-    (scope: ReviewSelectionScope, delta: number) =>
-      runIntent({ type: "selection/move", scope, delta }, { annotations }),
-    [annotations, runIntent],
+    (scope: ReviewSelectionScope, delta: number) => {
+      if (scope === "hunk" && delta !== 0) {
+        const selection = getSelection();
+        if (selection.fileId !== null && selection.hunkIndex !== null) {
+          const direction = delta > 0 ? 1 : -1;
+          const landing = findCurrentHunkLandingCursor(
+            lineCursorsForRevealRef.current,
+            lineCursorRef.current,
+            selection.fileId,
+            selection.hunkIndex,
+            direction,
+          );
+          if (landing) {
+            const remainingDelta = delta - direction;
+            if (remainingDelta === 0) {
+              revealLineCursor(landing, "reveal");
+              return;
+            }
+            delta = remainingDelta;
+          }
+        }
+      }
+
+      return runIntent({ type: "selection/move", scope, delta }, { annotations });
+    },
+    [annotations, getSelection, revealLineCursor, runIntent],
   );
 
   /**

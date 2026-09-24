@@ -2361,6 +2361,41 @@ describe("useTerminalReview", () => {
     }
   });
 
+  test("enters the first hunk from leading whole-file context", async () => {
+    const sourceLines = Array.from(
+      { length: 12 },
+      (_unused, index) => `export const alpha${index + 1} = ${index + 1};`,
+    );
+    sourceLines[7] = "export const alpha8 = 800;";
+    const sourceFetcher = createTestSourceFetcher(() => lines(...sourceLines));
+    const { controllerRef, setup } = await renderTerminalReview([createAlphaFile(sourceFetcher)], {
+      wholeFileByDefault: true,
+    });
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        expectValue(controllerRef.current).moveLineCursor(-20);
+      });
+      await flush(setup);
+      expect(expectValue(expectValue(controllerRef.current).lineCursor).target.line).toBe(1);
+
+      await act(async () => {
+        expectValue(controllerRef.current).moveSelection("hunk", 1);
+      });
+      await flush(setup);
+
+      const cursor = expectValue(expectValue(controllerRef.current).lineCursor);
+      expect(cursor.hunkIndex).toBe(0);
+      expect(cursor.target.line).toBe(5);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
   test("recovers the current line when a reload retires the hunk it was on", async () => {
     const { controllerRef, setFilesRef, setup } = await renderTerminalReview([createTwoHunkFile()]);
 

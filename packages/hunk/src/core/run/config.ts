@@ -494,6 +494,15 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     userOnly: true,
   },
   {
+    key: "show_verified_hunks",
+    property: "showVerifiedHunks",
+    type: "boolean",
+    accepted: "`true` or `false`",
+    runtimeDefault: false,
+    description:
+      "Start with verified hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
+  },
+  {
     key: VIEW_PREFERENCES_PROMPT_CONFIG_KEY,
     property: "promptSaveViewPreferences",
     type: "boolean",
@@ -1104,6 +1113,7 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     transparentBackground: overrides.transparentBackground ?? base.transparentBackground,
     colorMoved: overrides.colorMoved ?? base.colorMoved,
     verifiedHunksFile: overrides.verifiedHunksFile ?? base.verifiedHunksFile,
+    showVerifiedHunks: overrides.showVerifiedHunks ?? base.showVerifiedHunks,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,
   };

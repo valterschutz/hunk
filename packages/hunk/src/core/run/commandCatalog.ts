@@ -333,7 +333,7 @@ const BUILTIN_COMMANDS = [
     id: "hunk.review.alignCurrentLineCenter",
     title: "Align current line to center",
     category: "review",
-    defaultKeys: ["Z"],
+    defaultKeys: [],
     locus: "client-local",
     publicToExtensions: true,
   },

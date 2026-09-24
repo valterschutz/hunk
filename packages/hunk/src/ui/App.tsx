@@ -1435,6 +1435,7 @@ export function App({
         toggleCopyDecorations,
         toggleFocusArea,
         toggleGapForSelectedHunk: review.toggleSelectedHunkGap,
+        toggleFileContext: review.toggleSelectedFileContext,
         toggleHelp,
         toggleHunkHeaders,
         toggleLineNumbers,

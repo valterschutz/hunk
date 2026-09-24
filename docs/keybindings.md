@@ -147,7 +147,8 @@ Review and shared commands:
 | `hunk.review.startVisualSelection`             | Start visual line selection                                  | `v`                          |
 | `hunk.review.stepDown`                         | Move down one line or note                                   | `down`, `j`                  |
 | `hunk.review.stepUp`                           | Move up one line or note                                     | `up`, `k`                    |
-| `hunk.review.toggleHunkGap`                    | Expand or collapse the selected context                      | `z`                          |
+| `hunk.review.toggleFileContext`                | Show or hide the whole file around its hunks                 | `z`                          |
+| `hunk.review.toggleHunkGap`                    | Expand or collapse the selected context                      | _(none)_                     |
 | `hunk.review.toggleSelectedHunkVerified`       | Mark the selected hunk as verified, or unmark it             | `!`                          |
 | `hunk.search.find`                             | Search diff content                                          | `/`                          |
 | `hunk.search.next`                             | Next search match                                            | `n`                          |

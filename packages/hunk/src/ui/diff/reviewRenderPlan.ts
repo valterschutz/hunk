@@ -456,10 +456,16 @@ export function buildReviewRenderPlan({
   const rangeGuideContinuationRows = rangeGuideContinuationRowKeys(rows, placementsByAnchor);
   const plannedRows: PlannedReviewRow[] = [];
   const anchoredHunks = new Set<number>();
+  // A hunk whose header row was stripped (a whole-file listing) anchors on its first code
+  // row, exactly as every hunk does while hunk headers are hidden.
+  const hunksWithHeaderRow = new Set(
+    rows.filter((row) => row.type === "hunk-header").map((row) => row.hunkIndex),
+  );
 
   for (const row of rows) {
     const shouldAnchorHunk =
-      rowCanAnchorHunk(row, showHunkHeaders) && !anchoredHunks.has(row.hunkIndex);
+      rowCanAnchorHunk(row, showHunkHeaders && hunksWithHeaderRow.has(row.hunkIndex)) &&
+      !anchoredHunks.has(row.hunkIndex);
     const anchorId = shouldAnchorHunk ? diffHunkId(fileId, row.hunkIndex) : undefined;
     const diffStableKeys = diffRowStableKeys(row);
     const diffStableKey = diffStableKeys[0] ?? `row:${row.key}`;

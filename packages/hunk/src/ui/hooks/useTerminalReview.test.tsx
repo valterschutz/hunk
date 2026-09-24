@@ -3,6 +3,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { act, StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { builtinAppCommand } from "../../core/run/commandCatalog";
 import { SourceTextTooLargeError } from "../../core/changeset/fileSource";
+import { reviewGapIds } from "../../core/review/expansion";
 import type { DiffFile } from "../../core/changeset/model";
 import {
   createTestDeferred,
@@ -1518,6 +1519,54 @@ describe("useTerminalReview", () => {
       expect(expanded?.has("before:0")).toBe(true);
       expect(sourceFetcher.calls).toEqual(["new"]);
       expect(expectValue(controllerRef.current).lineCursor).toEqual(cursorBeforeExpand);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("toggleSelectedFileContext opens every gap of the selected file and folds them all back", async () => {
+    const sourceLines = Array.from({ length: 50 }, (_, index) => `line ${index + 1}`);
+    sourceLines[9] = "line 10 changed";
+    sourceLines[39] = "line 40 changed";
+    const sourceFetcher = createTestSourceFetcher(() => lines(...sourceLines));
+    const file = createTwoGapFile(sourceFetcher);
+    const gapIds = [...reviewGapIds(file.metadata)].sort();
+    expect(gapIds.length).toBeGreaterThanOrEqual(2);
+    const { controllerRef, setup } = await renderTerminalReview([file]);
+
+    try {
+      await flush(setup);
+      const cursorBeforeExpand = expectValue(expectValue(controllerRef.current).lineCursor);
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+      expect(expandedGaps("alpha")).toEqual(gapIds);
+      expect(sourceFetcher.calls).toEqual(["new"]);
+      expect(expectValue(controllerRef.current).lineCursor).toEqual(cursorBeforeExpand);
+
+      // A file folded by hand anywhere counts as folded: the next press opens the rest.
+      await act(async () => {
+        expectValue(controllerRef.current).toggleGap("alpha", gapIds[0]!);
+      });
+      await flush(setup);
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha")).toEqual(gapIds);
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha")).toEqual([]);
     } finally {
       await act(async () => {
         setup.renderer.destroy();

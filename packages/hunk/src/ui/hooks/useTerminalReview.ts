@@ -39,7 +39,7 @@ import {
   type ReviewIntentFacts,
 } from "../../core/review/intents";
 import { projectReviewDocument } from "../../core/review/document";
-import { reviewExpansionSide } from "../../core/review/expansion";
+import { reviewExpansionSide, reviewGapIds } from "../../core/review/expansion";
 import { reviewHunkIndexForLine } from "../../core/review/geometry";
 import type { ReviewSelectionScope } from "../../core/review/navigation";
 import {
@@ -252,6 +252,8 @@ export interface TerminalReview {
   sourceStatusByFileId: Record<string, FileSourceStatus>;
   toggleGap: (fileId: string, gapKey: string) => void;
   toggleSelectedHunkGap: () => void;
+  /** Show the whole selected file, or fold it back to its hunks. */
+  toggleSelectedFileContext: () => void;
   visibleFiles: DiffFile[];
   addLiveComment: (
     input: CommentToolInput,
@@ -1043,6 +1045,34 @@ export function useTerminalReview({
   }, [applyGapToggle, fileByKey, lowerCommand]);
 
   /**
+   * Expand every gap of the selected file, or collapse them all once the file is whole.
+   *
+   * Composed from the same per-gap toggles a click performs, so the reducer, the source
+   * load, and the line-cursor bookkeeping see ordinary gap toggles. A file that is partly
+   * open counts as folded: the next press opens the rest rather than closing what is open.
+   */
+  const toggleSelectedFileContext = useCallback(() => {
+    const snapshot = store.getSnapshot();
+    const { fileKey } = selectNormalizedSelection(snapshot);
+    const file = fileKey ? fileByKey.get(fileKey) : undefined;
+    if (!fileKey || !file?.sourceFetcher) {
+      return;
+    }
+    const gapIds = reviewGapIds(file.metadata);
+    if (gapIds.length === 0) {
+      return;
+    }
+
+    const expanded = selectExpandedGapIdsByFileKey(snapshot)[fileKey] ?? new Set<string>();
+    const expandAll = !gapIds.every((gapId) => expanded.has(gapId));
+    for (const gapId of gapIds) {
+      if (expanded.has(gapId) !== expandAll) {
+        applyGapToggle(file, { type: "expansion/toggle", fileKey, gapId });
+      }
+    }
+  }, [applyGapToggle, fileByKey, store]);
+
+  /**
    * Resolve one session-daemon navigation request against the current review and select it.
    *
    * Relative comment navigation is the same walk the keyboard performs and goes through
@@ -1721,6 +1751,7 @@ export function useTerminalReview({
     sourceStatusByFileId,
     toggleGap,
     toggleSelectedHunkGap,
+    toggleSelectedFileContext,
     visibleFiles,
     addAgentLineHighlight,
     addLiveComment,

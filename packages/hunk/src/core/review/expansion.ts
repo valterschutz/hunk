@@ -211,3 +211,22 @@ export function resolveReviewExpandedLine(
 export function reviewExpansionSide(changeKind: ReviewFileChangeKind): ReviewSide {
   return changeKind === "deleted" ? "old" : "new";
 }
+
+/**
+ * Every gap id the file's geometry can address, in stream order: each hunk's leading gap,
+ * then the trailing gap when the patch is complete. A whole-file view is exactly this list
+ * expanded.
+ */
+export function reviewGapIds(source: ReviewGapSource): string[] {
+  const ids: string[] = [];
+  for (let hunkIndex = 0; hunkIndex < source.hunks.length; hunkIndex += 1) {
+    if (reviewLeadingGap(source, hunkIndex)) {
+      ids.push(reviewGapId("before", hunkIndex));
+    }
+  }
+  const trailing = reviewTrailingGap(source);
+  if (trailing) {
+    ids.push(reviewGapId("trailing", trailing.hunkIndex));
+  }
+  return ids;
+}

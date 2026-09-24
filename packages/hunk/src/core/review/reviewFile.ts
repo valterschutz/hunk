@@ -7,9 +7,10 @@
  * content identity (`hunkIdentity.ts`), never off line numbers, so a rebase keeps decisions and
  * notes and a sync tool can carry the file between machines.
  *
- * A `commit` record remembers how many hunks its review had. One aggregate comparison can name
- * several commits on every hunk record, so lazygit gives the whole selected range the same status:
- * reviewed once every hunk is decided, and approved once no rejection remains open.
+ * A `review` record remembers which hunks one commit or commit range showed, by content identity.
+ * A commit's status follows from the decisions on those hunks wherever they were made (in this
+ * review, a review of an overlapping range, or the working tree before committing): reviewed once
+ * every hunk is decided, and approved once no rejection remains open. Lazygit reads the result.
  *
  * This module does no I/O; `ui/lib/reviewFileStore.ts` owns the file.
  */
@@ -31,12 +32,14 @@ export const HUNK_DECISIONS: readonly HunkDecision[] = ["accepted", "rejected", 
 /** A commit's derived status; a commit with an undecided hunk has none. */
 export type CommitStatus = "reviewed" | "approved";
 
-/** How many hunks one reviewed commit had, so its decisions can be counted complete. */
-export interface CommitRecord {
-  kind: "commit";
+/** The hunks one reviewed commit or aggregate commit range showed. */
+export interface CommitReviewRecord {
+  kind: "review";
   repo: string;
-  hash: string;
-  hunkCount: number;
+  /** The commits the review covers, sorted; an aggregate range names several. */
+  commits: string[];
+  /** Content identity of every hunk the review showed, sorted. */
+  hunks: string[];
 }
 
 /** One hunk the reviewer decided on or wrote a note beside. */
@@ -47,8 +50,6 @@ export interface HunkRecord {
   repo: string;
   path: string;
   state?: HunkDecision;
-  /** The commits covered by the single-commit or aggregate comparison review. */
-  commits?: string[];
   oldStart: number;
   newStart: number;
 }
@@ -82,7 +83,27 @@ export interface NoteRecord {
   lineText: string;
 }
 
-export type ReviewRecord = CommitRecord | HunkRecord | NoteRecord;
+export type ReviewRecord = CommitReviewRecord | HunkRecord | NoteRecord;
+
+/**
+ * A record of the format that counted decisions per commit instead of naming hunks. It exists only
+ * between parsing and `migrateLegacyRecords`, which converts or drops it.
+ */
+export interface LegacyCommitRecord {
+  kind: "legacyCommit";
+  repo: string;
+  hash: string;
+  hunkCount: number;
+}
+
+/** The commits a legacy hunk record was decided under, kept only for `migrateLegacyRecords`. */
+export interface LegacyHunkAttribution {
+  kind: "legacyAttribution";
+  hunk: string;
+  commits: string[];
+}
+
+export type ParsedReviewRecord = ReviewRecord | LegacyCommitRecord | LegacyHunkAttribution;
 
 const NOTE_SOURCES = new Set<ReviewNoteV1["source"]>(["ai", "agent", "user"]);
 const NOTE_CONFIDENCES = new Set(["low", "medium", "high"]);
@@ -125,8 +146,24 @@ function optionalStringArray(record: Record<string, unknown>, key: string): stri
   return [...(value as string[])];
 }
 
-/** Parse one line of the review file, throwing a descriptive error for a malformed record. */
-export function parseReviewRecord(line: string): ReviewRecord {
+function requireUniqueStrings(record: Record<string, unknown>, key: string): string[] {
+  const values = optionalStringArray(record, key);
+  if (
+    values === undefined ||
+    values.some((value) => value.length === 0) ||
+    new Set(values).size !== values.length
+  ) {
+    throw new Error(`review record field "${key}" must be an array of unique non-empty strings`);
+  }
+  return values;
+}
+
+/**
+ * Parse one line of the review file, throwing a descriptive error for a malformed record.
+ *
+ * A line in the legacy format yields its legacy records next to (or instead of) current ones.
+ */
+export function parseReviewRecord(line: string): ParsedReviewRecord[] {
   let value: unknown;
   try {
     value = JSON.parse(line);
@@ -137,13 +174,34 @@ export function parseReviewRecord(line: string): ReviewRecord {
     throw new Error("review record must be a JSON object");
   }
   switch (value.kind) {
+    case "review": {
+      const hunks = requireUniqueStrings(value, "hunks");
+      const invalid = hunks.find((hunk) => !isHunkIdentity(hunk));
+      if (invalid !== undefined) {
+        throw new Error(`review record hunk ${JSON.stringify(invalid)} is not a hunk identity`);
+      }
+      const commits = requireUniqueStrings(value, "commits");
+      if (commits.length === 0) {
+        throw new Error('review record field "commits" must name at least one commit');
+      }
+      return [
+        {
+          kind: "review",
+          repo: requireString(value, "repo"),
+          commits: commits.toSorted(),
+          hunks: hunks.toSorted(),
+        },
+      ];
+    }
     case "commit":
-      return {
-        kind: "commit",
-        repo: requireString(value, "repo"),
-        hash: requireString(value, "hash"),
-        hunkCount: requireInteger(value, "hunkCount", 0),
-      };
+      return [
+        {
+          kind: "legacyCommit",
+          repo: requireString(value, "repo"),
+          hash: requireString(value, "hash"),
+          hunkCount: requireInteger(value, "hunkCount", 0),
+        },
+      ];
     case "hunk": {
       const id = requireString(value, "id");
       if (!isHunkIdentity(id)) {
@@ -155,24 +213,24 @@ export function parseReviewRecord(line: string): ReviewRecord {
         throw new Error(`review hunk record state ${JSON.stringify(state)} is not a decision`);
       }
       const legacyCommit = optionalString(value, "commit");
-      const storedCommits = optionalStringArray(value, "commits");
-      const commits = storedCommits ?? (legacyCommit === undefined ? undefined : [legacyCommit]);
-      if (
-        commits !== undefined &&
-        (commits.some((commit) => commit.length === 0) || new Set(commits).size !== commits.length)
-      ) {
-        throw new Error('review hunk record field "commits" must contain unique non-empty strings');
-      }
-      return {
+      const legacyCommits =
+        value.commits !== undefined
+          ? requireUniqueStrings(value, "commits")
+          : legacyCommit === undefined
+            ? undefined
+            : [legacyCommit];
+      const hunk: HunkRecord = {
         kind: "hunk",
         id,
         repo: requireString(value, "repo"),
         path: requireString(value, "path"),
         ...(state !== undefined ? { state: state as HunkDecision } : {}),
-        ...(commits !== undefined ? { commits } : {}),
         oldStart: requireInteger(value, "oldStart", 0),
         newStart: requireInteger(value, "newStart", 0),
       };
+      return legacyCommits === undefined
+        ? [hunk]
+        : [hunk, { kind: "legacyAttribution", hunk: id, commits: legacyCommits }];
     }
     case "note": {
       const source = requireString(value, "source");
@@ -215,33 +273,75 @@ export function parseReviewRecord(line: string): ReviewRecord {
         tags: optionalStringArray(value, "tags"),
         confidence: confidence as NoteRecord["confidence"],
       };
-      return withoutUndefined({
-        kind: "note",
-        id: requireString(value, "id"),
-        parentId: optional.parentId,
-        source: source as ReviewNoteV1["source"],
-        originalSource: optional.originalSource,
-        summary,
-        rationale: optional.rationale,
-        markup: optional.markup,
-        title: optional.title,
-        author: optional.author,
-        createdAt: optional.createdAt,
-        updatedAt: optional.updatedAt,
-        editable,
-        tags: optional.tags,
-        confidence: optional.confidence,
-        hunk,
-        side,
-        offset: requireInteger(value, "offset", 0),
-        length: requireInteger(value, "length", 1),
-        line: requireInteger(value, "line", 0),
-        lineText,
-      }) as NoteRecord;
+      return [
+        withoutUndefined({
+          kind: "note",
+          id: requireString(value, "id"),
+          parentId: optional.parentId,
+          source: source as ReviewNoteV1["source"],
+          originalSource: optional.originalSource,
+          summary,
+          rationale: optional.rationale,
+          markup: optional.markup,
+          title: optional.title,
+          author: optional.author,
+          createdAt: optional.createdAt,
+          updatedAt: optional.updatedAt,
+          editable,
+          tags: optional.tags,
+          confidence: optional.confidence,
+          hunk,
+          side,
+          offset: requireInteger(value, "offset", 0),
+          length: requireInteger(value, "length", 1),
+          line: requireInteger(value, "line", 0),
+          lineText,
+        }) as NoteRecord,
+      ];
     }
     default:
       throw new Error(`review record kind ${JSON.stringify(value.kind)} is unknown`);
   }
+}
+
+/**
+ * Convert legacy records into current ones.
+ *
+ * A legacy commit whose attributed decisions were complete becomes a single-commit review of
+ * those decided hunks, so its status survives. An incomplete one is dropped: it never named its
+ * undecided hunks, and reopening the commit or range records them.
+ */
+export function migrateLegacyRecords(parsed: readonly ParsedReviewRecord[]): ReviewRecord[] {
+  const decided = new Set<string>();
+  for (const record of parsed) {
+    if (record.kind === "hunk" && record.state !== undefined) decided.add(record.id);
+  }
+  const decidedByCommit = new Map<string, Set<string>>();
+  for (const record of parsed) {
+    if (record.kind !== "legacyAttribution" || !decided.has(record.hunk)) continue;
+    for (const commit of record.commits) {
+      const hunks = decidedByCommit.get(commit) ?? new Set<string>();
+      hunks.add(record.hunk);
+      decidedByCommit.set(commit, hunks);
+    }
+  }
+  const records: ReviewRecord[] = [];
+  for (const record of parsed) {
+    if (record.kind === "legacyAttribution") continue;
+    if (record.kind !== "legacyCommit") {
+      records.push(record);
+      continue;
+    }
+    const hunks = decidedByCommit.get(record.hash) ?? new Set<string>();
+    if (hunks.size === 0 || hunks.size < record.hunkCount) continue;
+    records.push({
+      kind: "review",
+      repo: record.repo,
+      commits: [record.hash],
+      hunks: [...hunks].toSorted(),
+    });
+  }
+  return records;
 }
 
 /** Drop undefined fields so serialized records carry only what is set. */
@@ -250,8 +350,8 @@ function withoutUndefined<T extends object>(record: T): T {
 }
 
 const RECORD_KEY_ORDER: Record<ReviewRecord["kind"], readonly string[]> = {
-  commit: ["kind", "repo", "hash", "hunkCount"],
-  hunk: ["kind", "id", "repo", "path", "state", "commits", "oldStart", "newStart"],
+  review: ["kind", "repo", "commits", "hunks"],
+  hunk: ["kind", "id", "repo", "path", "state", "oldStart", "newStart"],
   note: [
     "kind",
     "id",
@@ -289,8 +389,8 @@ function canonicalRecord(record: ReviewRecord): Record<string, unknown> {
 
 function recordOrder(record: ReviewRecord): [number, string, string] {
   switch (record.kind) {
-    case "commit":
-      return [0, record.repo, record.hash];
+    case "review":
+      return [0, record.repo, record.commits.join(" ")];
     case "hunk":
       return [1, record.id, ""];
     case "note":
@@ -315,25 +415,37 @@ export function serializeReviewRecords(records: readonly ReviewRecord[]): string
   return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
 
-/** Derive each reviewed commit's status from the decisions recorded against it. */
+/** Whether two records name the same review: the same commits of the same repository. */
+export function sameCommitReview(left: CommitReviewRecord, right: CommitReviewRecord): boolean {
+  return left.repo === right.repo && left.commits.join(" ") === right.commits.join(" ");
+}
+
+const STATUS_RANK: Record<CommitStatus, number> = { reviewed: 1, approved: 2 };
+
+/**
+ * Derive each reviewed commit's status from the decisions on its reviews' hunks.
+ *
+ * A commit several reviews cover (alone and inside a range, say) takes the best status any of them
+ * reaches, so opening a wider range never takes away an approval.
+ */
 export function commitStatuses(records: readonly ReviewRecord[]): Map<string, CommitStatus> {
-  const decidedByCommit = new Map<string, { decided: number; rejected: number }>();
+  const decisions = new Map<string, HunkDecision>();
   for (const record of records) {
-    if (record.kind !== "hunk" || record.state === undefined) continue;
-    for (const commit of record.commits ?? []) {
-      const entry = decidedByCommit.get(commit) ?? { decided: 0, rejected: 0 };
-      entry.decided += 1;
-      if (record.state === "rejected") entry.rejected += 1;
-      decidedByCommit.set(commit, entry);
-    }
+    if (record.kind === "hunk" && record.state !== undefined)
+      decisions.set(record.id, record.state);
   }
   const statuses = new Map<string, CommitStatus>();
   for (const record of records) {
-    if (record.kind !== "commit") continue;
-    const entry = decidedByCommit.get(record.hash);
-    const decided = entry?.decided ?? 0;
-    if (decided < record.hunkCount) continue;
-    statuses.set(record.hash, (entry?.rejected ?? 0) > 0 ? "reviewed" : "approved");
+    if (record.kind !== "review" || record.hunks.length === 0) continue;
+    const states = record.hunks.map((hunk) => decisions.get(hunk));
+    if (states.includes(undefined)) continue;
+    const status: CommitStatus = states.includes("rejected") ? "reviewed" : "approved";
+    for (const commit of record.commits) {
+      const current = statuses.get(commit);
+      if (current === undefined || STATUS_RANK[status] > STATUS_RANK[current]) {
+        statuses.set(commit, status);
+      }
+    }
   }
   return statuses;
 }
@@ -405,7 +517,7 @@ export interface PersistableNotes {
 export function persistableNoteRecords(
   document: ReviewDocumentV1,
   notes: readonly ReviewStoredNote[],
-  context: { repo: string; commits?: readonly string[] },
+  context: { repo: string },
 ): PersistableNotes {
   const byId = new Map(notes.map((entry) => [entry.note.id, entry.note] as const));
   const fileByKey = new Map(document.files.map((file) => [file.key, file] as const));
@@ -433,7 +545,6 @@ export function persistableNoteRecords(
         id: identity,
         repo: context.repo,
         path: file.path,
-        ...(context.commits !== undefined ? { commits: [...context.commits] } : {}),
         oldStart: hunk.deletionStart,
         newStart: hunk.additionStart,
       });

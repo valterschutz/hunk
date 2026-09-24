@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import type { HunkRecord, NoteRecord } from "../review/reviewFile";
@@ -28,11 +28,10 @@ const HUNK = {
   id: "0123456789abcdef0123456789abcdef",
   repo: "~/repo",
   path: "a.txt",
-  commits: ["abc"],
   oldStart: 1,
   newStart: 1,
 };
-const COMMITS = [{ hash: "abc", hunkCount: 1 }];
+const REVIEW = { repo: "~/repo", commits: ["abc"], hunks: [HUNK.id] };
 
 function note(id: string, overrides: Partial<NoteRecord> = {}): NoteRecord {
   return {
@@ -62,9 +61,8 @@ describe("createReviewFileStore", () => {
       const store = createReviewFileStore(configured);
       expect(store.enabled).toBe(false);
       expect(store.load()).toEqual({ records: [], warnings: [] });
-      expect(() =>
-        store.setHunkDecision({ hunk: HUNK, state: "accepted", commits: COMMITS }),
-      ).toThrow(/review_file/);
+      expect(() => store.setHunkDecision({ hunk: HUNK, state: "accepted" })).toThrow(/review_file/);
+      expect(() => store.recordReview(REVIEW)).toThrow(/review_file/);
     }
   });
 
@@ -73,53 +71,86 @@ describe("createReviewFileStore", () => {
     const store = createReviewFileStore(path);
     expect(store.load().records).toEqual([]);
 
-    store.setHunkDecision({ hunk: HUNK, state: "rejected", commits: COMMITS });
+    store.recordReview(REVIEW);
+    expect(readFileSync(statusFile(path), "utf8")).toBe("");
+    store.setHunkDecision({ hunk: HUNK, state: "rejected" });
 
     expect(store.load().records).toEqual([
-      { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 1 },
+      { kind: "review", ...REVIEW },
       { kind: "hunk", ...HUNK, state: "rejected" },
     ]);
     expect(readFileSync(statusFile(path), "utf8")).toBe("abc reviewed\n");
     expect(existsSync(`${path}.tmp`)).toBe(false);
 
-    store.setHunkDecision({ hunk: HUNK, state: "fixed", commits: COMMITS });
+    store.setHunkDecision({ hunk: HUNK, state: "fixed" });
     expect(readFileSync(statusFile(path), "utf8")).toBe("abc approved\n");
   });
 
-  test("one aggregate decision updates every commit in a reviewed range", () => {
+  test("a review opened over already decided hunks is approved at once", () => {
     const path = tempPath();
     const store = createReviewFileStore(path);
-    const commits = [
-      { hash: "abc", hunkCount: 1 },
-      { hash: "def", hunkCount: 1 },
-      { hash: "ghi", hunkCount: 1 },
-    ];
+    store.setHunkDecision({ hunk: HUNK, state: "accepted" });
+    expect(readFileSync(statusFile(path), "utf8")).toBe("");
 
-    store.setHunkDecision({
-      hunk: { ...HUNK, commits: commits.map(({ hash }) => hash) },
-      state: "accepted",
-      commits,
-    });
+    store.recordReview({ ...REVIEW, commits: ["ghi", "abc", "def"] });
 
     expect(readFileSync(statusFile(path), "utf8")).toBe(
       "abc approved\ndef approved\nghi approved\n",
     );
   });
 
+  test("reopening the same commits replaces their review, other reviews stay", () => {
+    const path = tempPath();
+    const store = createReviewFileStore(path);
+    const other = "fedcba9876543210fedcba9876543210";
+    store.recordReview({ ...REVIEW, commits: ["abc", "def"] });
+    store.recordReview({ ...REVIEW, commits: ["def", "abc"], hunks: [other, HUNK.id] });
+    store.recordReview(REVIEW);
+
+    expect(store.load().records).toEqual([
+      { kind: "review", ...REVIEW },
+      { kind: "review", repo: "~/repo", commits: ["abc", "def"], hunks: [HUNK.id, other] },
+    ]);
+  });
+
+  test("migrates legacy commit records when it next writes", () => {
+    const path = tempPath();
+    const store = createReviewFileStore(path);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(
+      path,
+      [
+        { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 1 },
+        { kind: "commit", repo: "~/repo", hash: "def", hunkCount: 2 },
+        { kind: "hunk", ...HUNK, state: "accepted", commits: ["abc", "def"] },
+      ]
+        .map((record) => `${JSON.stringify(record)}\n`)
+        .join(""),
+    );
+
+    store.upsertNotes({ notes: [], hunks: [] });
+
+    expect(readFileSync(path, "utf8")).not.toContain('"kind":"commit"');
+    expect(store.load().records).toEqual([
+      { kind: "review", ...REVIEW },
+      { kind: "hunk", ...HUNK, state: "accepted" },
+    ]);
+    expect(readFileSync(statusFile(path), "utf8")).toBe("abc approved\n");
+  });
+
   test("an accepted hunk keeps no text, and clearing the decision drops the record", () => {
     const path = tempPath();
     const store = createReviewFileStore(path);
+    store.recordReview(REVIEW);
 
-    store.setHunkDecision({ hunk: HUNK, state: "accepted", commits: COMMITS });
+    store.setHunkDecision({ hunk: HUNK, state: "accepted" });
     const [, accepted] = store.load().records;
     expect(accepted).toEqual({ kind: "hunk", ...HUNK, state: "accepted" });
     expect("lines" in (accepted as HunkRecord)).toBe(false);
     expect(readFileSync(statusFile(path), "utf8")).toBe("abc approved\n");
 
-    store.setHunkDecision({ hunk: HUNK, state: undefined, commits: COMMITS });
-    expect(store.load().records).toEqual([
-      { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 1 },
-    ]);
+    store.setHunkDecision({ hunk: HUNK, state: undefined });
+    expect(store.load().records).toEqual([{ kind: "review", ...REVIEW }]);
     expect(readFileSync(statusFile(path), "utf8")).toBe("");
   });
 
@@ -156,7 +187,7 @@ describe("createReviewFileStore", () => {
   test("keeps records another writer added since the last load", () => {
     const path = tempPath();
     const store = createReviewFileStore(path);
-    store.setHunkDecision({ hunk: HUNK, state: "rejected", commits: COMMITS });
+    store.setHunkDecision({ hunk: HUNK, state: "rejected" });
 
     const synced: HunkRecord = {
       kind: "hunk",
@@ -176,15 +207,15 @@ describe("createReviewFileStore", () => {
   test("reports a malformed line, keeps it on write, and still serves the rest", () => {
     const path = tempPath();
     const store = createReviewFileStore(path);
-    store.setHunkDecision({ hunk: HUNK, state: "rejected", commits: COMMITS });
+    store.setHunkDecision({ hunk: HUNK, state: "rejected" });
     writeFileSync(path, `${readFileSync(path, "utf8")}{"kind":"hunk","id":"bad"}\nnot json\n`);
 
     const loaded = store.load();
-    expect(loaded.records).toHaveLength(2);
+    expect(loaded.records).toHaveLength(1);
     expect(loaded.warnings).toHaveLength(2);
-    expect(loaded.warnings[0]).toMatch(/:3: .*not a hunk identity/);
+    expect(loaded.warnings[0]).toMatch(/:2: .*not a hunk identity/);
 
-    store.setHunkDecision({ hunk: HUNK, state: "accepted", commits: COMMITS });
+    store.setHunkDecision({ hunk: HUNK, state: "accepted" });
     const text = readFileSync(path, "utf8");
     expect(text).toContain('{"kind":"hunk","id":"bad"}\n');
     expect(text.endsWith("not json\n")).toBe(true);

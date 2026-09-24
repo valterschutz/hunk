@@ -5,6 +5,7 @@ import { projectReviewDocument } from "./document";
 import { reviewHunkIdentity } from "./hunkIdentity";
 import {
   commitStatuses,
+  migrateLegacyRecords,
   parseReviewRecord,
   persistableNoteRecords,
   restoreNoteRecords,
@@ -53,19 +54,17 @@ const HUNK: HunkRecord = {
   repo: "~/repo",
   path: "a.txt",
   state: "rejected",
-  commits: ["abc"],
   oldStart: 1,
   newStart: 1,
 };
 
-describe("review records", () => {
-  test("migrates the legacy addressed decision and commit field", () => {
-    const parsed = parseReviewRecord(
-      JSON.stringify({ ...HUNK, state: "addressed", commits: undefined, commit: "abc" }),
-    );
+const OTHER_ID = "fedcba9876543210fedcba9876543210";
 
-    expect(parsed).toMatchObject({ state: "fixed", commits: ["abc"] });
-    expect(serializeReviewRecords([parsed])).toContain('"state":"fixed","commits":["abc"]');
+describe("review records", () => {
+  test("migrates the legacy addressed decision", () => {
+    const parsed = parseReviewRecord(JSON.stringify({ ...HUNK, state: "addressed" }));
+
+    expect(parsed).toEqual([{ ...HUNK, state: "fixed" }]);
   });
 
   test("round-trip through JSON Lines, sorted by kind and key", () => {
@@ -84,13 +83,18 @@ describe("review records", () => {
       createdAt: "2026-09-24T10:00:01.000Z",
     };
     const earlier: NoteRecord = { ...note, id: "user:1", createdAt: "2026-09-24T10:00:00.000Z" };
-    const commit: ReviewRecord = { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 1 };
+    const review: ReviewRecord = {
+      kind: "review",
+      repo: "~/repo",
+      commits: ["abc", "def"],
+      hunks: [HUNK.id, OTHER_ID],
+    };
 
-    const text = serializeReviewRecords([note, HUNK, earlier, commit]);
-    const parsed = text.trimEnd().split("\n").map(parseReviewRecord);
+    const text = serializeReviewRecords([note, HUNK, earlier, review]);
+    const parsed = text.trimEnd().split("\n").flatMap(parseReviewRecord);
 
-    expect(parsed).toEqual([commit, HUNK, earlier, note]);
-    expect(serializeReviewRecords(parsed)).toBe(text);
+    expect(parsed).toEqual([review, HUNK, earlier, note]);
+    expect(serializeReviewRecords(parsed as ReviewRecord[])).toBe(text);
   });
 
   test("rejects malformed records with a reason", () => {
@@ -101,36 +105,69 @@ describe("review records", () => {
       /is not a decision/,
     );
     expect(() => parseReviewRecord('{"kind":"commit","repo":"r","hash":"h"}')).toThrow(/hunkCount/);
+    expect(() => parseReviewRecord('{"kind":"review","repo":"r","commits":[],"hunks":[]}')).toThrow(
+      /at least one commit/,
+    );
+    expect(() =>
+      parseReviewRecord('{"kind":"review","repo":"r","commits":["a"],"hunks":["x"]}'),
+    ).toThrow(/not a hunk identity/);
+  });
+});
+
+describe("migrateLegacyRecords", () => {
+  const legacy = (line: object) => parseReviewRecord(JSON.stringify(line));
+
+  test("turns a completely decided legacy commit into a review of its decided hunks", () => {
+    const parsed = [
+      ...legacy({ kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 2 }),
+      ...legacy({ ...HUNK, commit: "abc" }),
+      ...legacy({ ...HUNK, id: OTHER_ID, state: "accepted", commits: ["abc", "def"] }),
+    ];
+
+    expect(migrateLegacyRecords(parsed)).toEqual([
+      { kind: "review", repo: "~/repo", commits: ["abc"], hunks: [HUNK.id, OTHER_ID] },
+      HUNK,
+      { ...HUNK, id: OTHER_ID, state: "accepted" },
+    ]);
+  });
+
+  test("drops a legacy commit whose attributed decisions fall short", () => {
+    const parsed = [
+      ...legacy({ kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 2 }),
+      ...legacy({ ...HUNK, commits: ["abc"] }),
+    ];
+
+    expect(migrateLegacyRecords(parsed)).toEqual([HUNK]);
   });
 });
 
 describe("commitStatuses", () => {
-  const commit: ReviewRecord = { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 2 };
-  const other: HunkRecord = { ...HUNK, id: "fedcba9876543210fedcba9876543210", state: "accepted" };
+  const review: ReviewRecord = {
+    kind: "review",
+    repo: "~/repo",
+    commits: ["abc"],
+    hunks: [HUNK.id, OTHER_ID],
+  };
+  const other: HunkRecord = { ...HUNK, id: OTHER_ID, state: "accepted" };
 
   test("leaves a commit with undecided hunks without a status", () => {
-    expect(commitStatuses([commit, other]).size).toBe(0);
+    expect(commitStatuses([review, other]).size).toBe(0);
   });
 
   test("is reviewed while a rejection is open, and approved once none is", () => {
-    expect(commitStatuses([commit, HUNK, other]).get("abc")).toBe("reviewed");
-    expect(commitStatuses([commit, { ...HUNK, state: "fixed" }, other]).get("abc")).toBe(
+    expect(commitStatuses([review, HUNK, other]).get("abc")).toBe("reviewed");
+    expect(commitStatuses([review, { ...HUNK, state: "fixed" }, other]).get("abc")).toBe(
       "approved",
     );
-    expect(commitStatuses([commit, { ...HUNK, state: "accepted" }, other]).get("abc")).toBe(
+    expect(commitStatuses([review, { ...HUNK, state: "accepted" }, other]).get("abc")).toBe(
       "approved",
     );
   });
 
   test("gives every commit in a comparison the aggregate review status", () => {
-    const commits: ReviewRecord[] = [
-      { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 2 },
-      { kind: "commit", repo: "~/repo", hash: "def", hunkCount: 2 },
-    ];
-    const rangeHunk = { ...HUNK, commits: ["abc", "def"] };
-    const rangeOther = { ...other, commits: ["abc", "def"] };
+    const range: ReviewRecord = { ...review, commits: ["abc", "def"] };
 
-    expect(commitStatuses([...commits, rangeHunk, rangeOther])).toEqual(
+    expect(commitStatuses([range, HUNK, other])).toEqual(
       new Map([
         ["abc", "reviewed"],
         ["def", "reviewed"],
@@ -138,9 +175,28 @@ describe("commitStatuses", () => {
     );
   });
 
-  test("ignores decisions made outside a single-commit review", () => {
-    const { commits: _commits, ...uncommitted } = HUNK;
-    expect(commitStatuses([commit, uncommitted, other]).size).toBe(0);
+  test("counts a decision on the same hunk content made in any review", () => {
+    // The decisions carry no commit: they could come from the working tree before committing.
+    expect(commitStatuses([review, { ...HUNK, state: "accepted" }, other]).get("abc")).toBe(
+      "approved",
+    );
+  });
+
+  test("keeps the best status of every review that covers a commit", () => {
+    const alone: ReviewRecord = { ...review, hunks: [OTHER_ID] };
+    const range: ReviewRecord = { ...review, commits: ["abc", "def"] };
+
+    expect(commitStatuses([alone, range, other])).toEqual(new Map([["abc", "approved"]]));
+    expect(commitStatuses([alone, range, HUNK, other])).toEqual(
+      new Map([
+        ["abc", "approved"],
+        ["def", "reviewed"],
+      ]),
+    );
+  });
+
+  test("gives a review without hunks no status", () => {
+    expect(commitStatuses([{ ...review, hunks: [] }]).size).toBe(0);
   });
 
   test("renders the status file sorted by hash", () => {
@@ -182,7 +238,6 @@ describe("persistableNoteRecords", () => {
 
     const { notes, hunks } = persistableNoteRecords(doc, [agentRoot, root, reply], {
       repo: "~/repo",
-      commits: ["abc"],
     });
 
     const identity = reviewHunkIdentity(file, second);
@@ -192,7 +247,6 @@ describe("persistableNoteRecords", () => {
         id: identity,
         repo: "~/repo",
         path: "sample.ts",
-        commits: ["abc"],
         oldStart: second.deletionStart,
         newStart: second.additionStart,
       },

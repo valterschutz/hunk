@@ -105,6 +105,7 @@ import {
 import type { CurrentLineAlignment } from "./lib/hunkScroll";
 import type { LineCursor } from "./lib/lineCursors";
 import type { ReviewVerticalStop } from "./lib/reviewVerticalStops";
+import { selectReviewStreamFiles } from "./lib/reviewState";
 import { useFilePresentationController } from "./fileViews/useFilePresentationController";
 import { useFilePresentationRendering } from "./fileViews/useFilePresentationRendering";
 import { mergeLineHighlightMaps } from "./highlights/merge";
@@ -390,13 +391,6 @@ export function App({
     onViewPreferencesChange?.(currentViewPreferences);
   }, [currentViewPreferences, onViewPreferencesChange]);
   const filteredFiles = review.visibleFiles;
-  const semanticFileIdentities = useMemo(
-    () =>
-      filteredFiles.map(
-        (file) => review.semanticFileIdentityByFileId.get(file.id) ?? `runtime:${file.id}`,
-      ),
-    [filteredFiles, review.semanticFileIdentityByFileId],
-  );
   const selectedFile = review.selectedFile;
   const selectedHunkIndex = review.selectedHunkIndex;
   const selectedHunkVerified =
@@ -406,6 +400,21 @@ export function App({
         "",
     );
   const selectedFileId = selectedFile?.id ?? null;
+  // One-file-at-a-time review narrows the rendered stream to the selected file. Only the diff
+  // pane and the geometry that measures it follow this; the sidebar, extensions, and the review
+  // document still see every visible file, so navigation and agent commands reach all of them.
+  const oneFileAtATime = bootstrap.input.options.oneFileAtATime ?? false;
+  const streamFiles = useMemo(
+    () => selectReviewStreamFiles({ visibleFiles: filteredFiles, selectedFileId, oneFileAtATime }),
+    [filteredFiles, oneFileAtATime, selectedFileId],
+  );
+  const semanticFileIdentities = useMemo(
+    () =>
+      streamFiles.map(
+        (file) => review.semanticFileIdentityByFileId.get(file.id) ?? `runtime:${file.id}`,
+      ),
+    [review.semanticFileIdentityByFileId, streamFiles],
+  );
   /** The review stream's current line, or null when line-level navigation is off. */
   const activeLineCursor = useMemo(
     () => (cursorLine === "off" ? null : review.lineCursor),
@@ -940,11 +949,11 @@ export function App({
   });
   const maxVisibleLineNumber = useMemo(
     () =>
-      filteredFiles.reduce(
+      streamFiles.reduce(
         (maxLineNumber, file) => Math.max(maxLineNumber, findMaxLineNumber(file)),
         1,
       ),
-    [filteredFiles],
+    [streamFiles],
   );
   const maxLineNumberDigits = String(maxVisibleLineNumber).length;
   const codeViewportWidth = useMemo(
@@ -1037,12 +1046,12 @@ export function App({
 
     return Math.max(
       0,
-      filteredFiles.reduce(
+      streamFiles.reduce(
         (maxWidth, file) => Math.max(maxWidth, maxFileCodeLineWidth(file, tabWidth)),
         0,
       ) - codeViewportWidth,
     );
-  }, [codeViewportWidth, filteredFiles, tabWidth, wrapLines]);
+  }, [codeViewportWidth, streamFiles, tabWidth, wrapLines]);
 
   useEffect(() => {
     setCodeHorizontalOffset((current) => clamp(current, 0, maxCodeHorizontalOffset));
@@ -1579,7 +1588,7 @@ export function App({
     0,
   );
   const topTitle = `${bootstrap.changeset.title}  ${changedFileCount} ${changedFileLabel}  +${totalAdditions}  -${totalDeletions}`;
-  const diffHeaderStatsWidth = maxFileHeaderStatsWidth(filteredFiles);
+  const diffHeaderStatsWidth = maxFileHeaderStatsWidth(streamFiles);
   const diffHeaderLabelWidth = Math.max(0, diffContentWidth - diffHeaderStatsWidth - 1);
   const diffSeparatorWidth = Math.max(0, diffContentWidth - 2);
   const diffPaneScreenTop = (showMenuBar ? 1 : 0) + presentedPaneLayout.reviewBounds.y;
@@ -1757,7 +1766,7 @@ export function App({
             expandedGapsByFileId={review.expandedGapsByFileId}
             wholeFileIds={review.wholeFileIds}
             fileViews={fileViewLayouts}
-            files={filteredFiles}
+            files={streamFiles}
             semanticFileIdentities={semanticFileIdentities}
             offloadLargeDiff={bootstrap.input.options.fast === true}
             lineHighlights={paintedLineHighlights}

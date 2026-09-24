@@ -70,6 +70,8 @@ export interface CommonOptions extends ThemeTuningPercents {
   verifiedHunksFile?: string;
   /** Start with verified hunks shown instead of hidden. */
   showVerifiedHunks?: boolean;
+  /** Show only the selected file in the review stream, so `,` and `.` are the way between files. */
+  oneFileAtATime?: boolean;
   /** False only when `--no-extensions` disables user extension loading for this run. */
   extensions?: boolean;
   /** Entry paths from repeated `--extension` flags, for development and testing. */

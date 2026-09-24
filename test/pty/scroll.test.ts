@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createPtyHarness,
   dragMouse,
@@ -8,6 +10,17 @@ import {
 } from "./harness";
 
 const harness = createPtyHarness();
+
+/** Drop the sidebar columns so an assertion speaks about the review stream alone. */
+function reviewPane(text: string) {
+  return text
+    .split("\n")
+    .map((line) => {
+      const divider = line.indexOf("\u2502");
+      return divider === -1 ? line : line.slice(divider + 1);
+    })
+    .join("\n");
+}
 
 /** Give PTY-backed startup and redraws enough headroom for slower CI machines. */
 setDefaultTimeout(20_000);
@@ -411,6 +424,70 @@ describe("PTY scrolling", () => {
       expect(restored).toContain("▾ 362 unchanged lines");
       expect(restored).not.toContain("366 - export const line366 = 366;");
       expect(harness.countMatches(restored, /aaa-collapsed\.ts/g)).toBe(initialHeaderCount);
+    } finally {
+      session.close();
+    }
+  });
+
+  test("one_file_at_a_time keeps the bottom of a file from scrolling into the next one", async () => {
+    const configHome = harness.createIsolatedConfigHome();
+    const configDir = join(configHome, "hunk");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, "config.toml"), "one_file_at_a_time = true\n");
+    const fixture = harness.createCrossFileHunkNavigationRepoFixture();
+    const session = await harness.launchHunk({
+      args: ["diff", "--mode", "split", "--cursor-line", "off"],
+      cwd: fixture.dir,
+      cols: 220,
+      rows: 12,
+      env: { XDG_CONFIG_HOME: configHome },
+    });
+
+    try {
+      await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
+
+      const opened = await harness.waitForSnapshot(
+        session,
+        (text) => reviewPane(text).includes("line 002 changed"),
+        5_000,
+      );
+      // The sidebar still lists both files; only the stream is bounded to the selected one.
+      expect(opened).toContain("short-file.ts");
+      expect(reviewPane(opened)).not.toContain("short-file.ts");
+
+      // The end of the review is the end of the long file, so neither a jump to the bottom nor
+      // further steps past it can reach the short file.
+      await session.type("G");
+      const bottom = await harness.waitForSnapshot(
+        session,
+        (text) => reviewPane(text).includes("line 341 changed"),
+        5_000,
+      );
+      expect(reviewPane(bottom)).not.toContain("short-file.ts");
+
+      await pressKeyRepeat(session, "down", 6);
+      await session.waitIdle({ timeout: 500 });
+      const heldAtBottom = await session.text({ immediate: true });
+      expect(reviewPane(heldAtBottom)).toContain("line 341 changed");
+      expect(reviewPane(heldAtBottom)).not.toContain("short-file.ts");
+
+      // `.` and `,` are the way across, and each arrival starts at the file's header.
+      const nextFile = await harness.pressAndWaitForSnapshot(
+        session,
+        ".",
+        (text) => reviewPane(text).includes("export const top = 2;"),
+        5_000,
+      );
+      expect(reviewPane(nextFile)).toContain("short-file.ts");
+      expect(reviewPane(nextFile)).not.toContain("line 341 changed");
+
+      const backToLongFile = await harness.pressAndWaitForSnapshot(
+        session,
+        ",",
+        (text) => reviewPane(text).includes("line 002 changed"),
+        5_000,
+      );
+      expect(reviewPane(backToLongFile)).not.toContain("short-file.ts");
     } finally {
       session.close();
     }

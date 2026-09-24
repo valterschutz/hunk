@@ -63,6 +63,36 @@ export function buildReviewStreamState({
 }
 
 /**
+ * Choose which visible files the review stream renders.
+ *
+ * The stream normally holds every visible file, so one scroll gesture carries the reviewer
+ * from the first change to the last. One-file-at-a-time review trades that continuity for a
+ * bounded viewport: only the selected file is in the stream, so scrolling cannot leave it and
+ * `,` / `.` become the way between files. The sidebar keeps listing every visible file either
+ * way — this narrows the stream, not the review.
+ *
+ * A filter that hides the selected file leaves the selection where it was, so fall back to the
+ * first visible file rather than emptying the pane while the reviewer types a query.
+ */
+export function selectReviewStreamFiles({
+  visibleFiles,
+  selectedFileId,
+  oneFileAtATime,
+}: {
+  visibleFiles: DiffFile[];
+  selectedFileId: string | null;
+  oneFileAtATime: boolean;
+}): DiffFile[] {
+  if (!oneFileAtATime) {
+    return visibleFiles;
+  }
+
+  const selected = visibleFiles.find((file) => file.id === selectedFileId);
+  const streamed = selected ?? visibleFiles[0];
+  return streamed ? [streamed] : [];
+}
+
+/**
  * Plan the terminal follow-up when a document replacement invalidates its selection.
  *
  * A filter only changes the visible stream, so a selected file it hides stays selected.

@@ -8,6 +8,7 @@ that cross module, process, repository, runtime, or terminal boundaries.
 ```text
 test/
   helpers/                 shared test-only builders and fixtures
+  preload/                 bunfig preloads every test process runs first (isolated config home)
   fixtures/                runtime-neutral cross-process fixtures
   cli/                     black-box CLI contracts
   session/                 daemon, broker, and session CLI flows

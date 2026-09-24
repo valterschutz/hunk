@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -26,6 +27,49 @@ import { PLATFORM_PACKAGE_MATRIX } from "./prebuilt-package-helpers";
 const REPO_ROOT = resolve(import.meta.dir, "../..");
 const INSTALL_SCRIPT_PATH = join(REPO_ROOT, "install.sh");
 const INSTALL_SCRIPT = readFileSync(INSTALL_SCRIPT_PATH, "utf8");
+
+/**
+ * The shell the tests run the installer with, the POSIX utilities it calls, and the real `curl`
+ * its availability check must find; a test that stubs `curl` puts the stub ahead of it.
+ */
+const INSTALLER_UTILITIES = [
+  "sh",
+  "curl",
+  "basename",
+  "cat",
+  "chmod",
+  "dirname",
+  "grep",
+  "head",
+  "mkdir",
+  "mktemp",
+  "mv",
+  "readlink",
+  "rm",
+  "sed",
+  "tar",
+  "tr",
+  "uname",
+];
+
+/**
+ * Build the system tail of an installer PATH: the directories that really hold the utilities it
+ * calls, or the conventional fallbacks when none can be resolved.
+ *
+ * Hardcoding `/usr/bin:/bin` fails on NixOS, where those directories are nearly empty and the
+ * utilities live under `/nix/store`; with envfs they even mirror the caller's PATH, so a stub
+ * `hunk` reappears there as a phantom competing install. Resolving through symlinks lands in the
+ * utility's own package directory, which holds no `hunk` or `curl` that could leak into a
+ * conflict or download check; the stub directories the tests build still come first.
+ */
+function systemToolPath(fallbacks: readonly string[]) {
+  const directories = new Set<string>();
+  for (const utility of INSTALLER_UTILITIES) {
+    const resolved = Bun.which(utility);
+    if (resolved) directories.add(dirname(realpathSync(resolved)));
+  }
+  return (directories.size > 0 ? [...directories] : [...fallbacks]).join(":");
+}
 
 /** Platform pairs the installer serves: every published package except the Windows one. */
 const CURL_INSTALLABLE_SPECS = PLATFORM_PACKAGE_MATRIX.filter((spec) => spec.os !== "windows");
@@ -89,7 +133,7 @@ function runConflictCheck(
   if (options.duplicateForeignAlias) symlinkSync(foreignDir, foreignAliasDir, "dir");
 
   try {
-    const systemPath = "/usr/local/bin:/usr/bin:/bin";
+    const systemPath = systemToolPath(["/usr/local/bin", "/usr/bin", "/bin"]);
     let pathEntries = options.targetFirst
       ? [targetDir, foreignDir, systemPath]
       : [foreignDir, targetDir, systemPath];
@@ -162,7 +206,7 @@ function runReleaseResolution(
       env: {
         ...process.env,
         HOME: home,
-        PATH: [toolsDir, targetDir, "/usr/bin", "/bin"].join(":"),
+        PATH: [toolsDir, targetDir, systemToolPath(["/usr/bin", "/bin"])].join(":"),
         CURL_LOG: curlLog,
         PROXY_FAILS: options.proxyFails ? "1" : "0",
         HUNK_DISABLE_ANALYTICS: options.disableAnalytics ? "1" : undefined,

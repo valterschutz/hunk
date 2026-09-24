@@ -6,3 +6,8 @@ minimumReleaseAge = 604800
 # node_modules/.bun/<name>@<version>/node_modules/<name>. simple-git-hooks resolves its
 # own package.json one directory too high in that layout, so preserve Hunk's hoisted layout.
 linker = "hoisted"
+
+[test]
+# Every test process starts with an empty XDG_CONFIG_HOME, so in-process sessions read built-in
+# defaults instead of the developer's ~/.config/hunk/config.toml.
+preload = ["./test/preload/isolateConfigHome.ts"]

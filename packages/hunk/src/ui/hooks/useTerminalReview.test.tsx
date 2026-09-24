@@ -3,7 +3,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { act, StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { builtinAppCommand } from "../../core/run/commandCatalog";
 import { SourceTextTooLargeError } from "../../core/changeset/fileSource";
-import { reviewGapIds } from "../../core/review/expansion";
+import { reviewGapIds, reviewGapSourceWithSourceText } from "../../core/review/expansion";
 import type { DiffFile } from "../../core/changeset/model";
 import {
   createTestDeferred,
@@ -1550,6 +1550,7 @@ describe("useTerminalReview", () => {
       expect(expandedGaps("alpha")).toEqual(gapIds);
       expect(sourceFetcher.calls).toEqual(["new"]);
       expect(expectValue(controllerRef.current).lineCursor).toEqual(cursorBeforeExpand);
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
 
       // A file folded by hand anywhere counts as folded: the next press opens the rest.
       await act(async () => {
@@ -1567,6 +1568,54 @@ describe("useTerminalReview", () => {
       });
       await flush(setup);
       expect(expandedGaps("alpha")).toEqual([]);
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(false);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("toggleSelectedFileContext opens the tail of a partial patch once its source arrives", async () => {
+    const afterLines = Array.from(
+      { length: 12 },
+      (_unused, index) => `export const alpha${index + 1} = ${index + 1};`,
+    );
+    afterLines[7] = "export const alpha8 = 800;";
+    const after = lines(...afterLines);
+    const deferred = createTestDeferred<string | null>();
+    const sourceFetcher = createTestSourceFetcher(() => deferred.promise);
+    const alpha = createAlphaFile(sourceFetcher);
+    // As a git diff reports the file: no per-side totals, so no trailing gap of its own.
+    const file = { ...alpha, metadata: { ...alpha.metadata, isPartial: true } };
+    const patchGapIds = [...reviewGapIds(file.metadata)].sort();
+    const wholeGapIds = [
+      ...reviewGapIds(reviewGapSourceWithSourceText(file.metadata, "new", after)),
+    ].sort();
+    expect(wholeGapIds.length).toBeGreaterThan(patchGapIds.length);
+    const { controllerRef, setup } = await renderTerminalReview([file]);
+
+    try {
+      await flush(setup);
+      const expandedGaps = () =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId["alpha"] ?? [])].sort();
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps()).toEqual(patchGapIds);
+      expect(sourceFetcher.calls).toEqual(["new"]);
+
+      deferred.resolve(after);
+      await flush(setup);
+      expect(expandedGaps()).toEqual(wholeGapIds);
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps()).toEqual([]);
     } finally {
       await act(async () => {
         setup.renderer.destroy();

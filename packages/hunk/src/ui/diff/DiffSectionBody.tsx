@@ -76,6 +76,7 @@ export function DiffSectionBody({
   tabWidth = DEFAULT_TAB_WIDTH,
   hunkGap = DEFAULT_HUNK_GAP,
   wrapLines = false,
+  wholeFile = false,
   theme,
   visibleAgentNotes = EMPTY_VISIBLE_AGENT_NOTES,
   hoverActive = true,
@@ -110,6 +111,8 @@ export function DiffSectionBody({
   tabWidth?: number;
   hunkGap?: number;
   wrapLines?: boolean;
+  /** The reviewer asked to read this file whole rather than as hunks. */
+  wholeFile?: boolean;
   theme: AppTheme;
   visibleAgentNotes?: VisibleAgentNote[];
   hoverActive?: boolean;
@@ -228,6 +231,7 @@ export function DiffSectionBody({
         hunkGap,
         theme,
         visibleAgentNotes,
+        wholeFile,
       }),
     [
       expandedGapKeys,
@@ -241,6 +245,7 @@ export function DiffSectionBody({
       hunkGap,
       theme,
       visibleAgentNotes,
+      wholeFile,
     ],
   );
   const rowPlanHighlighted =

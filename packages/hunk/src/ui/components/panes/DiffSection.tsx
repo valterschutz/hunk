@@ -22,6 +22,8 @@ import type { ResolvedFileViewLayout } from "../../fileViews/useFileViews";
 interface DiffSectionProps {
   codeHorizontalOffset: number;
   expandedGapKeys: ReadonlySet<string>;
+  /** The reviewer asked to read this file whole rather than as hunks. */
+  wholeFile: boolean;
   /** Validated extension marks for this file, in source coordinates. */
   extensionLineHighlights?: readonly ValidatedLineHighlight[];
   file: DiffFile;
@@ -67,6 +69,7 @@ interface DiffSectionProps {
 function DiffSectionComponent({
   codeHorizontalOffset,
   expandedGapKeys,
+  wholeFile,
   extensionLineHighlights,
   file,
   fileView,
@@ -197,6 +200,7 @@ function DiffSectionComponent({
           sourceStatus={sourceStatus}
           tabWidth={tabWidth}
           hunkGap={hunkGap}
+          wholeFile={wholeFile}
           wrapLines={wrapLines}
           codeHorizontalOffset={codeHorizontalOffset}
           copySelectedRowRanges={copySelectedRowRanges}
@@ -233,6 +237,7 @@ export const DiffSection = memo(DiffSectionComponent, (previous, next) => {
   return (
     previous.codeHorizontalOffset === next.codeHorizontalOffset &&
     previous.expandedGapKeys === next.expandedGapKeys &&
+    previous.wholeFile === next.wholeFile &&
     previous.extensionLineHighlights === next.extensionLineHighlights &&
     previous.file === next.file &&
     previous.fileView === next.fileView &&

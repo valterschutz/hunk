@@ -11,7 +11,7 @@
  * terminal's row builder can resolve an address without projecting a document first;
  * `reviewGapSourceForFile` adapts a semantic file onto the same shape.
  */
-import type { ReviewHunkSpan } from "./geometry";
+import { normalizedReviewSourceLines, type ReviewHunkSpan } from "./geometry";
 import type { ReviewFileChangeKind, ReviewFileV1, ReviewLineRange, ReviewSide } from "./types";
 
 export type ReviewGapPosition = "before" | "trailing";
@@ -34,6 +34,35 @@ export interface ReviewGapSource {
   additionLines: readonly string[];
   deletionLines: readonly string[];
   isPartial: boolean;
+  /**
+   * The line total of the side whose source text fills gaps, once that text is in hand.
+   * A partial patch has no totals of its own, so this is what lets it offer the unchanged
+   * tail after its last hunk as a gap.
+   */
+  sourceLineTotal?: ReviewSourceLineTotal;
+}
+
+export interface ReviewSourceLineTotal {
+  side: ReviewSide;
+  lines: number;
+}
+
+/**
+ * Attach the loaded source's line total to a gap source, so a partial patch resolves its
+ * trailing gap the same way every consumer that sees the same text does.
+ */
+export function reviewGapSourceWithSourceText(
+  source: ReviewGapSource,
+  side: ReviewSide,
+  sourceText: string | undefined,
+): ReviewGapSource {
+  if (sourceText === undefined) {
+    return source;
+  }
+  return {
+    ...source,
+    sourceLineTotal: { side, lines: normalizedReviewSourceLines(sourceText).length },
+  };
 }
 
 export interface ReviewGapAddress {
@@ -115,7 +144,9 @@ export function reviewLeadingGap(
  *
  * Length comes from what each side's line array has left over once the last hunk is
  * consumed, and the two leftovers must agree because the gap renders as paired rows. A
- * partial patch has no authoritative totals, so it has no trailing gap.
+ * partial patch has no authoritative totals of its own: it offers a trailing gap only once
+ * the loaded source's line total is attached, and the tail is then the same length on both
+ * sides because nothing after the last hunk changed.
  *
  * Known limitation (A2): a last hunk with a zero-count side leaves the two leftovers one
  * apart, so no trailing gap is offered even though the file has unchanged lines after
@@ -125,8 +156,12 @@ export function reviewLeadingGap(
 export function reviewTrailingGap(source: ReviewGapSource): ReviewGapAddress | undefined {
   const hunkIndex = source.hunks.length - 1;
   const hunk = source.hunks[hunkIndex];
-  if (!hunk || source.isPartial) {
+  if (!hunk) {
     return undefined;
+  }
+
+  if (source.isPartial) {
+    return trailingGapFromSourceTotal(source, hunk, hunkIndex);
   }
 
   const oldCount = source.deletionLines.length - (hunk.deletionLineIndex + hunk.deletionCount);
@@ -143,6 +178,38 @@ export function reviewTrailingGap(source: ReviewGapSource): ReviewGapAddress | u
     oldRange: [oldStart, oldStart + oldCount - 1],
     newRange: [newStart, newStart + newCount - 1],
     lineCount: oldCount,
+  };
+}
+
+/**
+ * Size a partial patch's trailing gap from the loaded source's line total.
+ *
+ * A side the last hunk leaves untouched (a pure insertion's old side, a pure deletion's new
+ * side) is positioned *at* its last line, so the tail on that side starts one line later.
+ */
+function trailingGapFromSourceTotal(
+  source: ReviewGapSource,
+  hunk: ReviewGapHunk,
+  hunkIndex: number,
+): ReviewGapAddress | undefined {
+  const total = source.sourceLineTotal;
+  if (!total) {
+    return undefined;
+  }
+
+  const oldStart = hunk.deletionStart + Math.max(hunk.deletionCount, 1);
+  const newStart = hunk.additionStart + Math.max(hunk.additionCount, 1);
+  const count = total.lines - (total.side === "old" ? oldStart : newStart) + 1;
+  if (count <= 0) {
+    return undefined;
+  }
+
+  return {
+    position: "trailing",
+    hunkIndex,
+    oldRange: [oldStart, oldStart + count - 1],
+    newRange: [newStart, newStart + count - 1],
+    lineCount: count,
   };
 }
 
@@ -190,11 +257,12 @@ export interface ReviewExpandedLineClaim {
 export function resolveReviewExpandedLine(
   file: ReviewFileV1,
   claim: ReviewExpandedLineClaim,
+  source: ReviewGapSource = reviewGapSourceForFile(file),
 ): ReviewGapAddress | undefined {
   if (file.sourceIdentity === undefined || file.sourceIdentity !== claim.sourceIdentity) {
     return undefined;
   }
-  const address = reviewGapAddress(reviewGapSourceForFile(file), claim.gapId);
+  const address = reviewGapAddress(source, claim.gapId);
   if (!address) {
     return undefined;
   }

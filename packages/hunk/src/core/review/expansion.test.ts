@@ -7,6 +7,7 @@ import {
   reviewGapAddress,
   reviewGapId,
   reviewGapIds,
+  reviewGapSourceWithSourceText,
   reviewLeadingGap,
   reviewTrailingGap,
   type ReviewGapHunk,
@@ -359,5 +360,75 @@ describe("gap ids for a whole file", () => {
     });
 
     expect(ids).toEqual([]);
+  });
+});
+
+describe("trailing gap of a partial patch", () => {
+  const partial = {
+    ...source(
+      [
+        hunk({
+          collapsedBefore: 3,
+          additionStart: 4,
+          additionCount: 2,
+          deletionStart: 4,
+          deletionCount: 2,
+        }),
+      ],
+      { old: 0, new: 0 },
+    ),
+    isPartial: true,
+  };
+
+  test("is not offered until the source sizes it", () => {
+    expect(reviewTrailingGap(partial)).toBeUndefined();
+    expect(reviewGapIds(partial)).toEqual(["before:0"]);
+  });
+
+  test("runs from the end of the last hunk to the loaded source's last line", () => {
+    const sized = reviewGapSourceWithSourceText(partial, "new", "x\n".repeat(20));
+
+    expect(reviewTrailingGap(sized)).toEqual({
+      position: "trailing",
+      hunkIndex: 0,
+      oldRange: [6, 20],
+      newRange: [6, 20],
+      lineCount: 15,
+    });
+    expect(reviewGapIds(sized)).toEqual(["before:0", "trailing:0"]);
+  });
+
+  test("starts one line later on the side a pure insertion leaves untouched", () => {
+    const insertion = {
+      ...source(
+        [
+          hunk({
+            collapsedBefore: 5,
+            additionStart: 6,
+            additionCount: 3,
+            deletionStart: 5,
+            deletionCount: 0,
+          }),
+        ],
+        { old: 0, new: 0 },
+      ),
+      isPartial: true,
+    };
+
+    expect(
+      reviewTrailingGap(reviewGapSourceWithSourceText(insertion, "new", "x\n".repeat(12))),
+    ).toEqual({
+      position: "trailing",
+      hunkIndex: 0,
+      oldRange: [6, 9],
+      newRange: [9, 12],
+      lineCount: 4,
+    });
+  });
+
+  test("offers nothing when the last hunk reaches the end of the source", () => {
+    expect(
+      reviewTrailingGap(reviewGapSourceWithSourceText(partial, "new", "x\n".repeat(5))),
+    ).toBeUndefined();
   });
 });

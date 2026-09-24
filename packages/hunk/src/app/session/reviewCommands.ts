@@ -28,6 +28,7 @@ import {
   reviewRangeTargetCoverageIssue,
 } from "../../core/review/geometry";
 import { requireReviewFile, ReviewIntentPlanningError } from "../../core/review/intents";
+import { selectReviewGapSource } from "../../core/review/selectors";
 import type { ReviewDraftNote, ReviewState } from "../../core/review/state";
 import type {
   ReviewFileV1,
@@ -124,6 +125,7 @@ function checkPosition(
  */
 function checkExpandedLine(
   producer: ReviewProducer,
+  state: ReviewState,
   file: ReviewFileV1,
   target: ReviewLineAddressV1,
   proof: HunkReviewExpandedLineProofV1,
@@ -135,7 +137,7 @@ function checkExpandedLine(
       `The expanded-line proof describes ${proof.side} line ${proof.line}, not the ${target.side} line ${target.line} it accompanies.`,
     );
   }
-  return resolveReviewExpandedLine(file, proof)
+  return resolveReviewExpandedLine(file, proof, selectReviewGapSource(state, file))
     ? undefined
     : fail(
         producer,
@@ -147,11 +149,12 @@ function checkExpandedLine(
 /** Require caller evidence whenever a line is not backed by a visible patch row. */
 function checkLineTarget(
   producer: ReviewProducer,
+  state: ReviewState,
   file: ReviewFileV1,
   target: ReviewLineAddressV1,
   proof?: HunkReviewExpandedLineProofV1,
 ): HunkReviewFailureV1 | undefined {
-  if (proof) return checkExpandedLine(producer, file, target, proof);
+  if (proof) return checkExpandedLine(producer, state, file, target, proof);
   return reviewLineCoveredByHunks(file.hunks, target.side, target.line)
     ? undefined
     : fail(
@@ -241,7 +244,7 @@ function checkAgainstReview(
       }
       return checkRangeTarget(producer, file, action.target);
     }
-    return checkLineTarget(producer, file, action.target, action.expandedLineProof);
+    return checkLineTarget(producer, state, file, action.target, action.expandedLineProof);
   }
 
   if (action.type === "notes/create-user" && action.target) {
@@ -272,7 +275,7 @@ function checkAgainstReview(
         : undefined;
     }
     const file = requireReviewFile(state, draft.fileKey);
-    return checkLineTarget(producer, file, action.target, action.expandedLineProof);
+    return checkLineTarget(producer, state, file, action.target, action.expandedLineProof);
   }
 
   return undefined;

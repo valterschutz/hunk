@@ -11,7 +11,7 @@
  */
 import type { ReviewAction } from "./actions";
 import { reviewLineAnchor, reviewRangeAnchor } from "./anchors";
-import { reviewExpansionSide, reviewGapAddress, reviewGapSourceForFile } from "./expansion";
+import { reviewExpansionSide, reviewGapAddress } from "./expansion";
 import {
   reviewDefaultHunkLineTarget,
   reviewLineCoveredByHunks,
@@ -28,6 +28,7 @@ import {
 } from "./navigation";
 import {
   isReviewGapExpanded,
+  selectReviewGapSource,
   isReviewNoteWithinClearScope,
   reviewNoteCurrentOwnerHunkIndex,
   reviewNoteHasDescendants,
@@ -604,7 +605,7 @@ function planExpansionToggle(
   const file = requireReviewFile(state, intent.fileKey);
   // Validated against the same addressing every renderer draws and every note-line check
   // accepts, so a gap a surface can offer is exactly a gap this intent can expand (A1).
-  const address = reviewGapAddress(reviewGapSourceForFile(file), intent.gapId);
+  const address = reviewGapAddress(selectReviewGapSource(state, file), intent.gapId);
   if (!address) {
     throw new ReviewIntentPlanningError(
       "gap-not-found",

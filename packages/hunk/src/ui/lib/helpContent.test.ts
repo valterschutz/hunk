@@ -73,7 +73,7 @@ describe("buildHelpSections", () => {
 
     expect(keysFor(sections, "page down")).toBe("PageDown / Space / f");
     expect(keysFor(sections, "page up")).toBe("PageUp / b / Shift+Space");
-    expect(keysFor(sections, "jump to start")).toBe("g / Home");
+    expect(keysFor(sections, "jump to start")).toBe("gg / Home");
   });
 
   test("keeps the rows that are not commands at all", () => {

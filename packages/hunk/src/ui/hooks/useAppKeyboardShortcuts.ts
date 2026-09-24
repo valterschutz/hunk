@@ -142,6 +142,7 @@ export function useAppKeyboardShortcuts({
   themeSelectorOpen,
 }: UseAppKeyboardShortcutsOptions) {
   const renderer = useRenderer();
+  const pendingGoPrefixRef = useRef(false);
   const activeMenuIdRef = useRef(activeMenuId);
   const commandsRef = useRef(commands);
   const clearVisualSelectionRef = useRef(clearVisualSelection);
@@ -578,8 +579,22 @@ export function useAppKeyboardShortcuts({
     return "mine";
   };
 
+  /** Report whether this key is the unmodified `g` used by the Vim-style `gg` shortcut. */
+  const isGoPrefixKey = (key: KeyEvent) =>
+    key.name === "g" && !key.ctrl && !key.meta && !key.option && !key.shift;
+
   /** Dispatch one command shortcut and honor its menu-closing policy. */
-  const dispatchCommandShortcut = (key: KeyEvent) => {
+  const dispatchCommandShortcut = (key: KeyEvent, continuesGoPrefix: boolean) => {
+    const jumpToTop = commandsRef.current.find(({ id }) => id === "hunk.review.jumpToTop");
+    if (isGoPrefixKey(key) && jumpToTop?.keys.includes("gg")) {
+      consumeKey(key);
+      if (!continuesGoPrefix) {
+        pendingGoPrefixRef.current = true;
+        return true;
+      }
+      return executeAppCommand(commandsRef.current, jumpToTop.id);
+    }
+
     // Dispatch consumes on match (preventDefault inside the loop), so a key
     // that runs a command never doubles as a scroll-box or input key.
     const matched = dispatchAppCommand(commandsRef.current, key);
@@ -590,6 +605,8 @@ export function useAppKeyboardShortcuts({
   };
 
   useKeyboard((key: KeyEvent) => {
+    const continuesGoPrefix = pendingGoPrefixRef.current;
+    pendingGoPrefixRef.current = false;
     // Route through the active menu first. Its navigation keys stay host-owned,
     // while an advertised accelerator gets one direct trip to the command table
     // before focused inputs or extension modes can claim it.
@@ -608,7 +625,7 @@ export function useAppKeyboardShortcuts({
     );
     if (surfaceOwned) return;
 
-    if (activeMenuIdRef.current && dispatchCommandShortcut(key)) return;
+    if (activeMenuIdRef.current && dispatchCommandShortcut(key, continuesGoPrefix)) return;
 
     // Without an open-menu command match, focused inputs and extension modes
     // keep their ordinary precedence ahead of the command table.
@@ -625,6 +642,6 @@ export function useAppKeyboardShortcuts({
       consumeKey(key);
       return;
     }
-    dispatchCommandShortcut(key);
+    dispatchCommandShortcut(key, continuesGoPrefix);
   });
 }

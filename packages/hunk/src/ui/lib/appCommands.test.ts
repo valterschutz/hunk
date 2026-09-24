@@ -130,7 +130,7 @@ describe("built-in command chords", () => {
     const press = (fields: Partial<ParsedKey>) =>
       dispatchAppCommand(commands, keyEvent(fields))?.id;
 
-    expect(press({ name: "g", sequence: "g" })).toBe("hunk.review.jumpToTop");
+    expect(press({ name: "g", sequence: "g" })).toBeUndefined();
     expect(press({ name: "g", sequence: "G", shift: true })).toBe("hunk.review.jumpToBottom");
     expect(press({ name: "m", sequence: "m" })).toBe("hunk.view.toggleHunkHeaders");
     expect(press({ name: "m", sequence: "M", shift: true })).toBe("hunk.view.toggleMenuBar");
@@ -183,6 +183,7 @@ describe("built-in command chords", () => {
     const labels = (id: string) => commands.find((command) => command.id === id)?.keyLabels;
 
     expect(labels("hunk.review.pageUp")).toEqual(["PageUp", "b", "Shift+Space"]);
+    expect(labels("hunk.review.jumpToTop")).toEqual(["gg", "Home"]);
     expect(labels("hunk.review.jumpToBottom")).toEqual(["G", "End"]);
     expect(labels("hunk.app.quit")).toEqual(["q"]);
   });

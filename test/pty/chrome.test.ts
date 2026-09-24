@@ -88,7 +88,7 @@ describe("PTY chrome", () => {
       });
 
       // The key column is rendered from the commands' resolved chords.
-      expect(helpDialog).toContain("g / Home");
+      expect(helpDialog).toContain("gg / Home");
     } finally {
       session.close();
     }

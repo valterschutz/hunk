@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +19,11 @@ import {
 } from "./HunkSessionHost";
 
 mock.restore();
+
+// A quit that saves view preferences writes to the runtime's config path, and an unset path
+// resolves to the developer's real ~/.config/hunk/config.toml.
+const testConfigHome = mkdtempSync(join(tmpdir(), "hunk-session-host-config-"));
+afterAll(() => rmSync(testConfigHome, { recursive: true, force: true }));
 
 const historyCustomTheme = {
   id: "history-only",
@@ -70,6 +75,7 @@ async function createHistoryRoute(subjects = ["History row"]) {
     keybindings: {},
     initialViewPreferences,
     promptSaveViewPreferences: true,
+    viewPreferencesConfigPath: join(testConfigHome, "config.toml"),
     async planReview(commit) {
       return { kind: "revision-show", revisionId: commit.revisionId };
     },

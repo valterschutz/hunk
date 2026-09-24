@@ -246,7 +246,7 @@ describe("PTY notes", () => {
       expect(freshDraft).toContain("Write a note");
       const composerBorder = freshDraft
         .split("\n")
-        .find((line) => line.includes("^S save") && line.includes("Esc cancel"));
+        .find((line) => line.includes("Enter save") && line.includes("Esc cancel"));
       expect(composerBorder?.trimStart().startsWith("╰")).toBe(true);
       expect(composerBorder?.trimEnd().endsWith("╯")).toBe(true);
 
@@ -257,7 +257,7 @@ describe("PTY notes", () => {
       });
       const saveRowBeforeNewline = draftBeforeNewline
         .split("\n")
-        .findIndex((line) => line.includes("^S save") && line.includes("Esc cancel"));
+        .findIndex((line) => line.includes("Enter save") && line.includes("Esc cancel"));
       expect(saveRowBeforeNewline).toBeGreaterThanOrEqual(0);
 
       await session.type("\x0a");
@@ -266,7 +266,7 @@ describe("PTY notes", () => {
         (text) => {
           const saveRowAfterNewline = text
             .split("\n")
-            .findIndex((line) => line.includes("^S save") && line.includes("Esc cancel"));
+            .findIndex((line) => line.includes("Enter save") && line.includes("Esc cancel"));
           return (
             text.includes("Please cover this edge case.") &&
             saveRowAfterNewline > saveRowBeforeNewline
@@ -1097,7 +1097,7 @@ describe("PTY notes", () => {
       await revealAddNoteAffordance(session, 8, [4, 5]);
       await harness.clickAndWaitForText(session, /\[\+\]/, /Draft note/, { timeout: 5_000 });
       await session.type("Save this clicked draft.");
-      const saved = await harness.clickAndWaitForText(session, /\^S save/, /Your note/, {
+      const saved = await harness.clickAndWaitForText(session, /Enter save/, /Your note/, {
         timeout: 5_000,
       });
 

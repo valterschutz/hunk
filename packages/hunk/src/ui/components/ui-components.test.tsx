@@ -3021,7 +3021,7 @@ describe("UI components", () => {
     try {
       await act(async () => setup.renderOnce());
       const restingLines = setup.captureCharFrame().split("\n");
-      expect(restingLines[measured - 1]).toContain("^S save Esc cancel");
+      expect(restingLines[measured - 1]).toContain("Enter save Esc cancel");
       expect(restingLines[measured - 1]?.trimStart().startsWith("╰")).toBe(true);
 
       const saveColumn = restingLines[measured - 1]!.indexOf("save") + 1;
@@ -3152,8 +3152,8 @@ describe("UI components", () => {
     expect(lines[0]).toContain("╭─ Draft note - src/core/cli.ts R611 ");
     expect(lines[1]).toContain("│                                              │");
     expect(lines[2]).toContain("│ Here's my comment. I think we should think");
-    expect(lines[3]).toContain("^S save Esc cancel");
-    const saveLine = lines.find((line) => line.includes("^S save") && line.includes("Esc cancel"));
+    expect(lines[3]).toContain("Enter save Esc cancel");
+    const saveLine = lines.find((line) => line.includes("Enter save") && line.includes("Esc cancel"));
     expect(saveLine).toBeDefined();
     expect(saveLine!.indexOf("save")).toBeGreaterThan(lines[2]!.indexOf("Here's"));
     expect(saveLine?.trimStart().startsWith("╰")).toBe(true);
@@ -3194,7 +3194,7 @@ describe("UI components", () => {
 
     const lines = frame.split("\n");
     const saveLineIndex = lines.findIndex(
-      (line) => line.includes("^S save") && line.includes("Esc cancel"),
+      (line) => line.includes("Enter save") && line.includes("Esc cancel"),
     );
     expect(lines.some((line) => line.includes(body.slice(0, 10)))).toBe(true);
     expect(lines.some((line) => line.includes(body.slice(-10)))).toBe(true);

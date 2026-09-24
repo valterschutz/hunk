@@ -548,7 +548,7 @@ export function AgentInlineNote({
     const draftActionItems: BorderActionItem[] = [
       {
         id: "save",
-        keyLabel: "^S",
+        keyLabel: "Enter",
         label: "save",
         onMouseUp: () => draft.onSave(textareaRef.current?.plainText),
       },
@@ -678,7 +678,11 @@ export function AgentInlineNote({
             textColor={theme.text}
             focusedBackgroundColor={theme.panel}
             focusedTextColor={theme.text}
-            keyBindings={[{ name: "j", ctrl: true, action: "newline" }]}
+            keyBindings={[
+              { name: "return", action: "submit" },
+              { name: "return", shift: true, action: "newline" },
+              { name: "j", ctrl: true, action: "newline" },
+            ]}
             onContentChange={() => {
               const nextBody = textareaRef.current?.plainText ?? "";
               // Deliberately not flushSync: burst input (chunked paste, key
@@ -688,6 +692,7 @@ export function AgentInlineNote({
               // the next frame, so the resize still lands with the edit.
               draft.onInput(nextBody);
             }}
+            onSubmit={() => draft.onSave(textareaRef.current?.plainText)}
           />
           <box style={{ width: 1, height: draftTextareaRows, backgroundColor: theme.panel }} />
           <box

@@ -451,7 +451,11 @@ describe("AgentInlineNote draft composer", () => {
   });
 
   test("grows across hard newlines with wide characters before and after", async () => {
-    const setup = await testRender(<DraftHarness width={96} />, { width: 120, height: 40 });
+    const setup = await testRender(<DraftHarness width={96} />, {
+      width: 120,
+      height: 40,
+      kittyKeyboard: true,
+    });
 
     try {
       await flush(setup);
@@ -460,7 +464,7 @@ describe("AgentInlineNote draft composer", () => {
       });
       await flush(setup);
       await act(async () => {
-        setup.mockInput.pressEnter();
+        setup.mockInput.pressEnter({ shift: true });
       });
       await flush(setup);
       await act(async () => {

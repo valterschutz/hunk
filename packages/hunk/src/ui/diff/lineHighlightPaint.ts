@@ -13,6 +13,7 @@
  */
 import {
   reviewExpansionSide,
+  reviewGapSourceWithSourceText,
   reviewLeadingGap,
   reviewTrailingGap,
   type ReviewGapAddress,
@@ -191,13 +192,18 @@ function resolvePatchLines(file: DiffFile, addressedKeys: ReadonlySet<string>) {
 }
 
 /** Every collapsed gap of one file, in the addressing shared with expansion rows. */
-function fileGapAddresses(file: DiffFile): ReviewGapAddress[] {
+function fileGapAddresses(file: DiffFile, sourceText: string): ReviewGapAddress[] {
+  const source = reviewGapSourceWithSourceText(
+    file.metadata,
+    reviewExpansionSide(file.metadata.type),
+    sourceText,
+  );
   const gaps: ReviewGapAddress[] = [];
-  for (let hunkIndex = 0; hunkIndex < file.metadata.hunks.length; hunkIndex += 1) {
-    const leading = reviewLeadingGap(file.metadata, hunkIndex);
+  for (let hunkIndex = 0; hunkIndex < source.hunks.length; hunkIndex += 1) {
+    const leading = reviewLeadingGap(source, hunkIndex);
     if (leading) gaps.push(leading);
   }
-  const trailing = reviewTrailingGap(file.metadata);
+  const trailing = reviewTrailingGap(source);
   if (trailing) gaps.push(trailing);
   return gaps;
 }
@@ -221,7 +227,7 @@ function resolveGapLines(
 
   const expansionSide = reviewExpansionSide(file.metadata.type);
   const sourceLines = normalizedReviewSourceLines(sourceText);
-  const gaps = fileGapAddresses(file);
+  const gaps = fileGapAddresses(file, sourceText);
 
   for (const key of pending) {
     const [side, lineText] = key.split(":") as ["old" | "new", string];

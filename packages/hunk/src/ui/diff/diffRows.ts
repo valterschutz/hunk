@@ -11,6 +11,7 @@ import {
   reviewLeadingGap,
   reviewTrailingGap,
   type ReviewGapAddress,
+  type ReviewGapSource,
 } from "../../core/review/expansion";
 import { DEFAULT_TAB_WIDTH } from "../../core/run/tabWidth";
 import type { DiffFile, DiffLineMoveKind } from "../../core/changeset/model";
@@ -209,7 +210,10 @@ function wordDiffHighlightBg(kind: SplitLineCell["kind"], theme: AppTheme) {
   return cached[kind];
 }
 
-const wordDiffForegroundCache = new Map<string, Record<SplitLineCell["kind"], string | undefined>>();
+const wordDiffForegroundCache = new Map<
+  string,
+  Record<SplitLineCell["kind"], string | undefined>
+>();
 
 /** Resolve the inline word-diff foreground override, if the theme sets one. */
 function wordDiffHighlightFg(kind: SplitLineCell["kind"], theme: AppTheme) {
@@ -758,13 +762,15 @@ export function buildSplitRows(
   highlighted: HighlightedDiffCode | null,
   theme: AppTheme,
   tabWidth = DEFAULT_TAB_WIDTH,
+  // The patch's own geometry by default; callers with loaded source pass the sized version.
+  gapSource: ReviewGapSource = file.metadata,
 ): DiffRow[] {
   const rows: DiffRow[] = [];
   const deletionLines = highlighted?.deletionLines ?? [];
   const additionLines = highlighted?.additionLines ?? [];
 
   for (const [hunkIndex, hunk] of file.metadata.hunks.entries()) {
-    const leadingGap = reviewLeadingGap(file.metadata, hunkIndex);
+    const leadingGap = reviewLeadingGap(gapSource, hunkIndex);
     if (leadingGap) {
       rows.push(collapsedGapRow(file, leadingGap, "collapsed:"));
     }
@@ -865,7 +871,7 @@ export function buildSplitRows(
     }
   }
 
-  const trailingGap = reviewTrailingGap(file.metadata);
+  const trailingGap = reviewTrailingGap(gapSource);
   if (trailingGap) {
     rows.push(collapsedGapRow(file, trailingGap, "collapsed:"));
   }
@@ -879,13 +885,15 @@ export function buildUnifiedRows(
   highlighted: HighlightedDiffCode | null,
   theme: AppTheme,
   tabWidth = DEFAULT_TAB_WIDTH,
+  // The patch's own geometry by default; callers with loaded source pass the sized version.
+  gapSource: ReviewGapSource = file.metadata,
 ): DiffRow[] {
   const rows: DiffRow[] = [];
   const deletionLines = highlighted?.deletionLines ?? [];
   const additionLines = highlighted?.additionLines ?? [];
 
   for (const [hunkIndex, hunk] of file.metadata.hunks.entries()) {
-    const leadingGap = reviewLeadingGap(file.metadata, hunkIndex);
+    const leadingGap = reviewLeadingGap(gapSource, hunkIndex);
     if (leadingGap) {
       rows.push(collapsedGapRow(file, leadingGap, "unified:collapsed:"));
     }
@@ -979,7 +987,7 @@ export function buildUnifiedRows(
     }
   }
 
-  const trailingGap = reviewTrailingGap(file.metadata);
+  const trailingGap = reviewTrailingGap(gapSource);
   if (trailingGap) {
     rows.push(collapsedGapRow(file, trailingGap, "unified:collapsed:"));
   }

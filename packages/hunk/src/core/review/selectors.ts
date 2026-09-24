@@ -8,10 +8,13 @@
  */
 import { normalizeDiffPath } from "../changeset/diffPaths";
 import {
+  reviewExpansionSide,
   reviewGapId,
   reviewGapSourceForFile,
+  reviewGapSourceWithSourceText,
   reviewLeadingGap,
   reviewTrailingGap,
+  type ReviewGapSource,
 } from "./expansion";
 import { reviewCanonicalHunkLine } from "./geometry";
 import type { ReviewNavigationFile } from "./navigation";
@@ -589,7 +592,7 @@ export interface ReviewGapTarget {
  * knowledge of its fetcher.
  */
 export function selectReviewGapForSelection(
-  state: Pick<ReviewState, "document" | "filter" | "selection">,
+  state: Pick<ReviewState, "document" | "filter" | "selection" | "sourceStatusByFileKey">,
 ): ReviewGapTarget | undefined {
   const { fileKey, hunkIndex } = selectNormalizedSelection(state);
   const file = selectReviewFileByKey(state, fileKey);
@@ -597,7 +600,7 @@ export function selectReviewGapForSelection(
     return undefined;
   }
 
-  const gapSource = reviewGapSourceForFile(file);
+  const gapSource = selectReviewGapSource(state, file);
   for (let index = hunkIndex; index < file.hunks.length; index += 1) {
     if (reviewLeadingGap(gapSource, index)) {
       return { fileKey: file.key, gapId: reviewGapId("before", index) };
@@ -608,6 +611,25 @@ export function selectReviewGapForSelection(
   return trailing
     ? { fileKey: file.key, gapId: reviewGapId("trailing", trailing.hunkIndex) }
     : undefined;
+}
+
+/**
+ * Select the gap addressing for one file, sized by its loaded source when the review has it.
+ *
+ * Every consumer with the source text in hand resolves the same gaps this way, so the tail
+ * of a partial patch is a gap the intent planner, the terminal rows, and note validation all
+ * agree on.
+ */
+export function selectReviewGapSource(
+  state: Pick<ReviewState, "sourceStatusByFileKey">,
+  file: ReviewFileV1,
+): ReviewGapSource {
+  const status = state.sourceStatusByFileKey[file.key];
+  return reviewGapSourceWithSourceText(
+    reviewGapSourceForFile(file),
+    reviewExpansionSide(file.changeKind),
+    status?.kind === "loaded" ? status.text : undefined,
+  );
 }
 
 /** Select the expanded gap ids of every file that currently has any. */

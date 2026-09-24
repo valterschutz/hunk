@@ -1764,6 +1764,7 @@ export function App({
             copyDecorations={copyDecorations}
             diffContentWidth={diffContentWidth}
             expandedGapsByFileId={review.expandedGapsByFileId}
+            wholeFileIds={review.wholeFileIds}
             fileViews={fileViewLayouts}
             files={streamFiles}
             semanticFileIdentities={semanticFileIdentities}

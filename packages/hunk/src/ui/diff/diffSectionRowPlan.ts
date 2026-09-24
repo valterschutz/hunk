@@ -1,4 +1,8 @@
-import { reviewExpansionSide } from "../../core/review/expansion";
+import {
+  reviewExpansionSide,
+  reviewGapSourceWithSourceText,
+  type ReviewGapSource,
+} from "../../core/review/expansion";
 import { DEFAULT_TAB_WIDTH } from "../../core/run/tabWidth";
 import { DEFAULT_HUNK_GAP } from "../../core/run/reviewGap";
 import type { DiffFile } from "../../core/changeset/model";
@@ -40,6 +44,8 @@ export interface BuildDiffSectionRowPlanOptions {
   hunkGap?: number;
   theme: AppTheme;
   visibleAgentNotes?: VisibleAgentNote[];
+  /** The reviewer asked to read this file whole rather than as hunks. */
+  wholeFile?: boolean;
 }
 
 /** Build Pierre rows for one file using the selected terminal diff layout. */
@@ -49,10 +55,11 @@ function buildBaseRows(
   highlightedDiff: HighlightedDiffCode | null | undefined,
   theme: AppTheme,
   tabWidth: number,
+  gapSource: ReviewGapSource,
 ) {
   return layout === "split"
-    ? buildSplitRows(file, highlightedDiff ?? null, theme, tabWidth)
-    : buildUnifiedRows(file, highlightedDiff ?? null, theme, tabWidth);
+    ? buildSplitRows(file, highlightedDiff ?? null, theme, tabWidth, gapSource)
+    : buildUnifiedRows(file, highlightedDiff ?? null, theme, tabWidth, gapSource);
 }
 
 /** Build the shared file-level diff plan consumed by rendering and geometry measurement. */
@@ -68,6 +75,7 @@ export function buildDiffSectionRowPlan({
   hunkGap = DEFAULT_HUNK_GAP,
   theme,
   visibleAgentNotes = EMPTY_VISIBLE_AGENT_NOTES,
+  wholeFile = false,
 }: BuildDiffSectionRowPlanOptions): DiffSectionRowPlan {
   if (!file) {
     return {
@@ -76,19 +84,28 @@ export function buildDiffSectionRowPlan({
     };
   }
 
-  const baseRows = buildBaseRows(file, layout, highlightedDiff, theme, tabWidth);
+  const side = reviewExpansionSide(file.metadata.type);
+  // Loaded source sizes the tail after the last hunk, which a partial patch cannot on its own.
+  const gapSource = reviewGapSourceWithSourceText(
+    file.metadata,
+    side,
+    sourceStatus?.kind === "loaded" ? sourceStatus.text : undefined,
+  );
+  const baseRows = buildBaseRows(file, layout, highlightedDiff, theme, tabWidth, gapSource);
   const expandedRows = expandCollapsedRows(baseRows, {
     layout,
     expandedKeys,
     sourceLineSpans,
     sourceStatus,
     tabWidth,
-    side: reviewExpansionSide(file.metadata.type),
+    side,
   });
-  // A whole file shows no hunk boundaries: the reviewer asked to read the file, not its hunks.
-  const rows = isWholeFileExpanded(file.metadata, expandedKeys, sourceStatus)
-    ? stripHunkChromeRows(expandedRows)
-    : expandedRows;
+  // A file the reviewer reads whole shows no hunk boundaries once every gap is open. A gap
+  // folded by hand brings the chrome back, so the toggle that reopens it stays reachable.
+  const rows =
+    wholeFile && isWholeFileExpanded(gapSource, expandedKeys, sourceStatus)
+      ? stripHunkChromeRows(expandedRows)
+      : expandedRows;
 
   return {
     lineNumberDigits: String(findMaxLineNumberInRows(rows, findMaxLineNumber(file))).length,

@@ -60,6 +60,19 @@ describe("cursorLineHighlightBg", () => {
     expect(shift(added)).toBeGreaterThan(1.2);
     expect(shift(context)).toBeGreaterThan(1.2);
   });
+
+  test("blends toward a theme's own cursorLineBg instead of the computed extreme", () => {
+    const context = unifiedCellPalette("context", DARK).contentBg;
+    const withSurface = { ...DARK, cursorLineBg: "#313244" };
+
+    const marked = cursorLineHighlightBg(context, withSurface);
+    const towardWhite = cursorLineHighlightBg(context, DARK);
+
+    expect(marked).not.toBe(towardWhite);
+    // The surface color sits closer to the row's own dark background than pure white does, so a
+    // theme naming it should move the row less far, not just to a different hue.
+    expect(contrastRatio(marked, context)).toBeLessThan(contrastRatio(towardWhite, context));
+  });
 });
 
 describe("lineHighlightToneStyle", () => {

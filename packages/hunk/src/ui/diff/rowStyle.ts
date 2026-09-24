@@ -50,24 +50,26 @@ const MIN_CURSOR_LINE_TEXT_CONTRAST = 3;
 const CURSOR_LINE_BACKOFF_STEP = 0.01;
 
 /**
- * Lift a cell background toward the appearance's own extreme to mark the current line.
+ * Lift a cell background toward the current-line color to mark the current line.
  *
- * Blending toward white (dark themes) or black (light themes) tints the row rather than
- * recoloring it: hue and relative saturation stay put and only lightness moves, so an added row
- * reads as a lighter version of the same green instead of picking up the theme text color's own
- * hue. A prior version blended toward `theme.text`, which is rarely a neutral gray — on a theme
- * whose text carries its own tint, that mixed a second hue into every row, including the
- * cursor's on plain context lines.
+ * A theme that names its own `cursorLineBg` — typically one step up its source palette's own
+ * surface ladder, like Catppuccin's `surface0` — blends toward that exact swatch, since a
+ * palette's own author already picked it to read as "the same surface, one step lighter" on a
+ * real display. Every other theme falls back to the appearance's own white/black extreme:
+ * blending toward it tints rather than recolors, so hue and relative saturation stay put and
+ * only lightness moves. A prior version blended toward `theme.text` unconditionally, which is
+ * rarely a neutral gray — on a theme whose text carries its own tint, that mixed a second hue
+ * into every row, including the cursor's on plain context lines.
  *
  * A theme whose text is itself pale can see contrast fall as the row lightens toward that same
- * extreme, so the configured strength backs off a step at a time until the code on top of the
+ * anchor, so the configured strength backs off a step at a time until the code on top of the
  * mark clears a minimum contrast — the same trade the theme's own row tints make elsewhere in
  * this module, just searching down from the configured strength instead of up from zero.
  */
 export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
   return cachedRowColor(cursorLineBackgroundCache, theme, baseBg, () => {
     const isDark = theme.appearance === "dark";
-    const anchor = isDark ? "#ffffff" : "#000000";
+    const anchor = theme.cursorLineBg ?? (isDark ? "#ffffff" : "#000000");
     // Reading the sentinel as a color yields black, so a transparent surface blends from the
     // appearance's own opposite extreme instead.
     const source = baseBg === TRANSPARENT_BACKGROUND ? (isDark ? "#000000" : "#ffffff") : baseBg;

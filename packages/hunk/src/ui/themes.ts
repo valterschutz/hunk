@@ -345,6 +345,7 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
       customTheme.rejectedRailColor ?? customTheme.removedRailColor ?? baseTheme.rejectedRailColor,
     fixedRailColor:
       customTheme.fixedRailColor ?? customTheme.contextRailColor ?? baseTheme.fixedRailColor,
+    cursorLineBg: customTheme.cursorLineBg ?? baseTheme.cursorLineBg,
     copyAction: customTheme.lineNumberFg ?? baseTheme.copyAction,
     selectedHunk: customTheme.selectedHunk ?? baseTheme.selectedHunk,
     badgeAdded: customTheme.badgeAdded ?? baseTheme.badgeAdded,

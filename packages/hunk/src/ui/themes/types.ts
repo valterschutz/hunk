@@ -41,6 +41,14 @@ export interface AppTheme {
   rejectedRailColor: string;
   /** Rail marker beside every row of a rejected hunk the reviewer has since fixed. */
   fixedRailColor: string;
+  /**
+   * Fixed color the current line lifts toward, replacing the computed white/black tint.
+   *
+   * Unset on every bundled theme: the computed tint already keeps each row's own hue. A custom
+   * theme sets this when its source palette already names a "one step lighter" surface color
+   * that reads better than a generic blend, e.g. Catppuccin's `surface0`.
+   */
+  cursorLineBg?: string;
   selectedHunk: string;
   badgeAdded: string;
   badgeRemoved: string;

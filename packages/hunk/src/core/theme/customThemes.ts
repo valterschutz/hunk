@@ -81,6 +81,7 @@ export const CUSTOM_THEME_COLOR_KEYS = [
   "acceptedRailColor",
   "rejectedRailColor",
   "fixedRailColor",
+  "cursorLineBg",
   "selectedHunk",
   "badgeAdded",
   "badgeRemoved",

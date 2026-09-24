@@ -3706,13 +3706,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes()}
-        terminalHeight={39}
+        terminalHeight={40}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      39,
+      40,
     );
 
     const expectedRows = [
@@ -3826,13 +3826,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes(keys)}
-        terminalHeight={39}
+        terminalHeight={40}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      39,
+      40,
     );
 
     expect(frame).toContain("Ctrl+X");

@@ -58,6 +58,30 @@ export function computeLineAlignmentScrollTop({
 }
 
 /**
+ * Center one rendered block in the viewport, as `cursor_scroll = "center"` asks for every reveal.
+ *
+ * A block taller than the viewport is aligned to its top instead, so the reveal never scrolls
+ * past the start of the row or note it was asked to show.
+ */
+export function computeCenteredRevealScrollTop({
+  top,
+  height,
+  viewportHeight,
+}: {
+  top: number;
+  height: number;
+  viewportHeight: number;
+}) {
+  const viewport = Math.max(1, viewportHeight);
+  return computeLineAlignmentScrollTop({
+    alignment: "center",
+    lineTop: top,
+    lineHeight: Math.min(Math.max(1, height), viewport),
+    viewportHeight: viewport,
+  });
+}
+
+/**
  * How far a current-line reveal may move the viewport.
  *
  * `"nearest"` is stepping: move only as far as it takes to bring the line on screen.

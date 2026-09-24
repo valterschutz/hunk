@@ -181,6 +181,9 @@ ReviewIntent + caller facts -> planReviewIntent -> ReviewAction[] -> reducer -> 
 - Default behavior is a multi-file review stream in sidebar order. `one_file_at_a_time` narrows the
   stream to the selected file; `,` and `.` then carry the reviewer between files, and `[` / `]`
   still cross file boundaries because the streamed file follows the selection.
+- `cursor_scroll` picks where reveals land the current line: `nearest` (default) only pulls it on
+  screen, `center` keeps it mid-viewport on every step and hunk jump. Keep both paths in DiffPane's
+  reveal effects and `hunkScroll.ts`; do not grow a second scroll policy elsewhere.
 - Layout modes are `auto`, `split`, and `unified`. `auto` chooses split on wide terminals and unified
   on narrow ones; explicit modes override it.
 - `[` and `]` navigate hunks across the full review stream. Do not reintroduce `j`/`k` hunk navigation unless the user asks.

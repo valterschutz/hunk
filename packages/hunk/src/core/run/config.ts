@@ -47,6 +47,7 @@ import {
   type CliInput,
   type CommonOptions,
   type CursorLine,
+  type CursorScroll,
   type LayoutMode,
   type SidebarVisibility,
   type VcsMode,
@@ -244,6 +245,10 @@ function normalizeCursorLine(value: unknown): CursorLine | undefined {
   return value === "row" || value === "number" || value === "off" ? value : undefined;
 }
 
+function normalizeCursorScroll(value: unknown): CursorScroll | undefined {
+  return value === "nearest" || value === "center" ? value : undefined;
+}
+
 /**
  * Accept any backend id a config layer names, provisionally.
  *
@@ -369,6 +374,15 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     runtimeDefault: DEFAULT_VIEW_PREFERENCES.cursorLine,
     description:
       "Mark the current line as a full-row highlight or on its line number. `off` restores plain `j`/`k` scrolling.",
+  },
+  {
+    key: "cursor_scroll",
+    property: "cursorScroll",
+    type: "string",
+    accepted: "`nearest` or `center`",
+    runtimeDefault: "nearest",
+    description:
+      "Where a moved current line lands. `nearest` scrolls only far enough to bring it on screen; `center` keeps it at the middle of the viewport, so stepping and hunk jumps scroll the stream around it.",
   },
   {
     key: "vcs",
@@ -1101,6 +1115,8 @@ function normalizeConfigReferenceValue(property: keyof CommonOptions, value: unk
       return isLayoutModeInput(value) ? normalizeLayoutModeInput(value) : undefined;
     case "cursorLine":
       return normalizeCursorLine(value);
+    case "cursorScroll":
+      return normalizeCursorScroll(value);
     case "vcs":
       return normalizeVcsMode(value);
     case "theme":
@@ -1215,6 +1231,7 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     reviewFile: overrides.reviewFile ?? base.reviewFile,
     showDecidedHunks: overrides.showDecidedHunks ?? base.showDecidedHunks,
     oneFileAtATime: overrides.oneFileAtATime ?? base.oneFileAtATime,
+    cursorScroll: overrides.cursorScroll ?? base.cursorScroll,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,
   };

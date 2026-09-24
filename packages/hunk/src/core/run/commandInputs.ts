@@ -31,6 +31,8 @@ export function normalizeLayoutModeInput(value: LayoutModeInput): LayoutMode {
 }
 
 export type CursorLine = "row" | "number" | "off";
+/** Where a moved current line lands: just inside the viewport, or at its vertical center. */
+export type CursorScroll = "nearest" | "center";
 export type SidebarVisibility = boolean | "auto";
 export type VcsMode = string;
 
@@ -72,6 +74,8 @@ export interface CommonOptions extends ThemeTuningPercents {
   showDecidedHunks?: boolean;
   /** Show only the selected file in the review stream, so `,` and `.` are the way between files. */
   oneFileAtATime?: boolean;
+  /** Keep the current line centered while stepping, so `j`/`k` scroll the stream around it. */
+  cursorScroll?: CursorScroll;
   /** False only when `--no-extensions` disables user extension loading for this run. */
   extensions?: boolean;
   /** Entry paths from repeated `--extension` flags, for development and testing. */

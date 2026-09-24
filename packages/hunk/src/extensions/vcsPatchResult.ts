@@ -15,6 +15,7 @@ import type {
   ExtensionVcsExtraFile,
   ExtensionVcsFileSourceReader,
   ExtensionVcsPatchResult,
+  ExtensionReviewDescriptor,
 } from "../extension-api/types";
 import { validateExtensionReviewDescriptor } from "../core/reviewDescriptor";
 
@@ -28,6 +29,55 @@ import { validateExtensionReviewDescriptor } from "../core/reviewDescriptor";
  */
 
 type SourceFetcherBuilder = NonNullable<BuildDiffFileOptions["sourceFetcherBuilder"]>;
+
+const REVIEW_COMMIT_IDS_MAX_BYTES = 4 * 1024 * 1024;
+
+/** Validate and detach the complete commit identity list supplied by an adapter. */
+function validateReviewCommitIds(
+  value: unknown,
+  review: ExtensionReviewDescriptor | undefined,
+): readonly string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error("VCS review commit identities must be an array.");
+  }
+  let bytes = 0;
+  const seen = new Set<string>();
+  const ids = value.map((entry) => {
+    if (
+      typeof entry !== "string" ||
+      entry.length === 0 ||
+      entry.length > 512 ||
+      /[\u0000-\u001f\u007f-\u009f]/u.test(entry)
+    ) {
+      throw new Error("VCS review commit identities must be bounded terminal-safe strings.");
+    }
+    bytes += new TextEncoder().encode(entry).byteLength;
+    if (bytes > REVIEW_COMMIT_IDS_MAX_BYTES) {
+      throw new Error("VCS review commit identities exceed their total byte limit.");
+    }
+    if (seen.has(entry)) {
+      throw new Error("VCS review commit identities must be unique.");
+    }
+    seen.add(entry);
+    return entry;
+  });
+  if (review?.kind !== "commit" && review?.kind !== "comparison") {
+    throw new Error("VCS review commit identities require commit or comparison metadata.");
+  }
+  if (review.kind === "commit" && (ids.length !== 1 || ids[0] !== review.revision)) {
+    throw new Error("VCS commit review identities must contain exactly the reviewed revision.");
+  }
+  if (review.kind === "comparison") {
+    if (review.commitCount !== undefined && ids.length !== review.commitCount) {
+      throw new Error("VCS comparison review identities must match the declared commit count.");
+    }
+    if (review.commits?.some(({ revision }) => !seen.has(revision))) {
+      throw new Error("VCS comparison review identities must include every displayed commit.");
+    }
+  }
+  return Object.freeze(ids);
+}
 
 /**
  * Adapt a published per-file source reader to the internal per-file fetcher.
@@ -140,13 +190,16 @@ export function toInternalVcsPatchResult(result: ExtensionVcsPatchResult): VcsPa
     ? toSourceFetcherBuilder(result.readFileSource, result.sourceCacheKey)
     : undefined;
 
+  const review =
+    result.review === undefined ? undefined : validateExtensionReviewDescriptor(result.review);
+
   return {
     repoRoot: result.repoRoot,
     sourceLabel: result.sourceLabel,
     title: result.title,
     patchText: result.patchText,
-    review:
-      result.review === undefined ? undefined : validateExtensionReviewDescriptor(result.review),
+    review,
+    reviewCommitIds: validateReviewCommitIds(result.reviewCommitIds, review),
     untrackedPaths: result.untrackedPaths,
     sourceFetcherBuilder,
     extraFiles: result.extraFiles?.map((entry, index) =>

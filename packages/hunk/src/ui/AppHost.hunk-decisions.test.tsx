@@ -21,6 +21,11 @@ const AFTER = BEFORE.replace("line 3\n", "first change\n").replace("line 15\n", 
 const OTHER_BEFORE = lines("alpha", "beta", "gamma");
 const OTHER_AFTER = lines("alpha", "other change", "gamma");
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
+const RANGE_COMMITS = [
+  COMMIT,
+  "123456789abcdef0123456789abcdef012345678",
+  "23456789abcdef0123456789abcdef0123456789",
+];
 
 const tempDirs: string[] = [];
 let setup: Awaited<ReturnType<typeof testRender>> | undefined;
@@ -70,6 +75,28 @@ function createBootstrap(
         review: { kind: "commit" as const, provider: "git", title: "Commit", revision: COMMIT },
       }
     : bootstrap;
+}
+
+function createRangeBootstrap(reviewFile: string) {
+  return {
+    ...createBootstrap(reviewFile, { commit: false }),
+    review: {
+      kind: "comparison" as const,
+      provider: "Git",
+      title: "Three commits",
+      base: `${COMMIT}^`,
+      head: RANGE_COMMITS[2]!,
+      commitCount: RANGE_COMMITS.length,
+      commits: [
+        {
+          title: "Newest commit",
+          revision: RANGE_COMMITS[2]!,
+          displayRevision: RANGE_COMMITS[2]!.slice(0, 7),
+        },
+      ],
+    },
+    reviewCommitIds: RANGE_COMMITS,
+  };
 }
 
 function hunkRecords(reviewFile: string): HunkRecord[] {
@@ -147,7 +174,7 @@ describe("AppHost hunk decisions", () => {
         repo: expect.any(String),
         path: "sample.ts",
         state: "accepted",
-        commit: COMMIT,
+        commits: [COMMIT],
         oldStart: 1,
         newStart: 1,
       },
@@ -186,7 +213,7 @@ describe("AppHost hunk decisions", () => {
     expect(hunkRecords(reviewFile)).toEqual([]);
   });
 
-  test("deciding every hunk derives the commit status, and = moves a rejection to addressed", async () => {
+  test("deciding every hunk derives the commit status, and = moves a rejection to fixed", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(<AppHost bootstrap={createBootstrap(reviewFile)} />, WIDE);
     await flush(setup);
@@ -198,19 +225,11 @@ describe("AppHost hunk decisions", () => {
     expect(frame).not.toContain("first change");
     expect(frame).not.toContain("other change");
     expect(frame).toContain("3 decided hunks hidden");
-    expect(commitStatus(reviewFile)).toBe(`${COMMIT} verified\n`);
-    const rejected = hunkRecords(reviewFile).find((record) => record.state === "rejected");
-    expect(rejected?.lines).toEqual([
-      " line 1",
-      " line 2",
-      "-line 3",
-      "+first change",
-      " line 4",
-      " line 5",
-    ]);
+    expect(commitStatus(reviewFile)).toBe(`${COMMIT} reviewed\n`);
+    expect(hunkRecords(reviewFile).find((record) => record.state === "rejected")).toBeDefined();
     expect(hunkRecords(reviewFile).filter((record) => record.state === "accepted")).toHaveLength(2);
 
-    // Show the decided hunks, return to the rejected file, and mark its first hunk addressed.
+    // Show the decided hunks, return to the rejected file, and mark its first hunk fixed.
     await pressKeys(setup, "V,");
     frame = setup.captureCharFrame();
     expect(frame).toContain("first change");
@@ -220,14 +239,33 @@ describe("AppHost hunk decisions", () => {
     );
 
     await pressKeys(setup, "=");
-    expect(setup.captureCharFrame()).toContain("selected hunk addressed");
-    expect(commitStatus(reviewFile)).toBe(`${COMMIT} addressed\n`);
+    const approvedFrame = setup.captureCharFrame();
+    expect(approvedFrame).toContain("selected hunk fixed");
+    expect(approvedFrame).toContain("✓");
+    expect(commitStatus(reviewFile)).toBe(`${COMMIT} approved\n`);
     expect(railColorOfLine(setup, "first change")).toBe(
-      resolveTheme("github-dark-default", null).addressedRailColor.toLowerCase(),
+      resolveTheme("github-dark-default", null).fixedRailColor.toLowerCase(),
+    );
+    expect(hunkRecords(reviewFile).find((record) => record.state === "fixed")).toBeDefined();
+  });
+
+  test("an aggregate range review updates every selected commit", async () => {
+    const reviewFile = createReviewFile();
+    setup = await testRender(<AppHost bootstrap={createRangeBootstrap(reviewFile)} />, WIDE);
+    await flush(setup);
+
+    await pressKeys(setup, "-++V,=");
+
+    expect(commitStatus(reviewFile)).toBe(
+      RANGE_COMMITS.toSorted()
+        .map((commit) => `${commit} approved\n`)
+        .join(""),
     );
     expect(
-      hunkRecords(reviewFile).find((record) => record.state === "addressed")?.lines,
-    ).toHaveLength(6);
+      hunkRecords(reviewFile).every((record) =>
+        RANGE_COMMITS.every((commit) => record.commits?.includes(commit)),
+      ),
+    ).toBe(true);
   });
 
   test("= refuses a hunk that is not rejected", async () => {
@@ -237,7 +275,7 @@ describe("AppHost hunk decisions", () => {
 
     await pressKeys(setup, "=");
 
-    expect(setup.captureCharFrame()).toContain("Only a rejected hunk can be marked addressed");
+    expect(setup.captureCharFrame()).toContain("Only a rejected hunk can be marked fixed");
     expect(hunkRecords(reviewFile)).toEqual([]);
   });
 
@@ -252,7 +290,6 @@ describe("AppHost hunk decisions", () => {
         path: "sample.ts",
         oldStart: hunk.deletionStart,
         newStart: hunk.additionStart,
-        lines: [],
       },
       state: "accepted",
     });
@@ -285,7 +322,7 @@ describe("AppHost hunk decisions", () => {
 
     const { records } = createReviewFileStore(reviewFile).load();
     expect(records.map((record) => record.kind)).toEqual(["hunk"]);
-    expect((records[0] as HunkRecord).commit).toBeUndefined();
+    expect((records[0] as HunkRecord).commits).toBeUndefined();
   });
 
   test("without a configured file, + explains how to enable decisions", async () => {

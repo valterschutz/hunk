@@ -309,6 +309,21 @@ export async function loadGitReviewCommits(
   return parseGitHistory(result.stdout);
 }
 
+/** Load every commit identity covered by one direct comparison. */
+export async function loadGitReviewCommitIds(revision: string, options: GitHistoryOptions) {
+  const result = await runGitPlanningQuery(["rev-list", requireRevision(revision)], options);
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((id) => {
+      if (!FULL_OBJECT_ID_PATTERN.test(id)) {
+        throw new Error("Git returned an invalid review commit identity.");
+      }
+      return id;
+    });
+}
+
 /** Count commits in one provider-owned range without loading their messages. */
 export async function countGitReviewCommits(revision: string, options: GitHistoryOptions) {
   const result = await runGitPlanningQuery(

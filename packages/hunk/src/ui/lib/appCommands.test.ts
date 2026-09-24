@@ -78,8 +78,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     triggerEditSelectedFileSplit: record("triggerEditSelectedFileSplit"),
     acceptSelectedHunk: record("acceptSelectedHunk"),
     rejectSelectedHunk: record("rejectSelectedHunk"),
-    markSelectedHunkAddressed: record("markSelectedHunkAddressed"),
-    openActiveNoteInEditor: record("openActiveNoteInEditor"),
+    markSelectedHunkFixed: record("markSelectedHunkFixed"),
     toggleDecidedHunks: record("toggleDecidedHunks"),
     triggerRefreshCurrentInput: record("triggerRefreshCurrentInput"),
   };

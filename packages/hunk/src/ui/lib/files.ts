@@ -11,6 +11,7 @@ export interface FileListEntry {
   id: string;
   name: string;
   depth: number;
+  approvalText: string | null;
   agentCommentsText: string | null;
   additionsText: string | null;
   deletionsText: string | null;
@@ -37,6 +38,7 @@ export interface SidebarFileSource {
   agent?: { annotations: readonly unknown[] } | null;
   changeType?: FileDiffMetadata["type"];
   metadata?: unknown;
+  reviewStatus?: "approved";
 }
 
 export interface FileGroupEntry {
@@ -89,9 +91,19 @@ function formatSidebarStat(prefix: "+" | "-", value: number, truncated = false) 
  * Keep the agent-note badge first so it reads as review context before line churn.
  */
 export function sidebarEntryStats(
-  entry: Pick<FileListEntry, "agentCommentsText" | "additionsText" | "deletionsText">,
+  entry: Pick<
+    FileListEntry,
+    "approvalText" | "agentCommentsText" | "additionsText" | "deletionsText"
+  >,
 ) {
-  const stats: Array<{ kind: "agent-comment" | "addition" | "deletion"; text: string }> = [];
+  const stats: Array<{
+    kind: "approval" | "agent-comment" | "addition" | "deletion";
+    text: string;
+  }> = [];
+
+  if (entry.approvalText) {
+    stats.push({ kind: "approval", text: entry.approvalText });
+  }
 
   if (entry.agentCommentsText) {
     stats.push({ kind: "agent-comment", text: entry.agentCommentsText });
@@ -110,7 +122,10 @@ export function sidebarEntryStats(
 
 /** Measure the rendered sidebar stats width, including the space between badges. */
 export function sidebarEntryStatsWidth(
-  entry: Pick<FileListEntry, "agentCommentsText" | "additionsText" | "deletionsText">,
+  entry: Pick<
+    FileListEntry,
+    "approvalText" | "agentCommentsText" | "additionsText" | "deletionsText"
+  >,
 ) {
   return sidebarEntryStats(entry).reduce(
     (width, stat, index) => width + stat.text.length + (index > 0 ? 1 : 0),
@@ -149,6 +164,7 @@ function buildSidebarFileEntry(file: SidebarFileSource, depth: number): FileList
     id: file.id,
     name: sidebarFileName(file),
     depth,
+    approvalText: file.reviewStatus === "approved" ? "✓" : null,
     agentCommentsText: agentCommentCount > 0 ? `*${agentCommentCount}` : null,
     additionsText: formatSidebarStat("+", file.stats.additions, file.statsTruncated),
     deletionsText: formatSidebarStat("-", file.stats.deletions),

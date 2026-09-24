@@ -17,13 +17,12 @@ import {
 import type { PersistedViewPreferences } from "../core/run/config";
 import { HISTORY_COMMAND_NAMES } from "../core/run/historyCommandCatalog";
 import type { ExtensionReviewReloadResult } from "../extension-api/types";
-import { diffHunkLines, hideDecidedHunks } from "../core/changeset/hunkDecisions";
+import { fileReviewStatus, hideDecidedHunks } from "../core/changeset/hunkDecisions";
 import {
   persistableNoteRecords,
   restoreNoteRecords,
   type HunkDecision,
 } from "../core/review/reviewFile";
-import { reviewNoteAnchorLine, reviewNoteOwnerHunkIndex } from "../core/review/state";
 import { experimentalFeatureEnabled, resolveExperimentalDiffFiles } from "../core/run/experimental";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../core/run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../core/run/tabWidth";
@@ -231,8 +230,7 @@ export function App({
   );
   // Decided hunks leave the review stream. The review file is re-read on every reload and
   // after every write, so decisions and notes synced from another machine appear without a
-  // restart. An address session shows exactly the rejected hunks, so nothing is hidden there.
-  const addressSession = bootstrap.input.kind === "address";
+  // restart.
   const reviewFileStore = useMemo(
     () => createReviewFileStore(bootstrap.input.options.reviewFile),
     [bootstrap.input.options.reviewFile],
@@ -256,22 +254,33 @@ export function App({
     () => collapseHomePath(bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd),
     [bootstrap.reloadContext.cwd, bootstrap.reloadContext.repoRoot],
   );
-  /** The single commit under review, whose status the decisions decide, when there is one. */
-  const reviewedCommit = useMemo(
-    () =>
-      bootstrap.review?.kind === "commit"
-        ? {
-            hash: bootstrap.review.revision,
-            hunkCount: bootstrap.changeset.files.reduce(
-              (count, file) => count + file.metadata.hunks.length,
-              0,
-            ),
-          }
-        : undefined,
-    [bootstrap.changeset.files, bootstrap.review],
-  );
+  /** The commits covered completely by this review, all sharing its aggregate hunk status. */
+  const reviewedCommits = useMemo(() => {
+    const hunkCount = bootstrap.changeset.files.reduce(
+      (count, file) => count + file.metadata.hunks.length,
+      0,
+    );
+    if (
+      (bootstrap.review?.kind === "commit" || bootstrap.review?.kind === "comparison") &&
+      bootstrap.reviewCommitIds !== undefined
+    ) {
+      return bootstrap.reviewCommitIds.map((hash) => ({ hash, hunkCount }));
+    }
+    if (bootstrap.review?.kind === "commit") {
+      return [{ hash: bootstrap.review.revision, hunkCount }];
+    }
+    if (
+      bootstrap.review?.kind === "comparison" &&
+      bootstrap.review.commits !== undefined &&
+      (bootstrap.review.commitCount ?? bootstrap.review.commits.length) ===
+        bootstrap.review.commits.length
+    ) {
+      return bootstrap.review.commits.map(({ revision }) => ({ hash: revision, hunkCount }));
+    }
+    return undefined;
+  }, [bootstrap.changeset.files, bootstrap.review, bootstrap.reviewCommitIds]);
   const [showDecidedHunks, setShowDecidedHunks] = useState(
-    addressSession || (bootstrap.input.options.showDecidedHunks ?? false),
+    bootstrap.input.options.showDecidedHunks ?? false,
   );
   const decisionsProjection = useMemo(
     () => hideDecidedHunks(experimentalFiles, showDecidedHunks ? new Map() : hunkDecisions),
@@ -437,6 +446,15 @@ export function App({
   const selectedHunkDecision =
     selectedHunkIdentity === undefined ? undefined : hunkDecisions.get(selectedHunkIdentity);
   const selectedFileId = selectedFile?.id ?? null;
+  const approvedFileIds = useMemo(
+    () =>
+      new Set(
+        experimentalFiles
+          .filter((file) => fileReviewStatus(file, hunkDecisions) === "approved")
+          .map((file) => file.id),
+      ),
+    [experimentalFiles, hunkDecisions],
+  );
   // One-file-at-a-time review narrows the rendered stream to the selected file. Only the diff
   // pane and the geometry that measures it follow this; the sidebar, extensions, and the review
   // document still see every visible file, so navigation and agent commands reach all of them.
@@ -501,6 +519,17 @@ export function App({
     getSelectedFileId,
     getSelection: getExtensionSelection,
   } = extensionRuntime;
+  const paneFileViews = useMemo(
+    () =>
+      Object.freeze(
+        getRenderExtensionFileViews().map((file) =>
+          approvedFileIds.has(file.id)
+            ? Object.freeze({ ...file, reviewStatus: "approved" as const })
+            : file,
+        ),
+      ),
+    [approvedFileIds, filteredFiles, getRenderExtensionFileViews],
+  );
   const jumpToFile = useCallback(
     (fileId: string, options?: { alignFileHeaderTop?: boolean }) => {
       review.selectFile(fileId, { alignFileHeaderTop: options?.alignFileHeaderTop });
@@ -679,7 +708,7 @@ export function App({
   } = useExtensionPaneController({
     availabilityContext: {
       review: bootstrap.review ?? null,
-      files: getRenderExtensionFileViews(),
+      files: paneFileViews,
       selectedFileId,
       selectedHunkIndex,
     },
@@ -1244,13 +1273,10 @@ export function App({
     showNotice: showSessionNotice,
   });
 
-  // Files of a VCS review are addressed from the repository root, which the changeset carries as
-  // its source label; an address session names the root outright.
+  // Files of a VCS review are addressed from the repository root carried by the changeset.
   const editorBasePath = isVcsReviewInput(bootstrap.input)
     ? bootstrap.changeset.sourceLabel
-    : addressSession
-      ? (bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd)
-      : undefined;
+    : undefined;
   const triggerEditSelectedFile = useCallback(() => {
     const basePath = editorBasePath;
     const message = openSelectedFileInEditor({
@@ -1295,74 +1321,9 @@ export function App({
   }, [activeLineCursor, editorBasePath, review.selectedHunk, selectedFile, showSessionNotice]);
 
   /**
-   * Open the editor on the active note's line, beside the review when Herdr can split.
-   *
-   * Activating a note clears the line cursor, so the line comes from the note's own anchor
-   * rather than from the cursor the other editor commands follow.
-   */
-  const openActiveNoteInEditor = useCallback(() => {
-    const snapshot = review.store.getSnapshot();
-    const active = selectActiveStoredReviewNote(snapshot);
-    if (!active) {
-      showSessionNotice("No active note");
-      return;
-    }
-    const documentFile = snapshot.document.files.find(
-      (candidate) => candidate.key === active.note.fileKey,
-    );
-    const file = documentFile
-      ? reviewFiles.find((candidate) => candidate.id === documentFile.runtimeId)
-      : undefined;
-    if (!file) {
-      showSessionNotice("The active note's file is not in the review");
-      return;
-    }
-    const hunkIndex = reviewNoteOwnerHunkIndex(active.note);
-    const lineCursor = {
-      fileId: file.id,
-      hunkIndex,
-      target: reviewNoteAnchorLine(active.note),
-    };
-    const selectedHunk = file.metadata.hunks[hunkIndex];
-    if (process.env.HERDR_ENV === "1") {
-      const message = openSelectedFileInEditorSplit({
-        basePath: editorBasePath,
-        file,
-        lineCursor,
-        selectedHunk,
-      });
-      if (message) showSessionNotice(message);
-      return;
-    }
-    const message = openSelectedFileInEditor({
-      basePath: editorBasePath,
-      file,
-      lineCursor,
-      renderer,
-      selectedHunk,
-    });
-    if (message) {
-      showSessionNotice(message);
-      return;
-    }
-    if (canRefreshCurrentInput) {
-      triggerRefreshCurrentInput();
-    }
-  }, [
-    canRefreshCurrentInput,
-    editorBasePath,
-    renderer,
-    review.store,
-    reviewFiles,
-    showSessionNotice,
-    triggerRefreshCurrentInput,
-  ]);
-
-  /**
    * Record a decision on the selected hunk, writing the review file and re-reading it.
    *
-   * `decide` maps the current decision to the next one; null leaves everything untouched. In an
-   * address session, marking a hunk addressed reloads so the hunk leaves the view.
+   * `decide` maps the current decision to the next one; null leaves everything untouched.
    */
   const decideSelectedHunk = useCallback(
     (decide: (current: HunkDecision | undefined) => HunkDecision | undefined | null) => {
@@ -1383,13 +1344,12 @@ export function App({
             id: selectedHunkIdentity,
             repo: reviewRepo,
             path: selectedFile.path,
-            ...(reviewedCommit ? { commit: reviewedCommit.hash } : {}),
+            ...(reviewedCommits ? { commits: reviewedCommits.map(({ hash }) => hash) } : {}),
             oldStart: hunk.deletionStart,
             newStart: hunk.additionStart,
-            lines: diffHunkLines(selectedFile, hunk),
           },
           state,
-          ...(reviewedCommit ? { commit: reviewedCommit } : {}),
+          ...(reviewedCommits ? { commits: reviewedCommits } : {}),
         });
       } catch (error) {
         showSessionNotice(
@@ -1398,22 +1358,16 @@ export function App({
         return;
       }
       setReviewFileRevision((revision) => revision + 1);
-      if (addressSession && state === "addressed" && canRefreshCurrentInput) {
-        triggerRefreshCurrentInput();
-      }
     },
     [
-      addressSession,
-      canRefreshCurrentInput,
       hunkDecisions,
       reviewFileStore,
       reviewRepo,
-      reviewedCommit,
+      reviewedCommits,
       selectedFile,
       selectedHunkIdentity,
       selectedHunkIndex,
       showSessionNotice,
-      triggerRefreshCurrentInput,
     ],
   );
 
@@ -1427,12 +1381,12 @@ export function App({
     decideSelectedHunk((current) => (current === "rejected" ? undefined : "rejected"));
   }, [decideSelectedHunk]);
 
-  /** Mark the selected rejected hunk as addressed, or make an addressed hunk rejected again. */
-  const markSelectedHunkAddressed = useCallback(() => {
+  /** Mark the selected rejected hunk as fixed, or make a fixed hunk rejected again. */
+  const markSelectedHunkFixed = useCallback(() => {
     decideSelectedHunk((current) => {
-      if (current === "addressed") return "rejected";
-      if (current === "rejected") return "addressed";
-      showSessionNotice("Only a rejected hunk can be marked addressed");
+      if (current === "fixed") return "rejected";
+      if (current === "rejected") return "fixed";
+      showSessionNotice("Only a rejected hunk can be marked fixed");
       return null;
     });
   }, [decideSelectedHunk, showSessionNotice]);
@@ -1472,7 +1426,10 @@ export function App({
     const persistable = persistableNoteRecords(
       snapshot.document,
       [...snapshot.liveNotes, ...snapshot.userNotes],
-      { repo: reviewRepo, ...(reviewedCommit ? { commit: reviewedCommit.hash } : {}) },
+      {
+        repo: reviewRepo,
+        ...(reviewedCommits ? { commits: reviewedCommits.map(({ hash }) => hash) } : {}),
+      },
     );
     const fingerprint = JSON.stringify(persistable);
     if (fingerprint === lastPersistedNotesRef.current) return;
@@ -1490,7 +1447,7 @@ export function App({
     review.store,
     reviewFileStore,
     reviewRepo,
-    reviewedCommit,
+    reviewedCommits,
     showSessionNotice,
   ]);
 
@@ -1693,8 +1650,7 @@ export function App({
         triggerRefreshCurrentInput,
         acceptSelectedHunk,
         rejectSelectedHunk,
-        markSelectedHunkAddressed,
-        openActiveNoteInEditor,
+        markSelectedHunkFixed,
         toggleDecidedHunks,
       }).map((command) =>
         returnToHistory && command.id === "hunk.app.quit"
@@ -1852,7 +1808,7 @@ export function App({
           registered={pane.registered}
           review={bootstrap.review ?? null}
           files={filteredFiles}
-          fileViews={getRenderExtensionFileViews()}
+          fileViews={paneFileViews}
           selectedFileId={selection.file?.id ?? null}
           selectedHunkIndex={selection.hunkIndex}
           placement={pane.placement}

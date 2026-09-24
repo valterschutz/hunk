@@ -79,7 +79,7 @@ export interface ExtensionPaneHostProps {
   registered: RegisteredPane;
   review?: ExtensionPaneProps["review"];
   files: DiffFile[];
-  fileViews: ExtensionDiffFile[];
+  fileViews: readonly ExtensionDiffFile[];
   selectedFileId: string | null;
   selectedHunkIndex: number | null;
   placement: ExtensionPaneProps["placement"];

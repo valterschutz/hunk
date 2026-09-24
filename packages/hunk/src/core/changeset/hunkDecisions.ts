@@ -50,6 +50,19 @@ export function diffHunkLines(file: DiffFile, hunk: DiffHunk): string[] {
   return reviewHunkLines(identityFile(file), hunk);
 }
 
+/** Report a file approved once every reviewable hunk is accepted or fixed. */
+export function fileReviewStatus(
+  file: DiffFile,
+  decisions: ReadonlyMap<string, HunkDecision>,
+): "approved" | undefined {
+  if (file.metadata.hunks.length === 0) return undefined;
+  const approved = file.metadata.hunks.every((hunk) => {
+    const decision = decisions.get(diffHunkIdentity(file, hunk));
+    return decision === "accepted" || decision === "fixed";
+  });
+  return approved ? "approved" : undefined;
+}
+
 /** Rebuild one file with only the given hunks, preserving rows the parser counted outside them. */
 function withHunks(
   file: DiffFile,

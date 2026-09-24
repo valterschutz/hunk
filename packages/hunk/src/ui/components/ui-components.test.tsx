@@ -3153,7 +3153,9 @@ describe("UI components", () => {
     expect(lines[1]).toContain("│                                              │");
     expect(lines[2]).toContain("│ Here's my comment. I think we should think");
     expect(lines[3]).toContain("Enter save Esc cancel");
-    const saveLine = lines.find((line) => line.includes("Enter save") && line.includes("Esc cancel"));
+    const saveLine = lines.find(
+      (line) => line.includes("Enter save") && line.includes("Esc cancel"),
+    );
     expect(saveLine).toBeDefined();
     expect(saveLine!.indexOf("save")).toBeGreaterThan(lines[2]!.indexOf("Here's"));
     expect(saveLine?.trimStart().startsWith("╰")).toBe(true);
@@ -3741,9 +3743,8 @@ describe("UI components", () => {
       "e                        open file in $EDITOR",
       "Review",
       "c                        create review note",
-      "+ / - / =                accept / reject / mark addressed",
+      "+ / - / =                accept / reject / mark fixed",
       "V                        show decided hunks",
-      "o                        open note in editor",
       "Tab                      toggle files/filter focus",
       "F10                      open menus",
       "r                        reload the review",

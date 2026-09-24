@@ -80,7 +80,7 @@ export const CUSTOM_THEME_COLOR_KEYS = [
   "contextRailColor",
   "acceptedRailColor",
   "rejectedRailColor",
-  "addressedRailColor",
+  "fixedRailColor",
   "selectedHunk",
   "badgeAdded",
   "badgeRemoved",

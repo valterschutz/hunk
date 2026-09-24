@@ -285,7 +285,17 @@ export function openSelectedFileInEditorSplit({
   const command = buildEditorCommand({ editor, filePath: absolutePath, line });
 
   const split = Bun.spawnSync(
-    ["herdr", "pane", "split", "--current", "--direction", "down", "--focus", "--cwd", process.cwd()],
+    [
+      "herdr",
+      "pane",
+      "split",
+      "--current",
+      "--direction",
+      "down",
+      "--focus",
+      "--cwd",
+      process.cwd(),
+    ],
     { stdout: "pipe", stderr: "pipe" },
   );
 

@@ -159,8 +159,7 @@ export interface BuildAppCommandsOptions {
   triggerRefreshCurrentInput: () => void;
   acceptSelectedHunk: () => void;
   rejectSelectedHunk: () => void;
-  markSelectedHunkAddressed: () => void;
-  openActiveNoteInEditor: () => void;
+  markSelectedHunkFixed: () => void;
   toggleDecidedHunks: () => void;
 }
 
@@ -287,8 +286,7 @@ function builtinCommandHandlers(
     "hunk.review.editSelectedFileSplit": { run: () => options.triggerEditSelectedFileSplit() },
     "hunk.review.acceptSelectedHunk": { run: () => options.acceptSelectedHunk() },
     "hunk.review.rejectSelectedHunk": { run: () => options.rejectSelectedHunk() },
-    "hunk.review.markSelectedHunkAddressed": { run: () => options.markSelectedHunkAddressed() },
-    "hunk.review.openActiveNoteInEditor": { run: () => options.openActiveNoteInEditor() },
+    "hunk.review.markSelectedHunkFixed": { run: () => options.markSelectedHunkFixed() },
     "hunk.view.toggleDecidedHunks": { run: () => options.toggleDecidedHunks() },
     "hunk.review.previousHunk": {
       run: (_key, count, entry) => runSelectionMove(options, entry, count),
@@ -402,8 +400,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     triggerRefreshCurrentInput: noop,
     acceptSelectedHunk: noop,
     rejectSelectedHunk: noop,
-    markSelectedHunkAddressed: noop,
-    openActiveNoteInEditor: noop,
+    markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
   };
 })();

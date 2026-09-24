@@ -622,13 +622,14 @@ and prevents the abort handler from running.
 A `load` result is patch text plus how to label it. Everything else on it is
 optional, and each optional field buys one thing. API version 24 adds `review`:
 
-| Field            | What it adds                                                       |
-| ---------------- | ------------------------------------------------------------------ |
-| `review`         | commit or comparison context above a revision-backed review        |
-| `untrackedPaths` | files your VCS calls unknown, synthesized into added-file diffs    |
-| `readFileSource` | exact whole-file contents, for context expansion and highlighting  |
-| `sourceCacheKey` | stable source-snapshot identity for highlight reuse across reloads |
-| `extraFiles`     | files reviewed outside the patch, including skipped placeholders   |
+| Field             | What it adds                                                               |
+| ----------------- | -------------------------------------------------------------------------- |
+| `review`          | commit or comparison context above a revision-backed review                |
+| `reviewCommitIds` | every commit covered by a review, including rows omitted from its metadata |
+| `untrackedPaths`  | files your VCS calls unknown, synthesized into added-file diffs            |
+| `readFileSource`  | exact whole-file contents, for context expansion and highlighting          |
+| `sourceCacheKey`  | stable source-snapshot identity for highlight reuse across reloads         |
+| `extraFiles`      | files reviewed outside the patch, including skipped placeholders           |
 
 Use the same `ExtensionReviewDescriptor` accepted by delegated CLI reviews. Return a `commit`
 descriptor when the operation resolves one reviewed commit, or a `comparison` descriptor when both
@@ -640,6 +641,10 @@ built against an older API; Hunk abbreviates `revision` when it is absent. Omit 
 side is working-copy, staged, stash, or otherwise cannot be identified accurately. Hunk validates,
 copies, and freezes the descriptor before mounting it, then recomputes provider-supplied metadata on
 reload so moving refs do not retain stale information.
+
+API version 29 adds `reviewCommitIds`. Return the complete commit identity list when a comparison's
+bounded `commits` metadata omits entries, so decisions over the aggregate diff can apply to every
+commit. Hunk validates, copies, and freezes this list separately from presentation metadata.
 
 `untrackedPaths` is the shorthand: list the repo-root-relative paths your VCS
 reports as unknown and Hunk synthesizes the added-file diffs for you, skipping

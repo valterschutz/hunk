@@ -62,7 +62,9 @@ export const DEFAULT_TUNING_PERCENTS: Required<ThemeTuningPercents> = {
 /** Validate one tuning percent, naming the key the way the user wrote it. */
 export function validateTuningPercent(value: number, label: string, max = MAX_TUNING_PERCENT) {
   if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new Error(`Invalid ${label}: ${String(value)} (expected a whole percent from 0 to ${max})`);
+    throw new Error(
+      `Invalid ${label}: ${String(value)} (expected a whole percent from 0 to ${max})`,
+    );
   }
 
   return value;

@@ -648,7 +648,17 @@ describe("openSelectedFileInEditorSplit", () => {
     ).toBeNull();
 
     expect(spawnCalls).toEqual([
-      ["herdr", "pane", "split", "--current", "--direction", "down", "--focus", "--cwd", process.cwd()],
+      [
+        "herdr",
+        "pane",
+        "split",
+        "--current",
+        "--direction",
+        "down",
+        "--focus",
+        "--cwd",
+        process.cwd(),
+      ],
       [
         "herdr",
         "pane",

@@ -68,6 +68,8 @@ export interface CommonOptions extends ThemeTuningPercents {
   colorMoved?: boolean;
   /** File that stores the identities of verified hunks, one per line; unset disables verifying. */
   verifiedHunksFile?: string;
+  /** Start with verified hunks shown instead of hidden. */
+  showVerifiedHunks?: boolean;
   /** False only when `--no-extensions` disables user extension loading for this run. */
   extensions?: boolean;
   /** Entry paths from repeated `--extension` flags, for development and testing. */

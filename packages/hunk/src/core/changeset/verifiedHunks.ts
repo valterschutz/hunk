@@ -21,9 +21,8 @@
  * offset, which can misalign rows inside such a gap.
  */
 import { reviewContentDigest } from "../review/identity";
+import { hunkRows, relayoutHunks, type DiffHunk } from "./hunkLayout";
 import type { DiffFile } from "./model";
-
-type DiffHunk = DiffFile["metadata"]["hunks"][number];
 
 export interface VerifiedHunksProjection {
   /** The files to review, with verified hunks removed and fully verified files dropped. */
@@ -63,37 +62,6 @@ function hunkLines(file: DiffFile, hunk: DiffHunk): string[] {
 /** Derive the content identity of one hunk: its file path and its lines, kinds included. */
 export function verifiedHunkIdentity(file: DiffFile, hunk: DiffHunk): string {
   return reviewContentDigest([file.path, ...hunkLines(file, hunk)]);
-}
-
-/** Mirror Pierre's boundary rule: a zero-count side names the line before the change. */
-function hunkSideStartBoundary(start: number, count: number) {
-  return start - (count === 0 ? 0 : 1);
-}
-
-/** Lay the kept hunks out again exactly as Pierre's parser would have, had it seen only them. */
-function relayoutHunks(hunks: readonly DiffHunk[]): DiffHunk[] {
-  let lastHunkEnd = 0;
-  let splitLineCount = 0;
-  let unifiedLineCount = 0;
-  return hunks.map((hunk) => {
-    const startBoundary = hunkSideStartBoundary(hunk.additionStart, hunk.additionCount);
-    const collapsedBefore = Math.max(startBoundary - lastHunkEnd, 0);
-    lastHunkEnd = startBoundary + hunk.additionCount;
-    const relaid: DiffHunk = {
-      ...hunk,
-      collapsedBefore,
-      splitLineStart: splitLineCount + collapsedBefore,
-      unifiedLineStart: unifiedLineCount + collapsedBefore,
-    };
-    splitLineCount += collapsedBefore + hunk.splitLineCount;
-    unifiedLineCount += collapsedBefore + hunk.unifiedLineCount;
-    return relaid;
-  });
-}
-
-/** Rows a hunk list occupies, including the collapsed gaps before each hunk. */
-function hunkRows(hunks: readonly DiffHunk[], layout: "splitLineCount" | "unifiedLineCount") {
-  return hunks.reduce((total, hunk) => total + hunk.collapsedBefore + hunk[layout], 0);
 }
 
 /** Rebuild one file with only the given hunks, preserving rows the parser counted outside them. */

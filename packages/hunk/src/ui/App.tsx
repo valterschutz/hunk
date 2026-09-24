@@ -233,7 +233,9 @@ export function App({
     () => verifiedHunksStore.load(),
     [verifiedHunksStore, verifiedHunksRevision, bootstrap.changeset.files],
   );
-  const [showVerifiedHunks, setShowVerifiedHunks] = useState(false);
+  const [showVerifiedHunks, setShowVerifiedHunks] = useState(
+    bootstrap.input.options.showVerifiedHunks ?? false,
+  );
   const verifiedHunksProjection = useMemo(
     () => hideVerifiedHunks(experimentalFiles, showVerifiedHunks ? new Set() : verifiedHunks),
     [experimentalFiles, showVerifiedHunks, verifiedHunks],

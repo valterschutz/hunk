@@ -212,6 +212,16 @@ Store the hunks marked verified with `!` in this file, one content hash per line
 
 ---
 
+**`show_verified_hunks`**
+
+Start with verified hunks shown in the review stream instead of hidden; `V` still toggles them during the session.
+
+- **Type:** boolean
+- **Accepted:** `true` or `false`
+- **Built-in default:** `false`
+
+---
+
 **`prompt_save_view_preferences`**
 
 Ask before discarding view changes that can be persisted.

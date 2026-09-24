@@ -123,3 +123,23 @@ export function resolveViewportRowAnchorTop(
 
   return 0;
 }
+
+/**
+ * Keep one row at the viewport offset it had before the stream regrew around it.
+ *
+ * Returns null when the row was outside the previous viewport: following an offscreen row
+ * would scroll the reviewer away from what they were looking at, so callers fall back to the
+ * top-row anchor instead.
+ */
+export function resolveAnchoredRowScrollTop(input: {
+  previousRowTop: number;
+  currentRowTop: number;
+  previousScrollTop: number;
+  viewportHeight: number;
+}) {
+  const offsetWithinViewport = input.previousRowTop - input.previousScrollTop;
+  if (offsetWithinViewport < 0 || offsetWithinViewport >= input.viewportHeight) {
+    return null;
+  }
+  return input.currentRowTop - offsetWithinViewport;
+}

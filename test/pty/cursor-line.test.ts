@@ -295,7 +295,7 @@ describe("PTY current line", () => {
     }
   });
 
-  test("expanding a gap moves the current line into it and collapsing puts it back", async () => {
+  test("expanding a gap keeps the current line in place and collapsing from inside it puts it back", async () => {
     const fixture = harness.createExpandableContextFilePair();
     const session = await harness.launchHunk({
       args: ["diff", "--files", fixture.before, fixture.after, "--mode", "unified"],
@@ -306,6 +306,7 @@ describe("PTY current line", () => {
     try {
       await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
       await session.waitIdle({ timeout: 300 });
+      const screenBeforeExpand = await session.text();
       const beforeExpand = await harness.pressAndWaitForText(session, "c", /Draft note/, {
         timeout: 5_000,
       });
@@ -325,12 +326,18 @@ describe("PTY current line", () => {
         5_000,
       );
       await session.waitIdle({ timeout: 500 });
+      // The revealed row grows the stream above the current line, which keeps both its source
+      // line and its screen row rather than following the gap up to the top of the file.
+      const screenAfterExpand = await session.text();
+      expect(lineIndexOf(screenAfterExpand, "line02 = 2;")).toBe(
+        lineIndexOf(screenBeforeExpand, "line02 = 2;"),
+      );
       const expanded = await harness.pressAndWaitForText(session, "c", /Draft note/, {
         timeout: 5_000,
       });
 
-      expect(expanded).toContain("R1 ");
-      expect(lineIndexOf(expanded, "Draft note")).toBe(lineIndexOf(expanded, "hiddenLine01") + 1);
+      expect(expanded).toContain(`R${startRow} `);
+      expect(lineIndexOf(expanded, "Draft note")).toBe(lineIndexOf(expanded, "line02 = 2;") + 1);
       await harness.pressAndWaitForSnapshot(
         session,
         "escape",
@@ -338,6 +345,9 @@ describe("PTY current line", () => {
         5_000,
       );
 
+      // Step into the revealed row, then collapse it out from under the marker.
+      await session.press("k");
+      await session.waitIdle({ timeout: 200 });
       await harness.pressAndWaitForSnapshot(
         session,
         "z",

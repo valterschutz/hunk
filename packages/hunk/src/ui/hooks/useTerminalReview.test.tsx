@@ -1311,7 +1311,7 @@ describe("useTerminalReview", () => {
     }
   });
 
-  test("the latest gap expansion receives the current line when one source load reveals two gaps", async () => {
+  test("expanding gaps leaves the current line where it was, even when one source load reveals two gaps", async () => {
     const deferred = createTestDeferred<string | null>();
     const sourceFetcher = createTestSourceFetcher(() => deferred.promise);
     const sourceLines = Array.from({ length: 50 }, (_, index) => `line ${index + 1}`);
@@ -1322,6 +1322,8 @@ describe("useTerminalReview", () => {
     try {
       await flush(setup);
       expect(expectValue(controllerRef.current).selectedFile?.metadata.hunks).toHaveLength(2);
+      const cursorBeforeExpand = expectValue(expectValue(controllerRef.current).lineCursor);
+      const revealsBeforeExpand = expectValue(controllerRef.current).lineCursorRevealRequest.id;
 
       await act(async () => {
         expectValue(controllerRef.current).toggleGap("alpha", "before:0");
@@ -1338,7 +1340,10 @@ describe("useTerminalReview", () => {
       const controller = expectValue(controllerRef.current);
       expect(controller.expandedGapsByFileId.alpha?.has("before:0")).toBe(true);
       expect(controller.expandedGapsByFileId.alpha?.has("before:1")).toBe(true);
-      expect(expectValue(controller.lineCursor).expandedGapKey).toBe("before:1");
+      // The gap before the first hunk starts at line 1, so following the revealed rows would
+      // throw the marker to the top of the file; the marker stays on the line it was on.
+      expect(controller.lineCursor).toEqual(cursorBeforeExpand);
+      expect(controller.lineCursorRevealRequest.id).toBe(revealsBeforeExpand);
     } finally {
       await act(async () => {
         setup.renderer.destroy();
@@ -1502,6 +1507,7 @@ describe("useTerminalReview", () => {
 
     try {
       await flush(setup);
+      const cursorBeforeExpand = expectValue(expectValue(controllerRef.current).lineCursor);
 
       await act(async () => {
         expectValue(controllerRef.current).toggleSelectedHunkGap();
@@ -1511,6 +1517,7 @@ describe("useTerminalReview", () => {
       const expanded = expectValue(controllerRef.current).expandedGapsByFileId["alpha"];
       expect(expanded?.has("before:0")).toBe(true);
       expect(sourceFetcher.calls).toEqual(["new"]);
+      expect(expectValue(controllerRef.current).lineCursor).toEqual(cursorBeforeExpand);
     } finally {
       await act(async () => {
         setup.renderer.destroy();

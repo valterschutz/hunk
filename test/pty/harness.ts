@@ -1076,6 +1076,10 @@ end
         XDG_CONFIG_HOME: configHome(),
         HUNK_MCP_DISABLE: "1",
         HUNK_DISABLE_UPDATE_NOTICE: "1",
+        // Overridden to a non-"1" value rather than dropped, so a launcher that merges the
+        // developer's environment back in cannot re-enable it: with it set, the editor path
+        // splits a real Herdr pane in the developer's session instead of staying in the test PTY.
+        HERDR_ENV: "",
         ...options.env,
       },
     });
@@ -1103,6 +1107,10 @@ end
         XDG_CONFIG_HOME: configHome(),
         HUNK_MCP_DISABLE: "1",
         HUNK_DISABLE_UPDATE_NOTICE: "1",
+        // Overridden to a non-"1" value rather than dropped, so a launcher that merges the
+        // developer's environment back in cannot re-enable it: with it set, the editor path
+        // splits a real Herdr pane in the developer's session instead of staying in the test PTY.
+        HERDR_ENV: "",
         ...options.env,
       },
     });

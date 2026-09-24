@@ -418,12 +418,9 @@ export function useTerminalReview({
     id: 0,
     placement: "nearest",
   });
-  const previousLineCursorsRef = useRef(lineCursors);
-  const pendingLineCursorRef = useRef<
-    | { kind: "reveal"; fileId: string; gapKey: string }
-    | { kind: "restore"; cursor: LineCursor }
-    | null
-  >(null);
+  // A collapse retires rows the reviewer may have stepped onto, so a toggle records where the
+  // line stood before the gap opened and the next measured list decides whether to go back.
+  const pendingLineCursorRef = useRef<{ kind: "restore"; cursor: LineCursor } | null>(null);
   // Monotonic suffix that keeps `user:*` note ids unique within one millisecond.
   const userNoteSequenceRef = useRef(0);
   const draftNoteSequenceRef = useRef(0);
@@ -682,32 +679,11 @@ export function useTerminalReview({
       return;
     }
 
-    // Expansion remeasures before its source text loads, so a toggle records what it wants and
-    // this waits for the list that actually carries the revealed rows. Each request survives until
-    // it resolves or the next toggle replaces it.
-    const previousCursors = previousLineCursorsRef.current;
-    previousLineCursorsRef.current = lineCursors;
-
+    // Expanding a gap leaves the current line where it is: the revealed rows only surround it,
+    // and the fall-through below resolves the same stop in the remeasured list. A collapse
+    // retires rows, so its restore point waits here for the list that dropped them. Each request
+    // survives until it resolves or the next toggle replaces it.
     const pending = pendingLineCursorRef.current;
-    if (pending?.kind === "reveal") {
-      const alreadyStopped = new Set(
-        previousCursors
-          .filter((cursor) => cursor.fileId === pending.fileId)
-          .map((cursor) => cursor.stableKey),
-      );
-      const firstRevealed = lineCursors.find(
-        (cursor) =>
-          cursor.fileId === pending.fileId &&
-          cursor.expandedGapKey === pending.gapKey &&
-          !alreadyStopped.has(cursor.stableKey),
-      );
-      if (firstRevealed) {
-        pendingLineCursorRef.current = null;
-        revealLineCursor(firstRevealed);
-        return;
-      }
-    }
-
     // Only take the restore point when the collapse actually retired the row the marker was on;
     // the reviewer may have stepped well clear of the gap since expanding it.
     if (pending?.kind === "restore" && !hasLineCursor(lineCursors, lineCursorRef.current)) {
@@ -1021,10 +997,12 @@ export function useTerminalReview({
       // own, and reads that decision rather than predicting it.
       const toggled = runIntent(intent);
       if (toggled.expanded) {
+        // The current line stays put while the gap opens around it. The reviewer steps into the
+        // revealed rows deliberately, and collapsing from inside them returns to this line.
         if (cursorBeforeToggle) {
           lineCursorBeforeExpandRef.current.set(restorePointKey, cursorBeforeToggle);
         }
-        pendingLineCursorRef.current = { kind: "reveal", fileId: file.id, gapKey: intent.gapId };
+        pendingLineCursorRef.current = null;
       } else {
         lineCursorBeforeExpandRef.current.delete(restorePointKey);
         pendingLineCursorRef.current = restorePoint

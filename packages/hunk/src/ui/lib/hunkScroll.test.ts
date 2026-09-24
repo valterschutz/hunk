@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  computeCenteredRevealScrollTop,
   computeHunkRevealScrollTop,
   computeLineAlignmentScrollTop,
   computeLineRevealScrollTop,
@@ -87,6 +88,24 @@ describe("computeLineAlignmentScrollTop", () => {
         viewportHeight: 8,
       }),
     ).toBe(22);
+  });
+});
+
+describe("computeCenteredRevealScrollTop", () => {
+  test("centers a single row in the viewport", () => {
+    expect(computeCenteredRevealScrollTop({ top: 40, height: 1, viewportHeight: 21 })).toBe(30);
+  });
+
+  test("centers a fitting block by its whole height", () => {
+    expect(computeCenteredRevealScrollTop({ top: 40, height: 5, viewportHeight: 21 })).toBe(32);
+  });
+
+  test("aligns a block taller than the viewport to its top", () => {
+    expect(computeCenteredRevealScrollTop({ top: 40, height: 30, viewportHeight: 10 })).toBe(40);
+  });
+
+  test("clamps at the start of the stream", () => {
+    expect(computeCenteredRevealScrollTop({ top: 3, height: 1, viewportHeight: 21 })).toBe(0);
   });
 });
 

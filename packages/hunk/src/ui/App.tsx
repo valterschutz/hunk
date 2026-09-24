@@ -2042,6 +2042,7 @@ export function App({
             selectedFileTopAlignRequestId={review.selectedFileTopAlignRequestId}
             selectedHunkRevealRequestId={review.selectedHunkRevealRequestId}
             cursorLine={cursorLine}
+            cursorScroll={bootstrap.input.options.cursorScroll ?? "nearest"}
             lineCursor={review.lineCursor}
             lineCursorRevealRequest={review.lineCursorRevealRequest}
             lineCursorAlignmentRequest={lineCursorAlignmentRequest}

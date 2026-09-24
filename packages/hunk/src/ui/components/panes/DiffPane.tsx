@@ -17,7 +17,7 @@ import {
   type WheelScrollLines,
 } from "../../../core/run/wheelScrollLines";
 import type { DiffFile } from "../../../core/changeset/model";
-import type { CursorLine, LayoutMode } from "../../../core/run/commandInputs";
+import type { CursorLine, CursorScroll, LayoutMode } from "../../../core/run/commandInputs";
 import type { ReviewNoteTargetV1 } from "../../../core/review/types";
 import type { AgentAnnotation } from "../../../extension-api/types";
 import { resolveReviewRevealNoteId } from "../../../core/review/selectors";
@@ -41,6 +41,7 @@ import {
   RAPID_SCROLL_OVERSCAN_IDLE_MS,
 } from "../../lib/adaptiveScrollOverscan";
 import {
+  computeCenteredRevealScrollTop,
   computeHunkRevealScrollTop,
   computeLineAlignmentScrollTop,
   computeLineRevealScrollTop,
@@ -337,6 +338,7 @@ export function DiffPane({
   activeNoteId,
   noteActionKeyLabels,
   cursorLine = "off",
+  cursorScroll = "nearest",
   lineCursor = null,
   lineCursorRevealRequest = { id: 0, placement: "nearest" },
   lineCursorAlignmentRequest = { id: 0, alignment: "center" },
@@ -421,6 +423,8 @@ export function DiffPane({
   activeNoteId?: string;
   noteActionKeyLabels?: { delete: string; edit: string; reply: string };
   cursorLine?: CursorLine;
+  /** Where reveals land the current line; `center` keeps it mid-viewport on every move. */
+  cursorScroll?: CursorScroll;
   lineCursor?: LineCursor | null;
   lineCursorRevealRequest?: {
     id: number;
@@ -2329,12 +2333,19 @@ export function DiffPane({
       // hunk can request a top offset that is no longer reachable once the viewport hits EOF.
       // Using the reachable value keeps the reveal logic from fighting later manual scrolling.
       if (selectedNoteBounds) {
-        const revealScrollTop = computeHunkRevealScrollTop({
-          hunkTop: selectedNoteBounds.top,
-          hunkHeight: selectedNoteBounds.height,
-          preferredTopPadding,
-          viewportHeight,
-        });
+        const revealScrollTop =
+          cursorScroll === "center"
+            ? computeCenteredRevealScrollTop({
+                top: selectedNoteBounds.top,
+                height: selectedNoteBounds.height,
+                viewportHeight,
+              })
+            : computeHunkRevealScrollTop({
+                hunkTop: selectedNoteBounds.top,
+                hunkHeight: selectedNoteBounds.height,
+                preferredTopPadding,
+                viewportHeight,
+              });
         // Floor against the owning file's body boundary so the viewport never crosses above it
         // and triggers a pinned-header flash.
         const flooredScrollTop = Math.max(revealScrollTop, selectedFileBodyTop);
@@ -2364,12 +2375,17 @@ export function DiffPane({
           ? Math.max(0, renderedBottom - renderedTop)
           : selectedEstimatedHunkBounds.height;
 
-        const revealScrollTop = computeHunkRevealScrollTop({
-          hunkTop,
-          hunkHeight,
-          preferredTopPadding,
-          viewportHeight,
-        });
+        // Centered scrolling lands the hunk's first row mid-viewport, where the current line
+        // will sit once it settles on that hunk, instead of padding the whole hunk from the top.
+        const revealScrollTop =
+          cursorScroll === "center"
+            ? computeCenteredRevealScrollTop({ top: hunkTop, height: 1, viewportHeight })
+            : computeHunkRevealScrollTop({
+                hunkTop,
+                hunkHeight,
+                preferredTopPadding,
+                viewportHeight,
+              });
         // Floor against the owning file's body boundary so the viewport never crosses above it
         // and triggers a pinned-header flash.
         const flooredScrollTop = Math.max(revealScrollTop, selectedFileBodyTop);
@@ -2401,6 +2417,7 @@ export function DiffPane({
   }, [
     clampReviewScrollTop,
     clearPendingSelectionRevealTimers,
+    cursorScroll,
     pinnedHeaderFileId,
     scrollRef,
     scrollViewport.height,
@@ -2444,22 +2461,29 @@ export function DiffPane({
     const viewportHeight = scrollBox.viewport.height || scrollViewport.height;
     // A jump lands the line where hunk and note reveals land theirs; stepping only closes the
     // gap to the viewport edge, so a held key does not drag the whole stream past the marker.
+    // Centered scrolling drops that distinction: every move puts the line mid-viewport.
     const revealScrollTop =
       requestTarget && bounds.height > viewportHeight
         ? bounds.top
-        : lineCursorRevealRequest.placement === "reveal"
-          ? computeHunkRevealScrollTop({
-              hunkTop: bounds.top,
-              hunkHeight: bounds.height,
-              preferredTopPadding: Math.max(2, Math.floor(viewportHeight * 0.25)),
+        : cursorScroll === "center"
+          ? computeCenteredRevealScrollTop({
+              top: bounds.top,
+              height: bounds.height,
               viewportHeight,
             })
-          : computeLineRevealScrollTop({
-              lineTop: bounds.top,
-              lineHeight: bounds.height,
-              scrollTop: scrollBox.scrollTop,
-              viewportHeight,
-            });
+          : lineCursorRevealRequest.placement === "reveal"
+            ? computeHunkRevealScrollTop({
+                hunkTop: bounds.top,
+                hunkHeight: bounds.height,
+                preferredTopPadding: Math.max(2, Math.floor(viewportHeight * 0.25)),
+                viewportHeight,
+              })
+            : computeLineRevealScrollTop({
+                lineTop: bounds.top,
+                lineHeight: bounds.height,
+                scrollTop: scrollBox.scrollTop,
+                viewportHeight,
+              });
     // A named line is the final scroll policy for this request, exactly as an
     // explicit alignment is: a cross-file reveal changes the selection, and the
     // selection reveal it schedules would otherwise run its zero-delay retry
@@ -2477,6 +2501,7 @@ export function DiffPane({
   }, [
     clampReviewScrollTop,
     clearPendingFileTopAlign,
+    cursorScroll,
     lineCursor,
     lineCursorBoundsOf,
     lineCursorRevealRequest,

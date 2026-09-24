@@ -40,6 +40,16 @@ Mark the current line as a full-row highlight or on its line number. `off` resto
 
 ---
 
+**`cursor_scroll`**
+
+Where a moved current line lands. `nearest` scrolls only far enough to bring it on screen; `center` keeps it at the middle of the viewport, so stepping and hunk jumps scroll the stream around it.
+
+- **Type:** string
+- **Accepted:** `nearest` or `center`
+- **Built-in default:** `nearest`
+
+---
+
 **`vcs`**
 
 Select the version-control adapter explicitly. An explicit id outranks detection; an id no loaded backend owns falls back to detection with a startup notice.

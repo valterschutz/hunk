@@ -287,6 +287,28 @@ describe("config resolution", () => {
     expect(resolved.input.options.cursorLine).toBe("row");
   });
 
+  test("reads cursor_scroll from config and falls back to nearest for an unknown placement", () => {
+    const home = createTempDir("hunk-config-home-");
+    const repo = createTempDir("hunk-config-repo-");
+    createRepo(repo);
+
+    mkdirSync(join(home, ".config", "hunk"), { recursive: true });
+    writeFileSync(join(home, ".config", "hunk", "config.toml"), 'cursor_scroll = "center"');
+
+    const centered = resolveConfiguredCliInput(createPatchPagerInput(), {
+      cwd: repo,
+      env: { HOME: home },
+    });
+    expect(centered.input.options.cursorScroll).toBe("center");
+
+    writeFileSync(join(home, ".config", "hunk", "config.toml"), 'cursor_scroll = "sideways"');
+    const unknown = resolveConfiguredCliInput(createPatchPagerInput(), {
+      cwd: repo,
+      env: { HOME: home },
+    });
+    expect(unknown.input.options.cursorScroll).toBe("nearest");
+  });
+
   test("starts pager mode with the menu bar hidden unless a later layer asks for it", () => {
     const home = createTempDir("hunk-config-home-");
     const repo = createTempDir("hunk-config-repo-");

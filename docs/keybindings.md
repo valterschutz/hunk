@@ -165,7 +165,11 @@ Review and shared commands:
 | `hunk.view.openThemeSelector`                  | Choose theme                                                 | `t`                          |
 | `hunk.view.toggleAgentNotes`                   | Toggle agent notes                                           | `a`                          |
 | `hunk.view.toggleCopyDecorations`              | Toggle copy decorations                                      | _(none)_                     |
-| `hunk.view.toggleDecidedHunks`                 | Show or hide decided hunks                                   | `V`                          |
+| `hunk.view.toggleDecidedHunks`                 | Show every hunk state, or only undecided hunks               | `V`                          |
+| `hunk.view.toggleUndecidedHunks`               | Show or hide undecided hunks                                 | _(none)_                     |
+| `hunk.view.toggleAcceptedHunks`                | Show or hide accepted hunks                                  | _(none)_                     |
+| `hunk.view.toggleRejectedHunks`                | Show or hide rejected hunks                                  | _(none)_                     |
+| `hunk.view.toggleFixedHunks`                   | Show or hide fixed hunks                                     | _(none)_                     |
 | `hunk.view.toggleFilesPane`                    | Toggle files pane                                            | `s`                          |
 | `hunk.view.toggleHunkHeaders`                  | Toggle hunk headers                                          | `m`                          |
 | `hunk.view.toggleLineNumbers`                  | Toggle line numbers                                          | `l`                          |

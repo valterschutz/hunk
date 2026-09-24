@@ -1,9 +1,10 @@
 /**
- * Hides the hunks a reviewer has already decided on from the files a review renders.
+ * Hides the hunks whose decision state the reviewer filtered out from the files a review renders.
  *
  * A reviewer working through a commit accepts or rejects each hunk; the decision has to
  * survive a restart, a rebase that shifts line numbers, and a sync to another machine, so a
- * hunk is identified by its content (`reviewHunkIdentity`) rather than by its position.
+ * hunk is identified by its content (`reviewHunkIdentity`) rather than by its position. By default only undecided hunks are shown;
+ * the reviewer can show or hide each state (undecided, accepted, rejected, fixed) on its own.
  *
  * Hiding rebuilds each file's parsed metadata with the decided hunks removed, so every
  * downstream consumer (row planning, navigation, notes, identity) sees a smaller diff
@@ -19,12 +20,12 @@
  */
 import { reviewHunkIdentity, reviewHunkLines } from "../review/hunkIdentity";
 import { reviewContentDigest } from "../review/identity";
-import type { HunkDecision } from "../review/reviewFile";
+import type { HunkDecision, HunkState } from "../review/reviewFile";
 import { hunkRows, relayoutHunks, type DiffHunk } from "./hunkLayout";
 import type { DiffFile } from "./model";
 
 export interface HunkDecisionsProjection {
-  /** The files to review, with decided hunks removed and fully decided files dropped. */
+  /** The files to review, with filtered-out hunks removed and files left empty dropped. */
   files: DiffFile[];
   /** For each kept file id, the identity of each kept hunk, in hunk order. */
   hunkIdentitiesByFileId: ReadonlyMap<string, readonly string[]>;
@@ -98,15 +99,21 @@ function withHunks(
   };
 }
 
+/** The state a hunk is filtered by: its decision, or undecided without one. */
+export function hunkState(decision: HunkDecision | undefined): HunkState {
+  return decision ?? "undecided";
+}
+
 /**
- * Remove every decided hunk from the files, dropping files that have nothing left.
+ * Remove every hunk whose state is not shown, dropping files that have nothing left.
  *
- * A file with no decided hunks is returned as the same object, so memoized consumers
- * keep their work for it.
+ * A file that loses no hunk is returned as the same object, so memoized consumers keep their
+ * work for it.
  */
-export function hideDecidedHunks(
+export function filterHunksByState(
   files: readonly DiffFile[],
   decisions: ReadonlyMap<string, HunkDecision>,
+  shown: ReadonlySet<HunkState>,
 ): HunkDecisionsProjection {
   const hunkIdentitiesByFileId = new Map<string, readonly string[]>();
   let hiddenHunkCount = 0;
@@ -122,7 +129,7 @@ export function hideDecidedHunks(
     const hiddenIdentities: string[] = [];
     file.metadata.hunks.forEach((hunk, index) => {
       const identity = identities[index]!;
-      if (decisions.has(identity)) {
+      if (!shown.has(hunkState(decisions.get(identity)))) {
         hiddenIdentities.push(identity);
       } else {
         kept.push(hunk);

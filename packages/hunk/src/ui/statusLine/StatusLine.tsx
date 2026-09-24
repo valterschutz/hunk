@@ -8,11 +8,20 @@
  * deterministic and tested without a renderer.
  */
 import type { MouseEvent as TuiMouseEvent } from "@opentui/core";
+import type { HunkState } from "../../core/review/reviewFile";
+import { hunkStateRailColor } from "../diff/rowStyle";
 import { isEscapeKey } from "../lib/keyboard";
 import { symbolicTextAttributes, symbolicToneColor } from "../lib/symbolicSpans";
 import type { AppTheme } from "../themes";
 import { STATUS_LINE_PADDING, layoutStatusLine, type PlacedStatusItem } from "./layout";
-import type { StatusLineSnapshot } from "./types";
+import type { StatusLineSnapshot, StatusSpan } from "./types";
+
+/** Resolve a span's tone against the theme, rail tones included. */
+function statusSpanColor(tone: StatusSpan["tone"], theme: AppTheme) {
+  return tone?.startsWith("rail-")
+    ? hunkStateRailColor(theme, tone.slice("rail-".length) as HunkState)
+    : symbolicToneColor(tone as Exclude<StatusSpan["tone"], `rail-${string}`>, theme);
+}
 
 /** Report whether the row has anything to show, so the host can drop it entirely when idle. */
 export function statusLineHasContent(snapshot: StatusLineSnapshot, badge: string | null) {
@@ -30,7 +39,7 @@ function PlacedItems({ items, theme }: { items: readonly PlacedStatusItem[]; the
       {item.spans.map((span, spanIndex) => (
         <text
           key={spanIndex}
-          fg={symbolicToneColor(span.tone, theme)}
+          fg={statusSpanColor(span.tone, theme)}
           attributes={symbolicTextAttributes(span.attributes)}
         >
           {span.text}

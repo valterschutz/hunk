@@ -558,12 +558,52 @@ const BUILTIN_COMMANDS = [
   },
   {
     id: "hunk.view.toggleDecidedHunks",
-    title: "Show or hide decided hunks",
+    title: "Show every hunk state, or only undecided hunks",
     category: "view",
     defaultKeys: ["V"],
     locus: "client-local",
     publicToExtensions: true,
     closesMenu: true,
+  },
+  {
+    id: "hunk.view.toggleUndecidedHunks",
+    title: "Show or hide undecided hunks",
+    category: "view",
+    // Ships unbound: the View menu reaches it, and `V` covers the common switch.
+    defaultKeys: [],
+    locus: "client-local",
+    publicToExtensions: true,
+    closesMenu: false,
+  },
+  {
+    id: "hunk.view.toggleAcceptedHunks",
+    title: "Show or hide accepted hunks",
+    category: "view",
+    // Ships unbound: the View menu reaches it, and `V` covers the common switch.
+    defaultKeys: [],
+    locus: "client-local",
+    publicToExtensions: true,
+    closesMenu: false,
+  },
+  {
+    id: "hunk.view.toggleRejectedHunks",
+    title: "Show or hide rejected hunks",
+    category: "view",
+    // Ships unbound: the View menu reaches it, and `V` covers the common switch.
+    defaultKeys: [],
+    locus: "client-local",
+    publicToExtensions: true,
+    closesMenu: false,
+  },
+  {
+    id: "hunk.view.toggleFixedHunks",
+    title: "Show or hide fixed hunks",
+    category: "view",
+    // Ships unbound: the View menu reaches it, and `V` covers the common switch.
+    defaultKeys: [],
+    locus: "client-local",
+    publicToExtensions: true,
+    closesMenu: false,
   },
   {
     id: "hunk.review.previousHunk",

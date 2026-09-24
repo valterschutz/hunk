@@ -20,12 +20,15 @@ import type { ExtensionReviewReloadResult } from "../extension-api/types";
 import {
   diffHunkIdentity,
   fileReviewStatus,
-  hideDecidedHunks,
+  filterHunksByState,
 } from "../core/changeset/hunkDecisions";
 import {
+  HUNK_DECISIONS,
+  HUNK_STATES,
   persistableNoteRecords,
   restoreNoteRecords,
   type HunkDecision,
+  type HunkState,
 } from "../core/review/reviewFile";
 import { experimentalFeatureEnabled, resolveExperimentalDiffFiles } from "../core/run/experimental";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../core/run/reviewGap";
@@ -141,7 +144,7 @@ import {
   isExtensionStatusItemId,
 } from "./statusLine/extensionControls";
 import { StatusLine, statusLineHasContent } from "./statusLine/StatusLine";
-import type { StatusItem, StatusLineSnapshot } from "./statusLine/types";
+import type { StatusItem, StatusLineSnapshot, StatusSpan } from "./statusLine/types";
 import { useStatusLine } from "./statusLine/useStatusLine";
 
 /**
@@ -287,17 +290,18 @@ export function App({
       ),
     [experimentalFiles],
   );
-  const [showDecidedHunks, setShowDecidedHunks] = useState(
-    bootstrap.input.options.showDecidedHunks ?? false,
+  const [shownHunkStates, setShownHunkStates] = useState<ReadonlySet<HunkState>>(
+    () => new Set(bootstrap.input.options.shownHunks ?? ["undecided"]),
   );
+  const decidedHunksShown = HUNK_DECISIONS.some((decision) => shownHunkStates.has(decision));
   const decisionsProjection = useMemo(
-    () => hideDecidedHunks(experimentalFiles, showDecidedHunks ? new Map() : hunkDecisions),
-    [experimentalFiles, hunkDecisions, showDecidedHunks],
+    () => filterHunksByState(experimentalFiles, hunkDecisions, shownHunkStates),
+    [experimentalFiles, hunkDecisions, shownHunkStates],
   );
   const reviewFiles = decisionsProjection.files;
-  // While decided hunks are shown, the rail marks each one with its decision.
+  // While any decided state is shown, the rail marks each decided hunk with its decision.
   const hunkDecisionsByFileId = useMemo(() => {
-    if (!showDecidedHunks || hunkDecisions.size === 0) return undefined;
+    if (!decidedHunksShown || hunkDecisions.size === 0) return undefined;
     const byFileId = new Map<string, ReadonlyMap<number, HunkDecision>>();
     for (const [fileId, identities] of decisionsProjection.hunkIdentitiesByFileId) {
       const decisions = new Map<number, HunkDecision>();
@@ -308,7 +312,7 @@ export function App({
       if (decisions.size > 0) byFileId.set(fileId, decisions);
     }
     return byFileId;
-  }, [decisionsProjection, hunkDecisions, showDecidedHunks]);
+  }, [decidedHunksShown, decisionsProjection, hunkDecisions]);
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
   const noteGeometryRef = useRef<AgentNoteGeometrySnapshot | null>(null);
@@ -652,16 +656,22 @@ export function App({
         priority: 1,
       });
     }
-    if (decisionsProjection.hiddenHunkCount > 0) {
+    if (reviewFileStore.enabled) {
+      // One dot per hunk state in its rail color: filled while shown, hollow while filtered out.
       const count = decisionsProjection.hiddenHunkCount;
       hostItems.push({
-        id: "host:decided",
+        id: "host:hunk-states",
         spans: [
-          { text: `${count} decided ${count === 1 ? "hunk" : "hunks"} hidden`, tone: "muted" },
+          ...HUNK_STATES.flatMap((state, index): StatusSpan[] => [
+            ...(index > 0 ? [{ text: " " }] : []),
+            { text: shownHunkStates.has(state) ? "●" : "○", tone: `rail-${state}` },
+          ]),
+          ...(count > 0 ? [{ text: ` ${count} hidden`, tone: "muted" as const }] : []),
         ],
         priority: 1,
       });
-    } else if (showDecidedHunks && selectedHunkDecision !== undefined) {
+    }
+    if (decidedHunksShown && selectedHunkDecision !== undefined) {
       hostItems.push({
         id: "host:decided",
         spans: [{ text: `selected hunk ${selectedHunkDecision}`, tone: "muted" }],
@@ -683,8 +693,10 @@ export function App({
   }, [
     daemonNoticeText,
     review.filter,
+    reviewFileStore.enabled,
     selectedHunkDecision,
-    showDecidedHunks,
+    decidedHunksShown,
+    shownHunkStates,
     statusLineState,
     statusNoticeText,
     decisionsProjection.hiddenHunkCount,
@@ -1391,9 +1403,22 @@ export function App({
     decideSelectedHunk((current) => (current === "fixed" ? undefined : "fixed"));
   }, [decideSelectedHunk]);
 
-  /** Show decided hunks in the stream again, or hide them. */
+  /** Switch between showing every hunk state and showing only undecided hunks. */
   const toggleDecidedHunks = useCallback(() => {
-    setShowDecidedHunks((current) => !current);
+    setShownHunkStates((current) =>
+      HUNK_STATES.every((state) => current.has(state))
+        ? new Set<HunkState>(["undecided"])
+        : new Set(HUNK_STATES),
+    );
+  }, []);
+
+  /** Show the hunks in one state, or hide them. */
+  const toggleHunkState = useCallback((state: HunkState) => {
+    setShownHunkStates((current) => {
+      const next = new Set(current);
+      if (!next.delete(state)) next.add(state);
+      return next;
+    });
   }, []);
 
   // Notes the review file holds for hunks this document shows come back after every document
@@ -1662,6 +1687,7 @@ export function App({
         rejectSelectedHunk,
         markSelectedHunkFixed,
         toggleDecidedHunks,
+        toggleHunkState,
       }).map((command) =>
         returnToHistory && command.id === "hunk.app.quit"
           ? { ...command, title: "Back to history" }
@@ -1720,7 +1746,7 @@ export function App({
     showHunkHeaders,
     showLineNumbers,
     showMenuBar,
-    showDecidedHunks,
+    shownHunkStates,
     wrapLines,
   });
 
@@ -2083,7 +2109,7 @@ export function App({
           onHoverItem={setActiveMenuItemIndex}
           onSelectItem={(entry) => {
             entry.action();
-            closeMenu();
+            if (!entry.keepsMenuOpen) closeMenu();
           }}
         />
       ) : null}

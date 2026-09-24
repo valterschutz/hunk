@@ -12,10 +12,10 @@ import type {
   ExtensionPromptLineOptions,
   ExtensionStatusItem,
   ExtensionStatusLineControls,
+  ExtensionStatusSpan,
 } from "../../extension-api/types";
 import { extensionToastPrefix } from "../lib/extensionNotifications";
 import type { StatusLineStore } from "./store";
-import type { StatusSpan } from "./types";
 
 const EXTENSION_ITEM_PREFIX = "ext:";
 const TONES = new Set(["muted", "accent", "accent-muted", "syntax", "added", "removed"]);
@@ -38,7 +38,7 @@ function normalizeItemId(method: string, id: unknown) {
 }
 
 /** Copy and validate one span so a later mutation by the extension cannot change the row. */
-function normalizeSpan(span: unknown): StatusSpan {
+function normalizeSpan(span: unknown): ExtensionStatusSpan {
   if (span === null || typeof span !== "object") {
     invalid("statusLine.set", "spans must be objects with string text.");
   }
@@ -56,10 +56,10 @@ function normalizeSpan(span: unknown): StatusSpan {
   }
   return {
     text,
-    ...(tone === undefined ? {} : { tone: tone as StatusSpan["tone"] }),
+    ...(tone === undefined ? {} : { tone: tone as ExtensionStatusSpan["tone"] }),
     ...(attributes === undefined
       ? {}
-      : { attributes: [...(attributes as NonNullable<StatusSpan["attributes"]>)] }),
+      : { attributes: [...(attributes as NonNullable<ExtensionStatusSpan["attributes"]>)] }),
   };
 }
 

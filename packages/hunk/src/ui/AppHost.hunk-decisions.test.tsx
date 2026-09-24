@@ -9,7 +9,7 @@ import { createTestDiffFile, lines } from "../../../../test/helpers/diff-helpers
 import { capturedTestColorToHex } from "../../../../test/helpers/test-color-helpers";
 import { diffHunkIdentity } from "../core/changeset/hunkDecisions";
 import { COMMIT_STATUS_FILE_NAME, createReviewFileStore } from "../core/process/reviewFileStore";
-import type { HunkRecord } from "../core/review/reviewFile";
+import { HUNK_STATES, type HunkRecord, type HunkState } from "../core/review/reviewFile";
 import { resolveTheme } from "./themes";
 
 const { TestAppHost: AppHost } = await import("../../../../test/helpers/app-host");
@@ -58,7 +58,7 @@ function createFiles() {
 
 function createBootstrap(
   reviewFile: string | undefined,
-  { showDecidedHunks, commit = true }: { showDecidedHunks?: boolean; commit?: boolean } = {},
+  { shownHunks, commit = true }: { shownHunks?: HunkState[]; commit?: boolean } = {},
 ) {
   const bootstrap = createTestVcsAppBootstrap({
     changesetId: "changeset:hunk-decisions",
@@ -66,7 +66,7 @@ function createBootstrap(
     files: createFiles(),
     vcsOptions: {
       ...(reviewFile === undefined ? {} : { reviewFile }),
-      ...(showDecidedHunks === undefined ? {} : { showDecidedHunks }),
+      ...(shownHunks === undefined ? {} : { shownHunks }),
     },
   });
   return commit
@@ -158,14 +158,14 @@ describe("AppHost hunk decisions", () => {
     let frame = setup.captureCharFrame();
     expect(frame).toContain("first change");
     expect(frame).toContain("second change");
-    expect(frame).not.toContain("decided");
+    expect(frame).not.toContain("hidden");
 
     await pressKeys(setup, "+");
 
     frame = setup.captureCharFrame();
     expect(frame).not.toContain("first change");
     expect(frame).toContain("second change");
-    expect(frame).toContain("1 decided hunk hidden");
+    expect(frame).toContain("1 hidden");
     const sample = createFiles()[0]!;
     expect(hunkRecords(reviewFile)).toEqual([
       {
@@ -191,7 +191,7 @@ describe("AppHost hunk decisions", () => {
 
     frame = setup.captureCharFrame();
     expect(frame).toContain("first change");
-    expect(frame).not.toContain("decided");
+    expect(frame).not.toContain("hidden");
 
     // The selection followed the second hunk while the first was hidden; step back onto
     // the accepted one, which the status line then names, and + clears it.
@@ -208,7 +208,7 @@ describe("AppHost hunk decisions", () => {
 
     frame = setup.captureCharFrame();
     expect(frame).toContain("first change");
-    expect(frame).not.toContain("decided");
+    expect(frame).not.toContain("hidden");
     expect(hunkRecords(reviewFile)).toEqual([]);
   });
 
@@ -223,7 +223,7 @@ describe("AppHost hunk decisions", () => {
     let frame = setup.captureCharFrame();
     expect(frame).not.toContain("first change");
     expect(frame).not.toContain("other change");
-    expect(frame).toContain("3 decided hunks hidden");
+    expect(frame).toContain("3 hidden");
     expect(commitStatus(reviewFile)).toBe(`${COMMIT} reviewed\n`);
     expect(hunkRecords(reviewFile).find((record) => record.state === "rejected")).toBeDefined();
     expect(hunkRecords(reviewFile).filter((record) => record.state === "accepted")).toHaveLength(2);
@@ -306,7 +306,7 @@ describe("AppHost hunk decisions", () => {
     expect(hunkRecords(reviewFile)).toEqual([]);
   });
 
-  test("show_decided_hunks starts with decided hunks shown, and V still hides them", async () => {
+  test("shown_hunks starts with every state shown, and V still hides the decided ones", async () => {
     const reviewFile = createReviewFile();
     const sample = createFiles()[0]!;
     const hunk = sample.metadata.hunks[0]!;
@@ -321,7 +321,7 @@ describe("AppHost hunk decisions", () => {
       state: "accepted",
     });
     setup = await testRender(
-      <AppHost bootstrap={createBootstrap(reviewFile, { showDecidedHunks: true })} />,
+      <AppHost bootstrap={createBootstrap(reviewFile, { shownHunks: [...HUNK_STATES] })} />,
       WIDE,
     );
     await flush(setup);
@@ -334,7 +334,64 @@ describe("AppHost hunk decisions", () => {
 
     frame = setup.captureCharFrame();
     expect(frame).not.toContain("first change");
-    expect(frame).toContain("1 decided hunk hidden");
+    expect(frame).toContain("1 hidden");
+  });
+
+  test("shows only the chosen states, with one rail-colored dot per state", async () => {
+    const reviewFile = createReviewFile();
+    const [sample, other] = createFiles();
+    const store = createReviewFileStore(reviewFile);
+    const decide = (file: typeof sample, index: number, state: "accepted" | "rejected") => {
+      const hunk = file!.metadata.hunks[index]!;
+      store.setHunkDecision({
+        hunk: {
+          id: diffHunkIdentity(file!, hunk),
+          repo: "~/repo",
+          path: file!.path,
+          oldStart: hunk.deletionStart,
+          newStart: hunk.additionStart,
+        },
+        state,
+      });
+    };
+    decide(sample, 0, "rejected");
+    decide(other, 0, "accepted");
+    setup = await testRender(
+      <AppHost bootstrap={createBootstrap(reviewFile, { shownHunks: ["rejected"] })} />,
+      WIDE,
+    );
+    await flush(setup);
+
+    let frame = setup.captureCharFrame();
+    expect(frame).toContain("first change");
+    expect(frame).not.toContain("second change");
+    expect(frame).not.toContain("other change");
+    expect(frame).toContain("○ ○ ● ○ 2 hidden");
+    const theme = resolveTheme("github-dark-default", null);
+    const dots = setup
+      .captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .filter((span) => span.text === "●" || span.text === "○")
+      .map((span) => capturedTestColorToHex(span.fg)?.toLowerCase());
+    expect(dots).toEqual(
+      [
+        theme.contextRailColor,
+        theme.acceptedRailColor,
+        theme.rejectedRailColor,
+        theme.fixedRailColor,
+      ].map((color) => color.toLowerCase()),
+    );
+
+    await pressKeys(setup, "V");
+    frame = setup.captureCharFrame();
+    expect(frame).toContain("● ● ● ●");
+    expect(frame).toContain("other change");
+
+    await pressKeys(setup, "V");
+    frame = setup.captureCharFrame();
+    expect(frame).toContain("● ○ ○ ○ 2 hidden");
+    expect(frame).toContain("second change");
+    expect(frame).not.toContain("first change");
   });
 
   test("a review of uncommitted changes records no commit review", async () => {

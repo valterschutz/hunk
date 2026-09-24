@@ -1,5 +1,5 @@
 import { themeTuning, TRANSPARENT_BACKGROUND, type AppTheme } from "../themes";
-import type { HunkDecision } from "../../core/review/reviewFile";
+import type { HunkDecision, HunkState } from "../../core/review/reviewFile";
 import { blendHex, contrastRatio, hexColorDistance } from "../lib/color";
 import type { ExtensionLineHighlightTone } from "../../extension-api/types";
 import type { DiffRow, RenderSpan } from "./diffRowModel";
@@ -116,6 +116,11 @@ export function decisionRailColor(theme: AppTheme, decision: HunkDecision) {
     case "fixed":
       return theme.fixedRailColor;
   }
+}
+
+/** The rail color of a hunk in one state: its decision's color, or the neutral rail undecided. */
+export function hunkStateRailColor(theme: AppTheme, state: HunkState) {
+  return state === "undecided" ? neutralRailColor(theme) : decisionRailColor(theme, state);
 }
 
 /**

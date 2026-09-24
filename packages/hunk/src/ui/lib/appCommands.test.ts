@@ -81,6 +81,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     rejectSelectedHunk: record("rejectSelectedHunk"),
     markSelectedHunkFixed: record("markSelectedHunkFixed"),
     toggleDecidedHunks: record("toggleDecidedHunks"),
+    toggleHunkState: record("toggleHunkState"),
     triggerRefreshCurrentInput: record("triggerRefreshCurrentInput"),
   };
 
@@ -328,7 +329,11 @@ describe("builtinCommandKeyDefaults", () => {
       "hunk.view.cursorLineNumber",
       "hunk.view.cursorLineOff",
       "hunk.view.cursorLineRow",
+      "hunk.view.toggleAcceptedHunks",
       "hunk.view.toggleCopyDecorations",
+      "hunk.view.toggleFixedHunks",
+      "hunk.view.toggleRejectedHunks",
+      "hunk.view.toggleUndecidedHunks",
     ]);
   });
 });
@@ -518,7 +523,7 @@ describe("command catalog parity", () => {
       showHunkHeaders: true,
       showLineNumbers: true,
       showMenuBar: true,
-      showDecidedHunks: false,
+      shownHunkStates: new Set(["undecided"]),
       wrapLines: false,
     });
     const menuCommandIds = Object.values(menus)

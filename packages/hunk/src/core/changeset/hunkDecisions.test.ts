@@ -3,7 +3,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { createTestDiffFile } from "../../../../../test/helpers/diff-helpers";
 import { buildDiffFile } from "./diffFile";
 import type { DiffFile } from "./model";
-import { diffHunkIdentity, fileReviewStatus, hideDecidedHunks } from "./hunkDecisions";
+import { diffHunkIdentity, fileReviewStatus, filterHunksByState } from "./hunkDecisions";
 
 const HUNK_ONE = `@@ -1,6 +1,6 @@
  line 1
@@ -131,11 +131,13 @@ describe("fileReviewStatus", () => {
   });
 });
 
-describe("hideDecidedHunks", () => {
+const UNDECIDED = new Set(["undecided"] as const);
+
+describe("filterHunksByState", () => {
   test("returns the same file object and every hunk identity when nothing is decided", () => {
     const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
 
-    const projection = hideDecidedHunks([file], new Map());
+    const projection = filterHunksByState([file], new Map(), UNDECIDED);
 
     expect(projection.files[0]).toBe(file);
     expect(projection.hiddenHunkCount).toBe(0);
@@ -149,7 +151,7 @@ describe("hideDecidedHunks", () => {
     const expected = fileFromHunks([HUNK_ONE, HUNK_THREE]);
     const hidden = diffHunkIdentity(file, file.metadata.hunks[1]!);
 
-    const projection = hideDecidedHunks([file], new Map([[hidden, "accepted"]]));
+    const projection = filterHunksByState([file], new Map([[hidden, "accepted"]]), UNDECIDED);
     const [kept] = projection.files;
 
     expect(projection.hiddenHunkCount).toBe(1);
@@ -182,7 +184,7 @@ describe("hideDecidedHunks", () => {
     });
     const hidden = diffHunkIdentity(file, file.metadata.hunks[0]!);
 
-    const [kept] = hideDecidedHunks([file], new Map([[hidden, "accepted"]])).files;
+    const [kept] = filterHunksByState([file], new Map([[hidden, "accepted"]]), UNDECIDED).files;
 
     expect(kept?.metadata.hunks.map(geometry)).toEqual(expected.metadata.hunks.map(geometry));
     expect(kept?.metadata.splitLineCount).toBe(expected.metadata.splitLineCount);
@@ -199,17 +201,35 @@ describe("hideDecidedHunks", () => {
       [diffHunkIdentity(third, third.metadata.hunks[0]!), "accepted"],
     ]);
 
-    const projection = hideDecidedHunks([first, second, third], decided);
+    const projection = filterHunksByState([first, second, third], decided, UNDECIDED);
 
     expect(projection.files.map((file) => file.path)).toEqual(["a.txt"]);
     expect(projection.hiddenHunkCount).toBe(3);
     expect([...projection.hunkIdentitiesByFileId.keys()]).toEqual([first.id]);
   });
 
+  test("shows exactly the hunks whose state is shown", () => {
+    const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
+    const [one, two, three] = file.metadata.hunks.map((hunk) => diffHunkIdentity(file, hunk));
+    const decisions = new Map<string, "accepted" | "rejected">([
+      [one!, "accepted"],
+      [two!, "rejected"],
+    ]);
+
+    const rejected = filterHunksByState([file], decisions, new Set(["rejected"] as const));
+    expect(rejected.hunkIdentitiesByFileId.get(file.id)).toEqual([two!]);
+    expect(rejected.hiddenHunkCount).toBe(2);
+
+    const open = filterHunksByState([file], decisions, new Set(["undecided", "rejected"] as const));
+    expect(open.hunkIdentitiesByFileId.get(file.id)).toEqual([two!, three!]);
+
+    expect(filterHunksByState([file], decisions, new Set()).files).toEqual([]);
+  });
+
   test("passes a file without hunks through untouched", () => {
     const file = fileFromHunks([]);
 
-    const projection = hideDecidedHunks([file], new Map([["anything", "accepted"]]));
+    const projection = filterHunksByState([file], new Map([["anything", "accepted"]]), UNDECIDED);
 
     expect(projection.files[0]).toBe(file);
     expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual([]);

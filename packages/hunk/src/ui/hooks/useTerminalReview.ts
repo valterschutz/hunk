@@ -48,6 +48,8 @@ import {
   selectExpandedGapIdsByFileKey,
   selectNavigableStoredReviewNotes,
   selectNormalizedSelection,
+  selectReviewFileByKey,
+  selectReviewGapSource,
   selectThreadedStoredReviewNotes,
   selectVisibleThreadedStoredReviewNotes,
 } from "../../core/review/selectors";
@@ -124,6 +126,7 @@ import {
   resolveReviewNavigationTarget,
 } from "../lib/reviewState";
 
+const EMPTY_FILE_KEYS: ReadonlySet<string> = new Set();
 const EMPTY_AGENT_LINE_HIGHLIGHTS: ReadonlyMap<string, readonly ValidatedLineHighlight[]> =
   new Map();
 
@@ -216,6 +219,8 @@ export interface TerminalReview {
   /** The store's monotonic revision, reported to anyone ordering this review's publications. */
   stateRevision: number;
   expandedGapsByFileId: Record<string, ReadonlySet<string>>;
+  /** Files the reviewer asked to read whole, by file id. */
+  wholeFileIds: ReadonlySet<string>;
   filter: string;
   draftNote: DraftReviewNote | null;
   liveCommentCount: number;
@@ -423,6 +428,13 @@ export function useTerminalReview({
   // A collapse retires rows the reviewer may have stepped onto, so a toggle records where the
   // line stood before the gap opened and the next measured list decides whether to go back.
   const pendingLineCursorRef = useRef<{ kind: "restore"; cursor: LineCursor } | null>(null);
+  // Files the reviewer asked to read whole. The view mode is the reviewer's, not a fact about
+  // expansion: every gap open by hand still renders as hunks, and a gap folded by hand inside
+  // a whole file brings its hunk chrome back until the file is whole again.
+  const [wholeFileKeys, setWholeFileKeys] = useState<ReadonlySet<string>>(EMPTY_FILE_KEYS);
+  // Whole-file requests whose source had not loaded yet. A partial patch only offers its
+  // trailing gap once the source sizes it, so the rest of the request waits for the load.
+  const pendingWholeFileKeysRef = useRef(new Set<string>());
   // Monotonic suffix that keeps `user:*` note ids unique within one millisecond.
   const userNoteSequenceRef = useRef(0);
   const draftNoteSequenceRef = useRef(0);
@@ -497,6 +509,14 @@ export function useTerminalReview({
     const file = draft ? fileByKey.get(draft.fileKey) : undefined;
     return draft && file ? storedDraftToDraftNote(draft, file) : null;
   }, [fileByKey, state.draftNote]);
+  const wholeFileIds = useMemo(() => {
+    const result = new Set<string>();
+    for (const fileKey of wholeFileKeys) {
+      const file = fileByKey.get(fileKey);
+      if (file) result.add(file.id);
+    }
+    return result as ReadonlySet<string>;
+  }, [fileByKey, wholeFileKeys]);
   const expandedGaps = state.expandedGaps;
   const expandedGapsByFileId = useMemo(() => {
     const result: Record<string, ReadonlySet<string>> = {};
@@ -1055,22 +1075,57 @@ export function useTerminalReview({
     const snapshot = store.getSnapshot();
     const { fileKey } = selectNormalizedSelection(snapshot);
     const file = fileKey ? fileByKey.get(fileKey) : undefined;
-    if (!fileKey || !file?.sourceFetcher) {
-      return;
-    }
-    const gapIds = reviewGapIds(file.metadata);
-    if (gapIds.length === 0) {
+    const reviewFile = selectReviewFileByKey(snapshot, fileKey);
+    if (!fileKey || !file?.sourceFetcher || !reviewFile) {
       return;
     }
 
+    const gapIds = reviewGapIds(selectReviewGapSource(snapshot, reviewFile));
     const expanded = selectExpandedGapIdsByFileKey(snapshot)[fileKey] ?? new Set<string>();
-    const expandAll = !gapIds.every((gapId) => expanded.has(gapId));
+    const whole = gapIds.length > 0 && gapIds.every((gapId) => expanded.has(gapId));
+    setWholeFileKeys((current) => {
+      const next = new Set(current);
+      if (whole) next.delete(fileKey);
+      else next.add(fileKey);
+      return next;
+    });
+    if (whole) {
+      pendingWholeFileKeysRef.current.delete(fileKey);
+    } else {
+      // The tail after the last hunk is only addressable once the source has loaded, so the
+      // load starts here even when the patch offers no gap yet.
+      pendingWholeFileKeysRef.current.add(fileKey);
+      startSourceLoad(file, fileKey, reviewExpansionSide(file.metadata.type));
+    }
     for (const gapId of gapIds) {
-      if (expanded.has(gapId) !== expandAll) {
+      if (expanded.has(gapId) === whole) {
         applyGapToggle(file, { type: "expansion/toggle", fileKey, gapId });
       }
     }
-  }, [applyGapToggle, fileByKey, store]);
+  }, [applyGapToggle, fileByKey, startSourceLoad, store]);
+
+  // Finish a whole-file request once its source arrives: the gaps the load made addressable
+  // open now. A failed load drops the request rather than retrying it.
+  useEffect(() => {
+    for (const fileKey of pendingWholeFileKeysRef.current) {
+      const status = state.sourceStatusByFileKey[fileKey];
+      if (!status || status.kind === "loading") {
+        continue;
+      }
+      pendingWholeFileKeysRef.current.delete(fileKey);
+      const file = fileByKey.get(fileKey);
+      const reviewFile = selectReviewFileByKey(state, fileKey);
+      if (status.kind !== "loaded" || !file || !reviewFile) {
+        continue;
+      }
+      const expanded = selectExpandedGapIdsByFileKey(state)[fileKey] ?? new Set<string>();
+      for (const gapId of reviewGapIds(selectReviewGapSource(state, reviewFile))) {
+        if (!expanded.has(gapId)) {
+          applyGapToggle(file, { type: "expansion/toggle", fileKey, gapId });
+        }
+      }
+    }
+  }, [applyGapToggle, fileByKey, state]);
 
   /**
    * Resolve one session-daemon navigation request against the current review and select it.
@@ -1725,6 +1780,7 @@ export function useTerminalReview({
     stateRevision: state.stateRevision,
     draftNote,
     expandedGapsByFileId,
+    wholeFileIds,
     filter,
     // The daemon parses a snapshot only when this count equals the summaries it carries, so
     // it is taken from the summaries rather than the store: a note on a file a reload retired

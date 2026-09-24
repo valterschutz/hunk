@@ -308,6 +308,7 @@ function buildHighlightPrefetchFileIds({
 }
 
 const EMPTY_EXPANDED_GAP_KEYS: ReadonlySet<string> = new Set();
+const EMPTY_WHOLE_FILE_IDS: ReadonlySet<string> = new Set();
 const EMPTY_EXPANDED_GAPS_BY_FILE_ID: Record<string, ReadonlySet<string>> = {};
 const EMPTY_FILE_VIEWS: ReadonlyMap<string, ResolvedFileViewLayout> = new Map();
 const EMPTY_LINE_HIGHLIGHTS: ReadonlyMap<string, readonly ValidatedLineHighlight[]> = new Map();
@@ -319,6 +320,7 @@ export function DiffPane({
   codeHorizontalOffset = 0,
   diffContentWidth,
   expandedGapsByFileId = EMPTY_EXPANDED_GAPS_BY_FILE_ID,
+  wholeFileIds = EMPTY_WHOLE_FILE_IDS,
   fileViews = EMPTY_FILE_VIEWS,
   files,
   semanticFileIdentities,
@@ -396,6 +398,8 @@ export function DiffPane({
   codeHorizontalOffset?: number;
   diffContentWidth: number;
   expandedGapsByFileId?: Record<string, ReadonlySet<string>>;
+  /** Files the reviewer asked to read whole rather than as hunks. */
+  wholeFileIds?: ReadonlySet<string>;
   /** Validated alternate layouts, keyed by file id; raw Pierre remains the fallback. */
   fileViews?: ReadonlyMap<string, ResolvedFileViewLayout>;
   files: DiffFile[];
@@ -871,6 +875,7 @@ export function DiffPane({
   const previousDraftNoteIdRef = useRef(draftNoteId);
   const previousExpandedGapsByFileIdRef = useRef(expandedGapsByFileId);
   const previousSourceStatusByFileIdRef = useRef(sourceStatusByFileId);
+  const previousWholeFileIdsRef = useRef(wholeFileIds);
   const previousSelectedFileTopAlignRequestIdRef = useRef(selectedFileTopAlignRequestId);
   const previousLayoutToggleRequestIdRef = useRef(layoutToggleRequestId);
   const previousSelectedHunkRevealRequestIdRef = useRef(selectedHunkRevealRequestId);
@@ -1125,6 +1130,7 @@ export function DiffPane({
           reserveAddNoteColumn,
           tabWidth,
           hunkGap,
+          wholeFileIds.has(file.id),
         );
       }),
     [
@@ -1140,6 +1146,7 @@ export function DiffPane({
       sourceStatusByFileId,
       tabWidth,
       theme,
+      wholeFileIds,
       wrapLines,
     ],
   );
@@ -1173,6 +1180,7 @@ export function DiffPane({
           reserveAddNoteColumn,
           tabWidth,
           hunkGap,
+          wholeFileIds.has(file.id),
         );
       }),
     [
@@ -1190,6 +1198,7 @@ export function DiffPane({
       sourceStatusByFileId,
       tabWidth,
       theme,
+      wholeFileIds,
       wrapLines,
     ],
   );
@@ -1995,9 +2004,11 @@ export function DiffPane({
     // that line on the same screen row instead of letting the new rows push it away.
     const expansionChanged =
       previousExpandedGapsByFileIdRef.current !== expandedGapsByFileId ||
-      previousSourceStatusByFileIdRef.current !== sourceStatusByFileId;
+      previousSourceStatusByFileIdRef.current !== sourceStatusByFileId ||
+      previousWholeFileIdsRef.current !== wholeFileIds;
     previousExpandedGapsByFileIdRef.current = expandedGapsByFileId;
     previousSourceStatusByFileIdRef.current = sourceStatusByFileId;
+    previousWholeFileIdsRef.current = wholeFileIds;
 
     if ((draftChanged || expansionChanged) && previousSectionMetrics && previousFiles.length > 0) {
       const previousScrollTop = scrollRef.current?.scrollTop ?? scrollViewport.top;
@@ -2622,6 +2633,7 @@ export function DiffPane({
                         key={file.id}
                         codeHorizontalOffset={codeHorizontalOffset}
                         expandedGapKeys={expandedGapsByFileId[file.id] ?? EMPTY_EXPANDED_GAP_KEYS}
+                        wholeFile={wholeFileIds.has(file.id)}
                         extensionLineHighlights={lineHighlights.get(file.id)}
                         file={file}
                         fileView={fileViewRenderPlans.get(file.id)?.fileView}

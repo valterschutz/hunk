@@ -87,23 +87,16 @@ function formatSidebarStat(prefix: "+" | "-", value: number, truncated = false) 
   return value > 0 ? `${prefix}${value}${truncated ? "+" : ""}` : null;
 }
 
-/** Build the visible stats badges for one sidebar row.
+/** Build the trailing stats badges for one sidebar row.
  * Keep the agent-note badge first so it reads as review context before line churn.
  */
 export function sidebarEntryStats(
-  entry: Pick<
-    FileListEntry,
-    "approvalText" | "agentCommentsText" | "additionsText" | "deletionsText"
-  >,
+  entry: Pick<FileListEntry, "agentCommentsText" | "additionsText" | "deletionsText">,
 ) {
   const stats: Array<{
-    kind: "approval" | "agent-comment" | "addition" | "deletion";
+    kind: "agent-comment" | "addition" | "deletion";
     text: string;
   }> = [];
-
-  if (entry.approvalText) {
-    stats.push({ kind: "approval", text: entry.approvalText });
-  }
 
   if (entry.agentCommentsText) {
     stats.push({ kind: "agent-comment", text: entry.agentCommentsText });
@@ -122,10 +115,7 @@ export function sidebarEntryStats(
 
 /** Measure the rendered sidebar stats width, including the space between badges. */
 export function sidebarEntryStatsWidth(
-  entry: Pick<
-    FileListEntry,
-    "approvalText" | "agentCommentsText" | "additionsText" | "deletionsText"
-  >,
+  entry: Pick<FileListEntry, "agentCommentsText" | "additionsText" | "deletionsText">,
 ) {
   return sidebarEntryStats(entry).reduce(
     (width, stat, index) => width + stat.text.length + (index > 0 ? 1 : 0),

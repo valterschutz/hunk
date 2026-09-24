@@ -168,6 +168,25 @@ function wordDiffHighlightBg(kind: SplitLineCell["kind"], theme: AppTheme) {
   return cached[kind];
 }
 
+const wordDiffForegroundCache = new Map<string, Record<SplitLineCell["kind"], string | undefined>>();
+
+/** Resolve the inline word-diff foreground override, if the theme sets one. */
+function wordDiffHighlightFg(kind: SplitLineCell["kind"], theme: AppTheme) {
+  const cacheKey = `${theme.addedContentFg}:${theme.removedContentFg}`;
+  let cached = wordDiffForegroundCache.get(cacheKey);
+  if (!cached) {
+    cached = {
+      addition: theme.addedContentFg,
+      context: undefined,
+      deletion: theme.removedContentFg,
+      empty: undefined,
+    };
+    wordDiffForegroundCache.set(cacheKey, cached);
+  }
+
+  return cached[kind];
+}
+
 /** Append a span while coalescing adjacent runs with identical colors. */
 function mergeSpan(target: RenderSpan[], next: RenderSpan) {
   if (next.text.length === 0) {
@@ -188,6 +207,7 @@ function flattenHighlightedLine(
   node: HastNode | undefined,
   theme: AppTheme,
   emphasisBg: string,
+  emphasisFg: string | undefined,
   tabWidth: number,
 ) {
   if (!node) {
@@ -196,7 +216,7 @@ function flattenHighlightedLine(
 
   // The highlighted HAST node is already unique to the content-addressed Shiki theme. Only
   // post-highlight choices belong in the inner key; syntax identity comes from the WeakMap key.
-  const cacheKey = `${theme.appearance}:${emphasisBg}:${tabWidth}`;
+  const cacheKey = `${theme.appearance}:${emphasisBg}:${emphasisFg}:${tabWidth}`;
   const cachedByTheme = flattenedHighlightedLineCache.get(node);
   const cached = cachedByTheme?.get(cacheKey);
   if (cached) {
@@ -213,7 +233,7 @@ function flattenHighlightedLine(
     const text = tabify(run.text, tabWidth, codeColumn);
     mergeSpan(spans, {
       text,
-      fg: run.fg,
+      fg: run.wordDiff && emphasisFg ? emphasisFg : run.fg,
       bg: run.wordDiff ? emphasisBg : undefined,
     });
     codeColumn += measureTextWidth(text);
@@ -233,6 +253,7 @@ function flattenCompactHighlightedLine(
   rawLine: string | undefined,
   runs: CompactHighlightRun[],
   emphasisBg: string,
+  emphasisFg: string | undefined,
   tabWidth: number,
 ) {
   const source = cleanLastNewline(rawLine ?? "");
@@ -248,7 +269,11 @@ function flattenCompactHighlightedLine(
 
   for (const run of runs) {
     appendText(source.slice(sourceColumn, run.start));
-    appendText(source.slice(run.start, run.end), run.fg, run.wordDiff ? emphasisBg : undefined);
+    appendText(
+      source.slice(run.start, run.end),
+      run.wordDiff && emphasisFg ? emphasisFg : run.fg,
+      run.wordDiff ? emphasisBg : undefined,
+    );
     sourceColumn = run.end;
   }
   appendText(source.slice(sourceColumn));
@@ -314,6 +339,7 @@ function makeSplitCell(
       highlightedLine,
       theme,
       wordDiffHighlightBg(kind, theme),
+      wordDiffHighlightFg(kind, theme),
       tabWidth,
     );
   } else if (compactRuns !== undefined) {
@@ -321,6 +347,7 @@ function makeSplitCell(
       rawLine,
       compactRuns,
       wordDiffHighlightBg(kind, theme),
+      wordDiffHighlightFg(kind, theme),
       tabWidth,
     );
   } else {
@@ -361,6 +388,7 @@ function makeUnifiedCell(
       highlightedLine,
       theme,
       wordDiffHighlightBg(kind, theme),
+      wordDiffHighlightFg(kind, theme),
       tabWidth,
     );
   } else if (compactRuns !== undefined) {
@@ -368,6 +396,7 @@ function makeUnifiedCell(
       rawLine,
       compactRuns,
       wordDiffHighlightBg(kind, theme),
+      wordDiffHighlightFg(kind, theme),
       tabWidth,
     );
   } else {

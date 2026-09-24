@@ -69,6 +69,8 @@ export const CUSTOM_THEME_COLOR_KEYS = [
   "addedContentBg",
   "removedContentBg",
   "contextContentBg",
+  "addedContentFg",
+  "removedContentFg",
   "addedSignColor",
   "removedSignColor",
   "lineNumberBg",

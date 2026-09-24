@@ -194,6 +194,41 @@ describe("CodeCellView painting", () => {
     }
   });
 
+  test("keeps a word-diff emphasis background distinct under a full-line mark", async () => {
+    const theme = resolveTheme("github-dark-default", null);
+    const row: Extract<DiffRow, { type: "unified-line" }> = {
+      ...unifiedRow,
+      key: "paint:word-diff-under-mark",
+      cell: {
+        ...unifiedRow.cell,
+        // Mirrors what diffRows.ts hands a word-diff span: its own bg, distinct
+        // from the row's addedBg, carrying the exact changed characters.
+        spans: [{ text: "abcd", bg: theme.addedContentBg }],
+      },
+    };
+    const lineHighlights: LineHighlightPaintIndex = new Map([
+      // hunk-commit marks the full width of changed lines.
+      [lineHighlightPaintKey("new", 1), [{ startCol: 0, endCol: 4, tone: "match" }]],
+    ]);
+
+    const capture = await captureCodeRow(codeRowView(row, { lineHighlights }));
+
+    const expectedFromContentBg = lineHighlightToneStyle(
+      "match",
+      theme.addedContentBg,
+      theme,
+    )!.bg.toLowerCase();
+    const expectedFromRowBg = lineHighlightToneStyle(
+      "match",
+      unifiedCellPalette("addition", theme).contentBg,
+      theme,
+    )!.bg.toLowerCase();
+
+    // Sanity: the fixture only proves something if the two bases actually differ.
+    expect(expectedFromContentBg).not.toBe(expectedFromRowBg);
+    expect(backgroundForText(capture.spans, "abcd")).toBe(expectedFromContentBg);
+  });
+
   test("resolves dim foregrounds against the final cursor background", async () => {
     const theme = resolveTheme("ayu-light", null);
     const row: Extract<DiffRow, { type: "unified-line" }> = {

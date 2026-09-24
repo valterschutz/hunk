@@ -321,6 +321,8 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
     addedContentBg: customTheme.addedContentBg ?? baseTheme.addedContentBg,
     removedContentBg: customTheme.removedContentBg ?? baseTheme.removedContentBg,
     contextContentBg: customTheme.contextContentBg ?? baseTheme.contextContentBg,
+    addedContentFg: customTheme.addedContentFg ?? baseTheme.addedContentFg,
+    removedContentFg: customTheme.removedContentFg ?? baseTheme.removedContentFg,
     addedSignColor: customTheme.addedSignColor ?? baseTheme.addedSignColor,
     removedSignColor: customTheme.removedSignColor ?? baseTheme.removedSignColor,
     lineNumberBg: customTheme.lineNumberBg ?? baseTheme.lineNumberBg,

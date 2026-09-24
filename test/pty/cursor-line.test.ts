@@ -112,6 +112,56 @@ describe("PTY current line", () => {
     }
   });
 
+  test("next-hunk jumps into the first hunk from leading whole-file context", async () => {
+    const fixture = harness.createExpandableContextFilePair();
+    const configHome = harness.createIsolatedConfigHome();
+    mkdirSync(join(configHome, "hunk"));
+    writeFileSync(join(configHome, "hunk", "config.toml"), "whole_file = true\n");
+    const session = await harness.launchHunk({
+      args: [
+        "diff",
+        "--files",
+        fixture.before,
+        fixture.after,
+        "--mode",
+        "split",
+        "--extension",
+        CURRENT_LINE_LENS_EXTENSION,
+      ],
+      cols: 140,
+      env: { XDG_CONFIG_HOME: configHome },
+      rows: 18,
+    });
+
+    try {
+      await session.waitForText(/Current line · old above, new below/, { timeout: 15_000 });
+      await session.waitIdle({ timeout: 400 });
+      await harness.pressAndWaitForSnapshot(
+        session,
+        "k",
+        (text) => {
+          const lens = text.split("Current line").at(-1) ?? "";
+          return lens.includes("export const hiddenLine01 = 1;");
+        },
+        5_000,
+      );
+
+      const firstHunk = await harness.pressAndWaitForSnapshot(
+        session,
+        "]",
+        (text) => {
+          const lens = text.split("Current line").at(-1) ?? "";
+          return lens.includes("export const line02 = 2;");
+        },
+        5_000,
+      );
+      const firstHunkLens = firstHunk.split("Current line").at(-1) ?? "";
+      expect(firstHunkLens).toContain("export const line02 = 2;");
+    } finally {
+      session.close();
+    }
+  });
+
   test("one-cell mouse jitter still selects the exact clicked line", async () => {
     const fixture = harness.createScrollableFilePair();
     const session = await harness.launchHunk({

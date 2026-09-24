@@ -13,6 +13,7 @@ import {
   buildLineCursors,
   clampLineCursorToViewport,
   createLineCursorStabilizer,
+  findCurrentHunkLandingCursor,
   findLineCursorAt,
   findNextLineCursor,
   firstLineCursorInHunk,
@@ -383,6 +384,52 @@ describe("firstLineCursorInHunk", () => {
 
   test("returns nothing when the stream is empty", () => {
     expect(firstLineCursorInHunk([], "alpha", 0)).toBeNull();
+  });
+});
+
+describe("findCurrentHunkLandingCursor", () => {
+  const leadingContext: LineCursor = {
+    fileId: "alpha",
+    hunkIndex: 0,
+    stableKey: "line:0:context:1:1",
+    target: { side: "new", line: 1 },
+    expandedGapKey: "before:0",
+  };
+  const hunkStart: LineCursor = {
+    fileId: "alpha",
+    hunkIndex: 0,
+    stableKey: "line:0:context:47:47",
+    target: { side: "new", line: 47 },
+  };
+  const hunkEnd: LineCursor = {
+    fileId: "alpha",
+    hunkIndex: 0,
+    stableKey: "line:0:context:53:53",
+    target: { side: "new", line: 53 },
+  };
+  const trailingContext: LineCursor = {
+    fileId: "alpha",
+    hunkIndex: 0,
+    stableKey: "line:0:context:54:54",
+    target: { side: "new", line: 54 },
+    expandedGapKey: "trailing:0",
+  };
+  const cursors = [leadingContext, hunkStart, hunkEnd, trailingContext];
+
+  test("lands on the current hunk before moving forward from leading context", () => {
+    expect(findCurrentHunkLandingCursor(cursors, leadingContext, "alpha", 0, 1)).toEqual(hunkStart);
+  });
+
+  test("lands on the current hunk before moving backward from trailing context", () => {
+    expect(findCurrentHunkLandingCursor(cursors, trailingContext, "alpha", 0, -1)).toEqual(
+      hunkStart,
+    );
+  });
+
+  test("does not intercept a move away from the hunk or from one of its patch rows", () => {
+    expect(findCurrentHunkLandingCursor(cursors, leadingContext, "alpha", 0, -1)).toBeNull();
+    expect(findCurrentHunkLandingCursor(cursors, trailingContext, "alpha", 0, 1)).toBeNull();
+    expect(findCurrentHunkLandingCursor(cursors, hunkStart, "alpha", 0, 1)).toBeNull();
   });
 });
 

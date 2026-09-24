@@ -177,6 +177,46 @@ export function firstLineCursorInHunk(
   );
 }
 
+/**
+ * Find the current hunk's landing row when the cursor has not crossed that hunk yet.
+ *
+ * Whole-file context rows inherit a neighboring hunk index. Moving toward the real patch from
+ * context before or after it must visit that hunk before semantic navigation crosses its boundary.
+ */
+export function findCurrentHunkLandingCursor(
+  cursors: LineCursor[],
+  current: LineCursor | null,
+  fileId: string,
+  hunkIndex: number,
+  direction: -1 | 1,
+): LineCursor | null {
+  if (!current || current.fileId !== fileId || current.hunkIndex !== hunkIndex) {
+    return null;
+  }
+
+  const isPatchCursor = (cursor: LineCursor) =>
+    cursor.fileId === fileId &&
+    cursor.hunkIndex === hunkIndex &&
+    cursor.expandedGapKey === undefined;
+  const first = cursors.find(isPatchCursor);
+  const last = cursors.findLast(isPatchCursor);
+  if (!first || !last) {
+    return null;
+  }
+
+  const indexes = cursorIndexes(cursors);
+  const currentIndex = indexes.get(cursorId(current));
+  const firstIndex = indexes.get(cursorId(first));
+  const lastIndex = indexes.get(cursorId(last));
+  if (currentIndex === undefined || firstIndex === undefined || lastIndex === undefined) {
+    return null;
+  }
+
+  const movingIntoHunk =
+    (direction > 0 && currentIndex < firstIndex) || (direction < 0 && currentIndex > lastIndex);
+  return movingIntoHunk ? first : null;
+}
+
 /** Move forward or backward through the review-stream line cursor list. */
 export function findNextLineCursor(
   cursors: LineCursor[],

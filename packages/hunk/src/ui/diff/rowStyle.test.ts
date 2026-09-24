@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { contrastRatio, hexColorDistance } from "../lib/color";
+import { contrastRatio, hexColorDistance, relativeLuminance } from "../lib/color";
 import { DEFAULT_THEME_TUNING } from "../../core/run/themeTuning";
 import {
   THEMES,
@@ -72,6 +72,19 @@ describe("cursorLineHighlightBg", () => {
     // The surface color sits closer to the row's own dark background than pure white does, so a
     // theme naming it should move the row less far, not just to a different hue.
     expect(contrastRatio(marked, context)).toBeLessThan(contrastRatio(towardWhite, context));
+  });
+
+  test("uses a theme's own cursorLineBg as-is on a transparent surface", () => {
+    // A transparent cell has no real background to blend from. Blending a small percentage of a
+    // moderate custom anchor (not white/black) onto an assumed pure black would land far darker
+    // than the swatch itself, so the transparent path uses it directly instead.
+    const theme = { ...withTransparentSurfaces(DARK), cursorLineBg: "#313244" };
+    const context = unifiedCellPalette("context", theme).contentBg;
+    expect(context).toBe(TRANSPARENT_BACKGROUND);
+
+    const marked = cursorLineHighlightBg(context, theme);
+    expect(marked).toBe("#313244");
+    expect(relativeLuminance(marked)).toBeGreaterThan(relativeLuminance("#000000"));
   });
 });
 

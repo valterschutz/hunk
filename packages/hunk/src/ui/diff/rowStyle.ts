@@ -65,9 +65,21 @@ const CURSOR_LINE_BACKOFF_STEP = 0.01;
  * anchor, so the configured strength backs off a step at a time until the code on top of the
  * mark clears a minimum contrast — the same trade the theme's own row tints make elsewhere in
  * this module, just searching down from the configured strength instead of up from zero.
+ *
+ * A transparent cell has no real background to blend from — the white/black fallback below is a
+ * mathematical anchor for "visibly lighter," not a guess at the terminal's actual color, and only
+ * makes sense paired with the opposite extreme as the target. A theme's own `cursorLineBg` is
+ * typically a moderate, non-extreme tone, so blending a small percentage of it onto an assumed
+ * pure black would land far darker than the swatch itself (and than most real terminal
+ * backgrounds) — the opposite of "lighter." A named `cursorLineBg` is used as-is there instead:
+ * it already names the intended surface, with no real base color to blend it against.
  */
 export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
   return cachedRowColor(cursorLineBackgroundCache, theme, baseBg, () => {
+    if (baseBg === TRANSPARENT_BACKGROUND && theme.cursorLineBg !== undefined) {
+      return theme.cursorLineBg;
+    }
+
     const isDark = theme.appearance === "dark";
     const anchor = theme.cursorLineBg ?? (isDark ? "#ffffff" : "#000000");
     // Reading the sentinel as a color yields black, so a transparent surface blends from the

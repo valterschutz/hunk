@@ -1,6 +1,7 @@
 import { TRANSPARENT_BACKGROUND, type AppTheme } from "../themes";
 import { blendHex, contrastRatio, hexColorDistance } from "../lib/color";
 import type { ExtensionLineHighlightTone } from "../../extension-api/types";
+import type { DiffRow, RenderSpan } from "./diffRowModel";
 import type { SplitLineCell, UnifiedLineCell } from "./diffRows";
 
 const INACTIVE_RAIL_BLEND = 0.35;
@@ -9,24 +10,24 @@ const CURSOR_LINE_BG_BLEND = 0.2;
 const selectionBackgroundCache = new WeakMap<AppTheme, Map<string, string>>();
 const cursorLineBackgroundCache = new WeakMap<AppTheme, Map<string, string>>();
 
-/** Memoize one derived row background per theme and base color. */
-function cachedRowBackground(
+/** Memoize one derived row color per theme and cache key. */
+function cachedRowColor(
   cache: WeakMap<AppTheme, Map<string, string>>,
   theme: AppTheme,
-  baseBg: string,
+  key: string,
   blend: () => string,
 ) {
-  let backgrounds = cache.get(theme);
-  if (!backgrounds) {
-    backgrounds = new Map();
-    cache.set(theme, backgrounds);
+  let colors = cache.get(theme);
+  if (!colors) {
+    colors = new Map();
+    cache.set(theme, colors);
   }
-  let background = backgrounds.get(baseBg);
-  if (background === undefined) {
-    background = blend();
-    backgrounds.set(baseBg, background);
+  let color = colors.get(key);
+  if (color === undefined) {
+    color = blend();
+    colors.set(key, color);
   }
-  return background;
+  return color;
 }
 
 /** The diff rail marker is always visible in Hunk unified and split rows. */
@@ -42,7 +43,7 @@ export function diffRailMarker() {
  * harder toward the visible highlight color.
  */
 export function selectionHighlightBg(baseBg: string, theme: AppTheme) {
-  return cachedRowBackground(selectionBackgroundCache, theme, baseBg, () =>
+  return cachedRowColor(selectionBackgroundCache, theme, baseBg, () =>
     blendHex(theme.selectedHunk, baseBg, SELECTION_BG_BLEND),
   );
 }
@@ -54,7 +55,7 @@ export function selectionHighlightBg(baseBg: string, theme: AppTheme) {
  * already sharing that hue, which left the marker invisible on added rows.
  */
 export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
-  return cachedRowBackground(cursorLineBackgroundCache, theme, baseBg, () => {
+  return cachedRowColor(cursorLineBackgroundCache, theme, baseBg, () => {
     // Reading the sentinel as a color yields black, so a transparent surface blends from the
     // appearance's own extreme instead.
     const source =
@@ -75,6 +76,175 @@ export function neutralRailColor(theme: AppTheme) {
 /** Dim a rail color for inactive hunks by blending toward the panel background. */
 export function dimRailColor(color: string, theme: AppTheme) {
   return blendHex(color, theme.panel, INACTIVE_RAIL_BLEND);
+}
+
+// An unfocused hunk recedes instead of disappearing: every color it paints contracts toward the
+// surface by a fixed fraction, backgrounds harder than text. Contracting both ends together keeps
+// the row's own relationships — word-diff emphasis against its line, code against its background —
+// rather than flattening the hunk into one muddy block.
+const UNFOCUSED_BG_BLEND = 0.35;
+const UNFOCUSED_FG_BLEND = 0.55;
+// Unfocused code is still part of the review, so fading stops while it can be read at a glance.
+const MIN_UNFOCUSED_TEXT_CONTRAST = 2.2;
+const UNFOCUSED_FG_RECOVERY_STEP = 0.05;
+
+const unfocusedBackgroundCache = new WeakMap<AppTheme, Map<string, string>>();
+const unfocusedForegroundCache = new WeakMap<AppTheme, Map<string, string>>();
+const unfocusedThemeCache = new WeakMap<AppTheme, AppTheme>();
+
+/** Return the color an unfocused hunk's colors contract toward. */
+function unfocusedSurface(theme: AppTheme) {
+  return effectiveHighlightBackground(theme.background, theme);
+}
+
+/**
+ * Contract one background toward the surface.
+ *
+ * A transparent cell shows the terminal's own background, which is already the surface the rest
+ * of the row is fading toward, so it is left alone rather than painted opaque.
+ */
+function unfocusedHunkBg(color: string, theme: AppTheme) {
+  if (!isHexThemeColor(color)) {
+    return color;
+  }
+
+  return cachedRowColor(unfocusedBackgroundCache, theme, color, () =>
+    blendHex(color, unfocusedSurface(theme), UNFOCUSED_BG_BLEND),
+  );
+}
+
+/**
+ * Fade one foreground toward the surface, backing off before it stops being readable.
+ *
+ * `paintedBg` is the background the text actually lands on — already contracted — so the guard
+ * measures the pair the reader sees rather than the theme's original pairing. When even the
+ * undimmed color cannot clear the floor on that background, the original is the most readable
+ * answer available.
+ */
+function unfocusedHunkFg(color: string, paintedBg: string, theme: AppTheme) {
+  if (!isHexThemeColor(color)) {
+    return color;
+  }
+
+  return cachedRowColor(unfocusedForegroundCache, theme, `${color}:${paintedBg}`, () => {
+    const surface = unfocusedSurface(theme);
+    const background = effectiveHighlightBackground(paintedBg, theme);
+
+    for (let retained = UNFOCUSED_FG_BLEND; retained < 1; retained += UNFOCUSED_FG_RECOVERY_STEP) {
+      const candidate = blendHex(color, surface, retained);
+      if (contrastRatio(candidate, background) >= MIN_UNFOCUSED_TEXT_CONTRAST) {
+        return candidate;
+      }
+    }
+
+    return color;
+  });
+}
+
+/**
+ * Derive the theme an unfocused hunk's rows paint with.
+ *
+ * Only the slots a code or meta row reads at paint time are faded, each foreground against the
+ * background it is paired with, so line numbers, diff signs, and hunk headers recede exactly as
+ * far as the surfaces behind them. Word-diff colors are baked into a row's spans long before a
+ * theme reaches the renderer; `unfocusedHunkRow` fades those.
+ */
+export function unfocusedHunkTheme(theme: AppTheme): AppTheme {
+  const cached = unfocusedThemeCache.get(theme);
+  if (cached) {
+    return cached;
+  }
+
+  const addedBg = unfocusedHunkBg(theme.addedBg, theme);
+  const removedBg = unfocusedHunkBg(theme.removedBg, theme);
+  const contextBg = unfocusedHunkBg(theme.contextBg, theme);
+  const lineNumberBg = unfocusedHunkBg(theme.lineNumberBg, theme);
+  const panelAlt = unfocusedHunkBg(theme.panelAlt, theme);
+  const unfocused: AppTheme = {
+    ...theme,
+    addedBg,
+    removedBg,
+    movedAddedBg: unfocusedHunkBg(theme.movedAddedBg, theme),
+    movedRemovedBg: unfocusedHunkBg(theme.movedRemovedBg, theme),
+    contextBg,
+    lineNumberBg,
+    panelAlt,
+    addedSignColor: unfocusedHunkFg(theme.addedSignColor, addedBg, theme),
+    removedSignColor: unfocusedHunkFg(theme.removedSignColor, removedBg, theme),
+    lineNumberFg: unfocusedHunkFg(theme.lineNumberFg, lineNumberBg, theme),
+    muted: unfocusedHunkFg(theme.muted, contextBg, theme),
+    badgeNeutral: unfocusedHunkFg(theme.badgeNeutral, panelAlt, theme),
+    // Spans that carry no color of their own are painted in the syntax default, so it has to
+    // fade with them or unhighlighted rows would stay at full strength.
+    syntaxColors: {
+      ...theme.syntaxColors,
+      default: unfocusedHunkFg(theme.syntaxColors.default, contextBg, theme),
+    },
+  };
+
+  unfocusedThemeCache.set(theme, unfocused);
+  return unfocused;
+}
+
+/** Fade one cell's spans against the background the unfocused row paints them on. */
+function unfocusedHunkSpans(spans: RenderSpan[], contentBg: string, theme: AppTheme) {
+  return spans.map((span) => {
+    const bg = span.bg === undefined ? undefined : unfocusedHunkBg(span.bg, theme);
+    // A span with no color of its own inherits the theme's already faded syntax default, and
+    // leaving it uncolored keeps the renderer's uncolored-row fast path intact.
+    const fg = span.fg === undefined ? undefined : unfocusedHunkFg(span.fg, bg ?? contentBg, theme);
+    return fg === span.fg && bg === span.bg ? span : { ...span, bg, fg };
+  });
+}
+
+/**
+ * Fade one row's spans so an unfocused hunk's syntax and word-diff colors recede with its surfaces.
+ *
+ * Paint-time by design, exactly like the extension line highlights that run after it: no text
+ * changes, so the row measures and wraps identically and the shared row plan, geometry, and
+ * highlighted-diff caches never see focus at all. Cells are copied because their span arrays are
+ * shared cached objects.
+ */
+export function unfocusedHunkRow(row: DiffRow, theme: AppTheme): DiffRow {
+  const unfocusedTheme = unfocusedHunkTheme(theme);
+
+  if (row.type === "split-line") {
+    return {
+      ...row,
+      left: {
+        ...row.left,
+        spans: unfocusedHunkSpans(
+          row.left.spans,
+          splitCellPalette(row.left.kind, unfocusedTheme, row.left.moveKind).contentBg,
+          theme,
+        ),
+      },
+      right: {
+        ...row.right,
+        spans: unfocusedHunkSpans(
+          row.right.spans,
+          splitCellPalette(row.right.kind, unfocusedTheme, row.right.moveKind).contentBg,
+          theme,
+        ),
+      },
+    };
+  }
+
+  if (row.type === "unified-line") {
+    return {
+      ...row,
+      cell: {
+        ...row.cell,
+        spans: unfocusedHunkSpans(
+          row.cell.spans,
+          unifiedCellPalette(row.cell.kind, unfocusedTheme, row.cell.moveKind).contentBg,
+          theme,
+        ),
+      },
+    };
+  }
+
+  return row;
 }
 
 /** Pick the unified-view rail color for one rendered row. */

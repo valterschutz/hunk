@@ -66,7 +66,12 @@ const unifiedRow: Extract<DiffRow, { type: "unified-line" }> = {
   },
 };
 
-/** Render common DiffRowView props while varying paint-sensitive inputs. */
+/**
+ * Render common DiffRowView props while varying paint-sensitive inputs.
+ *
+ * Rows belong to the focused hunk by default: these cases assert paint against the theme's own
+ * palette, and an unfocused row deliberately fades every one of those colors.
+ */
 function codeRowView(row: DiffRow, options: Partial<Parameters<typeof RawDiffRowView>[0]> = {}) {
   const theme = options.theme ?? resolveTheme("github-dark-default", null);
   return (
@@ -79,7 +84,7 @@ function codeRowView(row: DiffRow, options: Partial<Parameters<typeof RawDiffRow
       wrapLines={false}
       codeHorizontalOffset={0}
       theme={theme}
-      selected={false}
+      selected={true}
       {...options}
     />
   );

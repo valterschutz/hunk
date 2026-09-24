@@ -5,7 +5,7 @@ import type { AppTheme } from "../themes";
 import { CODE_ROW_ADD_NOTE_BADGE_TEXT } from "./codeRowAffordance";
 import type { PlannedDiffMetaReviewRow } from "./reviewRenderPlan";
 import { fitText } from "./plannedRowText";
-import { diffRailMarker, dimRailColor, neutralRailColor } from "./rowStyle";
+import { diffRailMarker, dimRailColor, neutralRailColor, unfocusedHunkTheme } from "./rowStyle";
 import { markNestedRowMouseAction } from "./rowMouseActions";
 
 export interface DiffMetaRowViewProps {
@@ -62,6 +62,8 @@ export function DiffMetaRowView({
   const labelText =
     row.type === "collapsed" ? collapsedRowLabel(row.text, collapsedExpandable) : row.text;
   const label = fitText(labelText, Math.max(0, width - 1 - badgeWidth));
+  // Headers and collapsed gaps belong to their hunk, so they fade with the code they introduce.
+  const rowTheme = selected ? theme : unfocusedHunkTheme(theme);
   const handleCollapsedClick =
     row.type === "collapsed" && onToggleGap
       ? () => onToggleGap(reviewGapId(row.position, row.hunkIndex))
@@ -74,7 +76,7 @@ export function DiffMetaRowView({
         style={{
           width,
           height: 1,
-          backgroundColor: theme.panelAlt,
+          backgroundColor: rowTheme.panelAlt,
         }}
         onMouseMove={() => onHoverRow?.(row.key)}
         onMouseOver={() => onHoverRow?.(row.key)}
@@ -83,13 +85,13 @@ export function DiffMetaRowView({
         <text>
           <span
             fg={selected ? neutralRailColor(theme) : dimRailColor(neutralRailColor(theme), theme)}
-            bg={theme.panelAlt}
+            bg={rowTheme.panelAlt}
           >
             {diffRailMarker()}
           </span>
           <span
-            fg={row.type === "collapsed" ? theme.muted : theme.badgeNeutral}
-            bg={theme.panelAlt}
+            fg={row.type === "collapsed" ? rowTheme.muted : rowTheme.badgeNeutral}
+            bg={rowTheme.panelAlt}
           >
             {label}
           </span>
@@ -105,7 +107,7 @@ export function DiffMetaRowView({
         width,
         height: 1,
         flexDirection: "row",
-        backgroundColor: theme.panelAlt,
+        backgroundColor: rowTheme.panelAlt,
       }}
       onMouseMove={() => onHoverRow?.(row.key)}
       onMouseOver={() => onHoverRow?.(row.key)}
@@ -117,13 +119,13 @@ export function DiffMetaRowView({
         <text>
           <span
             fg={selected ? neutralRailColor(theme) : dimRailColor(neutralRailColor(theme), theme)}
-            bg={theme.panelAlt}
+            bg={rowTheme.panelAlt}
           >
             {diffRailMarker()}
           </span>
           <span
-            fg={row.type === "collapsed" ? theme.muted : theme.badgeNeutral}
-            bg={theme.panelAlt}
+            fg={row.type === "collapsed" ? rowTheme.muted : rowTheme.badgeNeutral}
+            bg={rowTheme.panelAlt}
           >
             {label}
           </span>

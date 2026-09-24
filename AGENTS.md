@@ -193,6 +193,20 @@ ReviewIntent + caller facts -> planReviewIntent -> ReviewAction[] -> reducer -> 
 - Installed `hunk` is a compiled snapshot, not linked to source.
 - After source changes, rebuild/reinstall with `bun run install:bin`.
 - For rendering verification, prefer a real TTY smoke run over redirected stdout capture.
+- `hunk diff`/`hunk show`/interactive sessions always load the real global config
+  (`$XDG_CONFIG_HOME/hunk/config.toml`, falling back to `~/.config/hunk/config.toml`) unless the
+  reviewed repo has its own `.hunk/config.toml` — this is true even for a throwaway smoke-test repo
+  with no config of its own, and even though `HUNK_CONFIG` is not a real env var (it's silently
+  ignored). Quitting a session with unsaved view-preference changes (theme, wrap, line numbers,
+  menu bar, agent notes, cursor line) and confirming the save prompt overwrites that same shared
+  file, wiping out sibling settings like a hand-picked `theme` selection. The prompt is gated on
+  `prompt_save_view_preferences` — this fork's user config currently sets it `false`, which fully
+  disables the dialog for any session that actually loads that config — but a smoke test only
+  needs a stale binary or a different environment for `promptSaveViewPreferences` to read as unset
+  (defaulting to prompt-enabled) while `viewPreferencesConfigPath` still resolves to the same real,
+  shared file. For any manual smoke test, isolate config with
+  `XDG_CONFIG_HOME=$(mktemp -d) ~/.local/bin/hunk ...` so a stray confirm keystroke cannot touch
+  the user's real config, and never send a blind confirm to a "save view preferences?" prompt.
 
 ## verification
 

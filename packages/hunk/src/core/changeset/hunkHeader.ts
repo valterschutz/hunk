@@ -11,13 +11,23 @@ export interface ReviewHunkHeaderSource extends ReviewHunkSpan {
   hunkContext?: string | null;
 }
 
-/** Format a unified-diff hunk header exactly as Hunk should display it. */
+/**
+ * Format a unified-diff hunk header exactly as Hunk should display it.
+ *
+ * A parsed hunk carries Git's whole `@@` line in `hunkSpecs`, function context and
+ * trailing newline included, while `hunkContext` repeats that context on its own. The
+ * context is therefore appended only when the specs do not already end with it, so a
+ * parsed header and a synthesized one both show it exactly once.
+ */
 export function formatHunkHeader(hunk: ReviewHunkHeaderSource) {
   const specs =
-    hunk.hunkSpecs ??
+    hunk.hunkSpecs?.trimEnd() ??
     // The header count is the per-side line total (context + changes), i.e.
     // `*Count` parsed from `-X,count` / `+X,count` — not `*Lines`, which is
     // only the changed `+`/`-` lines and would undercount a context-bearing hunk.
     `@@ -${hunk.deletionStart},${hunk.deletionCount} +${hunk.additionStart},${hunk.additionCount} @@`;
-  return hunk.hunkContext ? `${specs} ${hunk.hunkContext}` : specs;
+  if (!hunk.hunkContext || specs.endsWith(` ${hunk.hunkContext}`)) {
+    return specs;
+  }
+  return `${specs} ${hunk.hunkContext}`;
 }

@@ -74,4 +74,19 @@ describe("formatHunkHeader", () => {
 
     expect(formatHunkHeader(hunk)).toBe("@@ -1,1 +1,1 @@ function name()");
   });
+
+  test("parsed specs already carrying the context show it once, without the newline", () => {
+    const hunk = fallbackHunk({
+      hunkSpecs: "@@ -46,8 +46,8 @@ Consequently\n",
+      hunkContext: "Consequently",
+    });
+
+    expect(formatHunkHeader(hunk)).toBe("@@ -46,8 +46,8 @@ Consequently");
+  });
+
+  test("parsed specs without the context still get it appended", () => {
+    const hunk = fallbackHunk({ hunkSpecs: "@@ -1,2 +1,2 @@\n", hunkContext: "fn main" });
+
+    expect(formatHunkHeader(hunk)).toBe("@@ -1,2 +1,2 @@ fn main");
+  });
 });

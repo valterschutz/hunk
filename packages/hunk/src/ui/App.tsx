@@ -320,7 +320,8 @@ export function App({
   const [reviewVerticalStops, setReviewVerticalStops] = useState<ReviewVerticalStop[]>([]);
   const review = useTerminalReview({
     files: reviewFiles,
-    initialLineCursorAtFileStart: bootstrap.review?.kind === "commit",
+    initialLineCursorAtFileStart:
+      bootstrap.review?.kind === "commit" || bootstrap.review?.kind === "comparison",
     initialShowAgentNotes: bootstrap.initialShowAgentNotes ?? false,
     lineCursors,
     reviewVerticalStops,

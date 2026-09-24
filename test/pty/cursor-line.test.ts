@@ -26,7 +26,10 @@ afterEach(() => {
 });
 
 describe("PTY current line", () => {
-  test("commit reviews start on the first line of the whole file", async () => {
+  test.each([
+    ["single-commit reviews", ["show", "HEAD"]],
+    ["commit-range reviews", ["diff", "HEAD^", "HEAD"]],
+  ] as const)("%s start on the first line of the whole file", async (_label, reviewArgs) => {
     const fixture = harness.createCollapsedTopRepoFixture();
     execFileSync("git", ["add", "."], { cwd: fixture.dir });
     execFileSync("git", ["commit", "-m", "change a deep line"], { cwd: fixture.dir });
@@ -34,7 +37,7 @@ describe("PTY current line", () => {
     mkdirSync(join(configHome, "hunk"));
     writeFileSync(join(configHome, "hunk", "config.toml"), "whole_file = true\n");
     const session = await harness.launchHunk({
-      args: ["show", "HEAD", "--mode", "unified"],
+      args: [...reviewArgs, "--mode", "unified"],
       cwd: fixture.dir,
       cols: 140,
       env: { XDG_CONFIG_HOME: configHome },

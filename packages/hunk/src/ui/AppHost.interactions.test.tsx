@@ -25,7 +25,8 @@ import { createEmptyExtensionLoadResult } from "../extensions/types";
 import { AGENT_SKILL_COMMAND, AGENT_SKILL_PROMPT } from "./components/chrome/AgentSkillDialog";
 import { App } from "./App";
 import { ThemeController } from "./theme/controller";
-import { availableThemes, resolveTheme } from "./themes";
+import { availableThemes, resolveTheme, withTransparentSurfaces } from "./themes";
+import { unfocusedHunkTheme } from "./diff/rowStyle";
 
 const { loadAppBootstrap } = await import("../core/changeset/loaders");
 const { TestAppHost: AppHost } = await import("../../../../test/helpers/app-host");
@@ -2968,20 +2969,27 @@ describe("App interactions", () => {
       await flush(setup);
 
       const frame = setup.captureSpans();
-      const lineIncludesBackground = (text: string, backgroundColor: string) =>
+      // Rows outside the focused hunk paint their tint faded, so a row keeps its tint when it
+      // carries either the theme's own color or that color's unfocused counterpart.
+      // Fading is measured from the surface the row actually sits on, which this session made
+      // transparent, so the unfocused colors come from the transparent theme the app renders with.
+      const unfocused = unfocusedHunkTheme(withTransparentSurfaces(theme));
+      const lineIncludesBackground = (text: string, backgroundColors: string[]) =>
         frame.lines.some((line) => {
           const lineText = line.spans.map((span) => span.text).join("");
           return (
             lineText.includes(text) &&
-            line.spans.some(
-              (span) =>
-                capturedTestColorToHex(span.bg)?.toLowerCase() === backgroundColor.toLowerCase(),
+            line.spans.some((span) =>
+              backgroundColors.some(
+                (backgroundColor) =>
+                  capturedTestColorToHex(span.bg)?.toLowerCase() === backgroundColor.toLowerCase(),
+              ),
             )
           );
         });
 
-      expect(lineIncludesBackground("betaValue", theme.addedBg)).toBe(true);
-      expect(lineIncludesBackground("beta = 1", theme.removedBg)).toBe(true);
+      expect(lineIncludesBackground("betaValue", [theme.addedBg, unfocused.addedBg])).toBe(true);
+      expect(lineIncludesBackground("beta = 1", [theme.removedBg, unfocused.removedBg])).toBe(true);
     } finally {
       await act(async () => {
         setup.renderer.destroy();

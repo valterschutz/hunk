@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import { Children, act, isValidElement, type ReactNode } from "react";
 import { capturedTestColorToHex } from "../../../../../test/helpers/test-color-helpers";
+import { contrastRatio, hexColorDistance } from "../lib/color";
 import { resolveTheme } from "../themes";
 import { CodeRowView } from "./CodeRowView";
 import { planCodeRowLayout } from "./codeRowLayout";
@@ -65,7 +66,7 @@ test("CodeRowView limits character selections to source text instead of cell chr
       wrapLines={false}
       codeHorizontalOffset={0}
       theme={theme}
-      selected={false}
+      selected={true}
       copySelectedRowRange={{ startCol: 5, endCol: 7 }}
     />,
     { width: 20, height: 2 },
@@ -86,13 +87,89 @@ test("CodeRowView limits character selections to source text instead of cell chr
     expect(backgroundForText(spans, "▌")).toBe(theme.panel.toLowerCase());
     expect(foregroundForText(spans, "+ ")).toBe(palette.numberColor.toLowerCase());
     expect(foregroundForText(spans, "▌")).toBe(
-      unifiedRailColor("addition", theme, false).toLowerCase(),
+      unifiedRailColor("addition", theme, true).toLowerCase(),
     );
   } finally {
     await act(async () => {
       setup.renderer.destroy();
     });
   }
+});
+
+test("CodeRowView fades a row outside the focused hunk", async () => {
+  const theme = resolveTheme("github-dark-default", null);
+  const emphasisBg = "#1b4721";
+  const plannedRow: PlannedCodeReviewRow = {
+    kind: "diff-row",
+    key: "diff-row:focus",
+    stableKey: "line:0:new:1",
+    fileId: "paint",
+    hunkIndex: 0,
+    row: {
+      type: "unified-line",
+      key: "focus",
+      fileId: "paint",
+      hunkIndex: 0,
+      cell: {
+        kind: "addition",
+        sign: "+",
+        newLineNumber: 1,
+        spans: [{ text: "value", fg: "#79c0ff", bg: emphasisBg }],
+      },
+    },
+  };
+
+  /** Capture what one focus state paints behind and in the row's word-diff emphasis. */
+  const paintRow = async (selected: boolean) => {
+    const setup = await testRender(
+      <CodeRowView
+        plannedRow={plannedRow}
+        width={16}
+        lineNumberDigits={1}
+        showLineNumbers={false}
+        wrapLines={false}
+        codeHorizontalOffset={0}
+        theme={theme}
+        selected={selected}
+      />,
+      { width: 20, height: 2 },
+    );
+
+    try {
+      await act(async () => {
+        await setup.renderOnce();
+      });
+      const spans = setup.captureSpans();
+      return {
+        emphasisBg: backgroundForText(spans, "value")!,
+        emphasisFg: foregroundForText(spans, "value")!,
+        gutterBg: backgroundForText(spans, "+ ")!,
+        signFg: foregroundForText(spans, "+ ")!,
+        frame: setup.captureCharFrame(),
+      };
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  };
+
+  const focused = await paintRow(true);
+  const unfocused = await paintRow(false);
+  const surface = theme.background.toLowerCase();
+  const closerToSurface = (unfocusedColor: string, focusedColor: string) =>
+    expect(hexColorDistance(unfocusedColor, surface)).toBeLessThan(
+      hexColorDistance(focusedColor, surface),
+    );
+
+  expect(focused.emphasisBg).toBe(emphasisBg);
+  closerToSurface(unfocused.emphasisBg, focused.emphasisBg);
+  closerToSurface(unfocused.emphasisFg, focused.emphasisFg);
+  closerToSurface(unfocused.gutterBg, focused.gutterBg);
+  closerToSurface(unfocused.signFg, focused.signFg);
+  expect(contrastRatio(unfocused.emphasisFg, unfocused.emphasisBg)).toBeGreaterThanOrEqual(2);
+  // Fading is paint-only: the row still says exactly what it said.
+  expect(unfocused.frame).toBe(focused.frame);
 });
 
 test("CodeRowView mounts ordinary wrapped split lines under one hover target", async () => {
@@ -207,7 +284,7 @@ test("CodeRowView paints wrapped selection boundaries per visual line", async ()
       wrapLines
       codeHorizontalOffset={0}
       theme={theme}
-      selected={false}
+      selected={true}
       copySelectedRowRange={{
         startCol: contentStart + 2,
         endCol: width - 1,
@@ -279,7 +356,7 @@ test("CodeRowView gives copy selection precedence over cursor paint", async () =
       wrapLines={false}
       codeHorizontalOffset={0}
       theme={theme}
-      selected={false}
+      selected={true}
       copySelectedRowRange={{ startCol: 0, endCol: Number.MAX_SAFE_INTEGER }}
       cursorHighlight={{ stableKey: plannedRow.stableKey, side: "new", style: "row" }}
     />,

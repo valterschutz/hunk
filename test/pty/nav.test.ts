@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { createPtyHarness, pressKeyRepeat } from "./harness";
+import { createPtyHarness, pressKeyRepeat, rowCellBackgrounds } from "./harness";
 
 const harness = createPtyHarness();
 
@@ -82,6 +82,66 @@ describe("PTY navigation", () => {
 
       expect(secondHunk).toContain("line60 = 6000");
       expect(secondHunk).not.toContain("line1 = 100");
+    } finally {
+      session.close();
+    }
+  });
+
+  /** Find the on-screen row carrying text, in the same indexing `rowCellBackgrounds` reads. */
+  function terminalRowIndex(
+    session: { getTerminalData: () => { lines: { spans: { text: string }[] }[] } },
+    needle: string,
+  ) {
+    return session.getTerminalData().lines.findIndex((line) =>
+      line.spans
+        .map((span) => span.text)
+        .join("")
+        .includes(needle),
+    );
+  }
+
+  /** Return the background covering most of one captured row: its content tint. */
+  function dominantBackground(backgrounds: ReturnType<typeof rowCellBackgrounds>) {
+    const counts = new Map<(typeof backgrounds)[number], number>();
+    for (const background of backgrounds) {
+      counts.set(background, (counts.get(background) ?? 0) + 1);
+    }
+
+    return [...counts.entries()].sort(([, left], [, right]) => right - left)[0]?.[0];
+  }
+
+  test("hunk focus repaints the hunks it leaves and lands on", async () => {
+    const fixture = harness.createTwoFileRepoFixture();
+    const session = await harness.launchHunk({
+      args: ["diff", "--mode", "unified"],
+      cwd: fixture.dir,
+      cols: 120,
+      rows: 24,
+    });
+
+    try {
+      await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
+      await session.waitIdle({ timeout: 500 });
+
+      // Both files' only hunks are on screen at once, so one keypress swaps which of the two
+      // rows paints focused while the other fades.
+      const addedRow = terminalRowIndex(session, "export const add = true;");
+      const betaRow = terminalRowIndex(session, "export const betaValue = 1;");
+      expect(addedRow).toBeGreaterThanOrEqual(0);
+      expect(betaRow).toBeGreaterThanOrEqual(0);
+
+      const focusedTint = dominantBackground(rowCellBackgrounds(session, addedRow));
+      const fadedTint = dominantBackground(rowCellBackgrounds(session, betaRow));
+
+      // Both rows are additions, so the same tint reads focused on one and faded on the other.
+      expect(focusedTint).not.toBe(fadedTint);
+
+      // Both hunks stay on screen, so focus is the only thing the keypress moves.
+      await session.press("]");
+      await session.waitIdle({ timeout: 500 });
+
+      expect(dominantBackground(rowCellBackgrounds(session, betaRow))).toBe(focusedTint);
+      expect(dominantBackground(rowCellBackgrounds(session, addedRow))).toBe(fadedTint);
     } finally {
       session.close();
     }

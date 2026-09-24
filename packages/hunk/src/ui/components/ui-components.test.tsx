@@ -682,7 +682,7 @@ describe("UI components", () => {
         wrapLines={false}
         codeHorizontalOffset={0}
         theme={theme}
-        selected={false}
+        selected={true}
         showAddNoteBadge={true}
         onStartUserNoteAtHunk={startUserNote}
       />,
@@ -851,7 +851,7 @@ describe("UI components", () => {
           wrapLines={true}
           codeHorizontalOffset={0}
           theme={theme}
-          selected={false}
+          selected={true}
           showAddNoteBadge={showAddNoteBadge}
           onStartUserNoteAtHunk={() => {}}
         />,
@@ -894,7 +894,7 @@ describe("UI components", () => {
         wrapLines={true}
         codeHorizontalOffset={0}
         theme={theme}
-        selected={false}
+        selected={true}
         onStartUserNoteAtHunk={() => {}}
       />,
       { width: 32, height: 5 },
@@ -939,7 +939,7 @@ describe("UI components", () => {
         wrapLines={true}
         codeHorizontalOffset={0}
         theme={theme}
-        selected={false}
+        selected={true}
       />,
       { width: 32, height: 2 },
     );
@@ -988,7 +988,7 @@ describe("UI components", () => {
           wrapLines={wrapLines}
           codeHorizontalOffset={0}
           theme={theme}
-          selected={false}
+          selected={true}
         />,
         { width: 48, height: 3 },
       );
@@ -1032,7 +1032,7 @@ describe("UI components", () => {
         wrapLines={true}
         codeHorizontalOffset={0}
         theme={theme}
-        selected={false}
+        selected={true}
       />,
       { width: 8, height: 3 },
     );
@@ -1126,7 +1126,7 @@ describe("UI components", () => {
             wrapLines={true}
             codeHorizontalOffset={0}
             theme={theme}
-            selected={false}
+            selected={true}
             onStartUserNoteAtHunk={reserveAddNoteColumn ? () => {} : undefined}
           />,
           { width: 24, height: 5 },
@@ -1226,7 +1226,7 @@ describe("UI components", () => {
           wrapLines={true}
           codeHorizontalOffset={0}
           theme={theme}
-          selected={false}
+          selected={true}
         />,
         { width: 8, height: 3 },
       );

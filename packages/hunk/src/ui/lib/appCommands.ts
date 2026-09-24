@@ -6,6 +6,7 @@ import {
   type VerticalCommandDirection,
 } from "../../core/run/commandCatalog";
 import type { ReviewSelectionScope } from "../../core/review/navigation";
+import type { HunkState } from "../../core/review/reviewFile";
 import type { CursorLine, LayoutMode } from "../../core/run/commandInputs";
 import type { ExtensionCommandExecutionOptions } from "../../extension-api/types";
 import { matchesAnyKeyChord, parseKeyChordOrUndefined } from "../../lib/commandKeys";
@@ -162,6 +163,7 @@ export interface BuildAppCommandsOptions {
   rejectSelectedHunk: () => void;
   markSelectedHunkFixed: () => void;
   toggleDecidedHunks: () => void;
+  toggleHunkState: (state: HunkState) => void;
 }
 
 /**
@@ -289,6 +291,10 @@ function builtinCommandHandlers(
     "hunk.review.rejectSelectedHunk": { run: () => options.rejectSelectedHunk() },
     "hunk.review.markSelectedHunkFixed": { run: () => options.markSelectedHunkFixed() },
     "hunk.view.toggleDecidedHunks": { run: () => options.toggleDecidedHunks() },
+    "hunk.view.toggleUndecidedHunks": { run: () => options.toggleHunkState("undecided") },
+    "hunk.view.toggleAcceptedHunks": { run: () => options.toggleHunkState("accepted") },
+    "hunk.view.toggleRejectedHunks": { run: () => options.toggleHunkState("rejected") },
+    "hunk.view.toggleFixedHunks": { run: () => options.toggleHunkState("fixed") },
     "hunk.review.previousHunk": {
       run: (_key, count, entry) => runSelectionMove(options, entry, count),
     },
@@ -404,6 +410,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
+    toggleHunkState: noop,
   };
 })();
 

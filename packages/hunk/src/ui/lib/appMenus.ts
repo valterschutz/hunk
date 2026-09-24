@@ -1,3 +1,4 @@
+import type { HunkState } from "../../core/review/reviewFile";
 import type { CursorLine, LayoutMode } from "../../core/run/commandInputs";
 import { HUNK_VENDOR_EXTENSION_ID } from "../../extensions/extensionIds";
 import type { AppMenus, MenuEntry, MenuId } from "../components/chrome/menu";
@@ -46,7 +47,8 @@ export interface BuildAppMenusOptions {
   showHunkHeaders: boolean;
   showLineNumbers: boolean;
   showMenuBar: boolean;
-  showDecidedHunks: boolean;
+  /** The hunk states the review stream shows, one View-menu checkbox each. */
+  shownHunkStates: ReadonlySet<HunkState>;
   wrapLines: boolean;
 }
 
@@ -82,6 +84,7 @@ function toMenuEntries(
       // user unbound (or that ships unbound) simply shows no key.
       hint: command.keyLabels[0],
       checked: spec.checked,
+      ...(command.closesMenu === false ? { keepsMenuOpen: true } : {}),
       action: () => {
         executeAppCommand(commands, spec.commandId);
       },
@@ -142,7 +145,7 @@ export function buildAppMenus({
   showHunkHeaders,
   showLineNumbers,
   showMenuBar,
-  showDecidedHunks,
+  shownHunkStates,
   wrapLines,
 }: BuildAppMenusOptions): AppMenus {
   const specs: Record<Exclude<MenuId, "extensions" | "commit">, MenuEntrySpec[]> = {
@@ -189,9 +192,24 @@ export function buildAppMenus({
         checked: copyDecorations,
       },
       {
-        commandId: "hunk.view.toggleDecidedHunks",
-        label: "Decided hunks",
-        checked: showDecidedHunks,
+        commandId: "hunk.view.toggleUndecidedHunks",
+        label: "Undecided hunks",
+        checked: shownHunkStates.has("undecided"),
+      },
+      {
+        commandId: "hunk.view.toggleAcceptedHunks",
+        label: "Accepted hunks",
+        checked: shownHunkStates.has("accepted"),
+      },
+      {
+        commandId: "hunk.view.toggleRejectedHunks",
+        label: "Rejected hunks",
+        checked: shownHunkStates.has("rejected"),
+      },
+      {
+        commandId: "hunk.view.toggleFixedHunks",
+        label: "Fixed hunks",
+        checked: shownHunkStates.has("fixed"),
       },
       {
         commandId: "hunk.view.cursorLineRow",

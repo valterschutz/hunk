@@ -22,7 +22,7 @@ const MENU_STATE: Omit<BuildAppMenusOptions, "commands" | "extensionCommands"> =
   showAgentNotes: true,
   showHelp: false,
   showHunkHeaders: false,
-  showDecidedHunks: false,
+  shownHunkStates: new Set(["undecided"]),
   showLineNumbers: true,
   showMenuBar: true,
   wrapLines: true,
@@ -73,6 +73,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
+    toggleHunkState: noop,
     triggerRefreshCurrentInput: noop,
     ...overrides,
   });
@@ -153,6 +154,7 @@ describe("buildAppMenus", () => {
       "Line numbers",
       "Line wrapping",
       "Copy decorations",
+      "Undecided hunks",
       "Current line: full row",
     ]);
     expect(items(menus.view).map((item) => item.label)).toContain("Themes…");
@@ -164,6 +166,17 @@ describe("buildAppMenus", () => {
     ]);
     // The filter ships unbound, so its Navigate entry carries no hint.
     expect(items(menus.navigate).map((item) => item.hint)).toEqual(["[", "]", "{", "}", undefined]);
+  });
+
+  test("only the hunk-state toggles keep the menu open", () => {
+    const { commands } = createTestCommands();
+    const menus = buildAppMenus({ commands, ...MENU_STATE });
+
+    expect(
+      items(menus.view)
+        .filter((item) => item.keepsMenuOpen)
+        .map((item) => item.label),
+    ).toEqual(["Undecided hunks", "Accepted hunks", "Rejected hunks", "Fixed hunks"]);
   });
 
   test("every item carries the id of the command it runs", () => {

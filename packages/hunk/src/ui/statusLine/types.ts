@@ -7,17 +7,28 @@
  * consumers only describe it and await its answer. The public shapes live in
  * `extension-api/types.ts`; host code consumes them through these aliases.
  */
+import type { HunkState } from "../../core/review/reviewFile";
 import type {
   ExtensionPromptLineOptions,
   ExtensionStatusItem,
   ExtensionStatusSpan,
 } from "../../extension-api/types";
 
-/** One symbolic run of status text; the same span vocabulary file views use. */
-export type StatusSpan = ExtensionStatusSpan;
+/** A host-only tone painting a span in the rail color of one hunk state. */
+export type HunkStateTone = `rail-${HunkState}`;
+
+/**
+ * One symbolic run of status text: the span vocabulary file views use, plus the host-only rail
+ * tones. Extension items are validated against the public tones, so only the host paints rails.
+ */
+export interface StatusSpan extends Omit<ExtensionStatusSpan, "tone"> {
+  readonly tone?: ExtensionStatusSpan["tone"] | HunkStateTone;
+}
 
 /** One persistent status contribution, keyed by a globally unique id. */
-export type StatusItem = ExtensionStatusItem;
+export interface StatusItem extends Omit<ExtensionStatusItem, "spans"> {
+  spans: readonly StatusSpan[];
+}
 
 /** What a consumer asks of the inline prompt; host and extensions share the shape. */
 export type StatusPromptOptions = ExtensionPromptLineOptions;

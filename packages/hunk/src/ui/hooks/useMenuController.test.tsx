@@ -188,6 +188,38 @@ describe("useMenuController", () => {
     }
   });
 
+  test("leaves the dropdown open after an item that keeps it open", async () => {
+    let controller!: ReturnType<typeof useMenuController>;
+    const ran: string[] = [];
+    const menus: AppMenus = {
+      view: [
+        { kind: "item", label: "Rejected hunks", keepsMenuOpen: true, action: () => ran.push("r") },
+        { kind: "item", label: "Line numbers", action: () => ran.push("l") },
+      ],
+    };
+
+    function Probe() {
+      controller = useMenuController(menus);
+      return null;
+    }
+
+    const setup = await testRender(<Probe />, { width: 80, height: 24 });
+    try {
+      await act(async () => {
+        await setup.renderOnce();
+        controller.openMenu("view");
+      });
+      await act(async () => controller.activateCurrentMenuItem());
+      expect(controller.activeMenuId).toBe("view");
+      await act(async () => controller.moveMenuItem(1));
+      await act(async () => controller.activateCurrentMenuItem());
+      expect(controller.activeMenuId).toBeNull();
+      expect(ran).toEqual(["r", "l"]);
+    } finally {
+      await act(async () => setup.renderer.destroy());
+    }
+  });
+
   test("keeps rapid menu switch and activation sequential before a rerender", async () => {
     let controller!: ReturnType<typeof useMenuController>;
     const ran: string[] = [];

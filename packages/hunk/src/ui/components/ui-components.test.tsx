@@ -3776,7 +3776,7 @@ describe("UI components", () => {
       "Review",
       "c                        create review note",
       "+ / - / =                accept / reject / mark fixed",
-      "V                        show decided hunks",
+      "V                        all hunk states / undecided only",
       "Tab                      toggle files/filter focus",
       "F10                      open menus",
       "r                        reload the review",

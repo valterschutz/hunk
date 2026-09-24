@@ -14,6 +14,7 @@ import type {
   ExtensionVcsStashShowInput,
 } from "../../extension-api/types";
 import type { InstallSource } from "../install/installSource";
+import type { HunkState } from "../review/hunkStates";
 import type { ThemeTuningPercents } from "./themeTuning";
 import type { WheelScrollLines } from "./wheelScrollLines";
 
@@ -70,8 +71,8 @@ export interface CommonOptions extends ThemeTuningPercents {
   colorMoved?: boolean;
   /** The synced review file holding hunk decisions and notes; unset disables both. */
   reviewFile?: string;
-  /** Start with decided hunks shown instead of hidden. */
-  showDecidedHunks?: boolean;
+  /** The hunk states the review stream starts out showing; unset shows only undecided hunks. */
+  shownHunks?: HunkState[];
   /** Show only the selected file in the review stream, so `,` and `.` are the way between files. */
   oneFileAtATime?: boolean;
   /** Open every file whole, as if `z` (`hunk.review.toggleFileContext`) had already run on it. */

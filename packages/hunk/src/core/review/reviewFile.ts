@@ -15,6 +15,7 @@
  * This module does no I/O; `ui/lib/reviewFileStore.ts` owns the file.
  */
 import { resolveReviewNoteAnchor } from "./anchors";
+import { HUNK_DECISIONS, type HunkDecision } from "./hunkStates";
 import { isHunkIdentity, reviewHunkIdentity, stripLineEnding } from "./hunkIdentity";
 import { reviewNoteAnchorLine, reviewNoteOwnerHunkIndex, type ReviewStoredNote } from "./state";
 import type {
@@ -26,8 +27,7 @@ import type {
   ReviewSide,
 } from "./types";
 
-export type HunkDecision = "accepted" | "rejected" | "fixed";
-export const HUNK_DECISIONS: readonly HunkDecision[] = ["accepted", "rejected", "fixed"];
+export { HUNK_DECISIONS, HUNK_STATES, type HunkDecision, type HunkState } from "./hunkStates";
 
 /** A commit's derived status; a commit with an undecided hunk has none. */
 export type CommitStatus = "reviewed" | "approved";

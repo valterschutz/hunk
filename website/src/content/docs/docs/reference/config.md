@@ -222,13 +222,14 @@ Keep hunk decisions (`+` accept, `-` reject, `=` fixed) and your review notes in
 
 ---
 
-**`show_decided_hunks`**
+**`shown_hunks`**
 
-Start with accepted, rejected, and fixed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.
+The hunk states the review stream starts out showing. The View menu toggles each state during the session, and `V` switches between undecided only and every state. The deprecated `show_decided_hunks = true` means every state.
 
-- **Type:** boolean
-- **Accepted:** `true` or `false`
-- **Built-in default:** `false`
+- **Type:** array of strings
+- **Accepted:** any of `undecided`, `accepted`, `rejected`, and `fixed`
+- **Built-in default:** `["undecided"]`
+- **Aliases:** `show_decided_hunks` (deprecated)
 
 ---
 

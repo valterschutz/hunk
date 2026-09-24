@@ -12,6 +12,8 @@ export type MenuEntry =
       checked?: boolean;
       /** Keep a context-dependent action visible while preventing activation. */
       disabled?: boolean;
+      /** Leave the dropdown open after activation, so several toggles can be set in one visit. */
+      keepsMenuOpen?: boolean;
       action: () => void;
     }
   | {

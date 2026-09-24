@@ -309,6 +309,34 @@ describe("config resolution", () => {
     expect(unknown.input.options.cursorScroll).toBe("nearest");
   });
 
+  test("reads shown_hunks, its deprecated boolean alias, and rejects unknown states", () => {
+    const home = createTempDir("hunk-config-home-");
+    const repo = createTempDir("hunk-config-repo-");
+    createRepo(repo);
+    const input = createPatchPagerInput();
+    const env = { HOME: home };
+    const configPath = join(home, ".config", "hunk", "config.toml");
+    const shownHunks = () =>
+      resolveConfiguredCliInput(input, { cwd: repo, env }).input.options.shownHunks;
+
+    expect(shownHunks()).toBeUndefined();
+
+    mkdirSync(join(home, ".config", "hunk"), { recursive: true });
+    writeFileSync(configPath, 'shown_hunks = ["rejected", "undecided", "rejected"]\n');
+    expect(shownHunks()).toEqual(["undecided", "rejected"]);
+
+    writeFileSync(configPath, "show_decided_hunks = true\n");
+    expect(shownHunks()).toEqual(["undecided", "accepted", "rejected", "fixed"]);
+    writeFileSync(configPath, "show_decided_hunks = false\n");
+    expect(shownHunks()).toEqual(["undecided"]);
+
+    writeFileSync(configPath, 'shown_hunks = ["fixed"]\nshow_decided_hunks = true\n');
+    expect(shownHunks()).toEqual(["fixed"]);
+
+    writeFileSync(configPath, 'shown_hunks = ["maybe"]\n');
+    expect(shownHunks).toThrow(/shown_hunks/);
+  });
+
   test("starts pager mode with the menu bar hidden unless a later layer asks for it", () => {
     const home = createTempDir("hunk-config-home-");
     const repo = createTempDir("hunk-config-repo-");

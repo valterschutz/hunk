@@ -122,7 +122,7 @@ export function useMenuController(menus: AppMenus) {
     }
 
     entry.action();
-    closeMenu();
+    if (!entry.keepsMenuOpen) closeMenu();
   };
 
   const activeMenuSpec = menuSpecs.find((menu) => menu.id === openMenuId);

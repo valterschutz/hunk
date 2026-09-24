@@ -17,6 +17,7 @@ import {
   resolveSyntaxScopeOverrides,
 } from "../theme/legacySyntaxScopes";
 import { resolveGlobalConfigPath } from "./paths";
+import { HUNK_STATES, type HunkState } from "../review/hunkStates";
 import { LEGACY_CUSTOM_SYNTAX_NOTICES, type StartupNotice } from "../process/startupNotice";
 import {
   DEFAULT_FILE_GAP,
@@ -243,6 +244,27 @@ function upsertTopLevelTomlValue(source: string, key: string, value: string | bo
 /** Accept only the current-line styles the review stream can draw. */
 function normalizeCursorLine(value: unknown): CursorLine | undefined {
   return value === "row" || value === "number" || value === "off" ? value : undefined;
+}
+
+/**
+ * Read `shown_hunks`, or the boolean of its deprecated `show_decided_hunks` alias: `true` shows
+ * every state and `false` only undecided hunks. States come back deduplicated in catalog order.
+ */
+function normalizeShownHunks(value: unknown): HunkState[] | undefined {
+  if (value === undefined) return undefined;
+  if (value === true) return [...HUNK_STATES];
+  if (value === false) return ["undecided"];
+  if (!Array.isArray(value)) {
+    throw new Error(`Expected shown_hunks to be an array of ${HUNK_STATES.join(", ")}.`);
+  }
+  for (const state of value) {
+    if (!HUNK_STATES.includes(state as HunkState)) {
+      throw new Error(
+        `Expected shown_hunks entries to be ${HUNK_STATES.join(", ")}, got ${JSON.stringify(state)}.`,
+      );
+    }
+  }
+  return HUNK_STATES.filter((state) => value.includes(state));
 }
 
 function normalizeCursorScroll(value: unknown): CursorScroll | undefined {
@@ -527,13 +549,14 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     userOnly: true,
   },
   {
-    key: "show_decided_hunks",
-    property: "showDecidedHunks",
-    type: "boolean",
-    accepted: "`true` or `false`",
-    runtimeDefault: false,
+    key: "shown_hunks",
+    property: "shownHunks",
+    type: "array of strings",
+    accepted: "any of `undecided`, `accepted`, `rejected`, and `fixed`",
+    defaultValue: '`["undecided"]`',
     description:
-      "Start with accepted, rejected, and fixed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
+      "The hunk states the review stream starts out showing. The View menu toggles each state during the session, and `V` switches between undecided only and every state. The deprecated `show_decided_hunks = true` means every state.",
+    aliases: [{ key: "show_decided_hunks", deprecated: true }],
   },
   {
     key: "one_file_at_a_time",
@@ -1152,6 +1175,8 @@ function normalizeConfigReferenceValue(property: keyof CommonOptions, value: unk
       return normalizeTuningPercent(value, "word_diff_emphasis", MAX_WORD_DIFF_EMPHASIS_PERCENT);
     case "sidebar":
       return normalizeSidebarVisibility(value);
+    case "shownHunks":
+      return normalizeShownHunks(value);
     default:
       return normalizeBoolean(value);
   }
@@ -1237,7 +1262,7 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     transparentBackground: overrides.transparentBackground ?? base.transparentBackground,
     colorMoved: overrides.colorMoved ?? base.colorMoved,
     reviewFile: overrides.reviewFile ?? base.reviewFile,
-    showDecidedHunks: overrides.showDecidedHunks ?? base.showDecidedHunks,
+    shownHunks: overrides.shownHunks ?? base.shownHunks,
     oneFileAtATime: overrides.oneFileAtATime ?? base.oneFileAtATime,
     wholeFile: overrides.wholeFile ?? base.wholeFile,
     cursorScroll: overrides.cursorScroll ?? base.cursorScroll,

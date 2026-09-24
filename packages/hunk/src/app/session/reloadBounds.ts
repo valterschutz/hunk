@@ -89,7 +89,6 @@ export function createSessionReloadBounds(
     case "vcs":
     case "show":
     case "stash-show":
-    case "address":
       roots = [bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd];
       break;
     case "diff":
@@ -220,8 +219,6 @@ export function validateSessionReloadWithinBounds(
       if (nextInput.text === undefined) {
         throw new Error("Session reload does not support stdin-backed patch input.");
       }
-      break;
-    case "address":
       break;
     case "vcs":
       if (bounds.roots.length === 0) {

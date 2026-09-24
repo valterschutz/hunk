@@ -413,7 +413,7 @@ describe("themes", () => {
     expect(mocha.contextRailColor).toBe(mocha.lineNumberFg);
     expect(mocha.acceptedRailColor).toBe(mocha.addedSignColor);
     expect(mocha.rejectedRailColor).toBe(mocha.removedSignColor);
-    expect(mocha.addressedRailColor).toBe(mocha.lineNumberFg);
+    expect(mocha.fixedRailColor).toBe(mocha.lineNumberFg);
 
     const railOnly = resolveTheme(
       "custom",
@@ -431,7 +431,7 @@ describe("themes", () => {
     // The decision rails follow the plain rails until they are given their own colors.
     expect(railOnly.acceptedRailColor).toBe("#cba6f7");
     expect(railOnly.rejectedRailColor).toBe("#cba6f7");
-    expect(railOnly.addressedRailColor).toBe("#cba6f7");
+    expect(railOnly.fixedRailColor).toBe("#cba6f7");
 
     const decisionsOnly = resolveTheme(
       "custom",
@@ -440,12 +440,12 @@ describe("themes", () => {
         base: "catppuccin-mocha",
         acceptedRailColor: "#a6e3a1",
         rejectedRailColor: "#f38ba8",
-        addressedRailColor: "#89b4fa",
+        fixedRailColor: "#89b4fa",
       }),
     );
     expect(decisionsOnly.acceptedRailColor).toBe("#a6e3a1");
     expect(decisionsOnly.rejectedRailColor).toBe("#f38ba8");
-    expect(decisionsOnly.addressedRailColor).toBe("#89b4fa");
+    expect(decisionsOnly.fixedRailColor).toBe("#89b4fa");
     expect(decisionsOnly.addedRailColor).toBe(mocha.addedRailColor);
     expect(railOnly.addedSignColor).toBe(mocha.addedSignColor);
     expect(railOnly.removedSignColor).toBe(mocha.removedSignColor);

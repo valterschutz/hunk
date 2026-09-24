@@ -83,8 +83,8 @@ export function decisionRailColor(theme: AppTheme, decision: HunkDecision) {
       return theme.acceptedRailColor;
     case "rejected":
       return theme.rejectedRailColor;
-    case "addressed":
-      return theme.addressedRailColor;
+    case "fixed":
+      return theme.fixedRailColor;
   }
 }
 

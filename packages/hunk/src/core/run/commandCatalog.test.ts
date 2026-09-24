@@ -73,8 +73,7 @@ describe("app command catalog", () => {
       "hunk.review.editSelectedFileSplit",
       "hunk.review.acceptSelectedHunk",
       "hunk.review.rejectSelectedHunk",
-      "hunk.review.markSelectedHunkAddressed",
-      "hunk.review.openActiveNoteInEditor",
+      "hunk.review.markSelectedHunkFixed",
     ]);
   });
 

@@ -340,7 +340,7 @@ describe("decided hunk rails", () => {
       expect(splitRightRailColor("context", theme, true, "accepted")).toBe(accepted);
       expect(metaRailColor(theme, true, "accepted")).toBe(accepted);
       expect(unifiedRailColor("addition", theme, true, "rejected")).toBe(theme.rejectedRailColor);
-      expect(metaRailColor(theme, true, "addressed")).toBe(theme.addressedRailColor);
+      expect(metaRailColor(theme, true, "fixed")).toBe(theme.fixedRailColor);
 
       const dimmed = dimRailColor(accepted, theme);
       expect(unifiedRailColor("addition", theme, false, "accepted")).toBe(dimmed);

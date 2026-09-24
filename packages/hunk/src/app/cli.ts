@@ -278,19 +278,6 @@ export const CLI_REFERENCE_COMMANDS = {
     commonReviewOptions: true,
     watch: true,
   },
-  address: {
-    path: "address",
-    summary: "review the hunks you rejected in this repository, rebuilt from the review file",
-    synopsis: ["hunk address [--repo <path>]", "hunk address --list [--all] [--json]"],
-    options: [
-      { flag: "--repo <path>", description: "repository root; defaults to the one containing the cwd" },
-      { flag: "--list", description: "print the open rejections instead of opening a review" },
-      { flag: "--all", description: "with --list, include rejections already marked addressed" },
-      { flag: "--json", description: "with --list, emit structured JSON" },
-    ],
-    commonReviewOptions: true,
-    watch: true,
-  },
   pager: {
     path: "pager",
     summary: "general Git pager wrapper with diff detection",
@@ -1174,38 +1161,6 @@ async function parsePatchCommand(tokens: string[], argv: string[]): Promise<Pars
   };
 }
 
-/** Parse `hunk address`, which reviews or lists the recorded rejections of one repository. */
-async function parseAddressCommand(tokens: string[], argv: string[]): Promise<ParsedCliInput> {
-  const command = createCliReferenceCommand("address");
-
-  let parsedOptions: Record<string, unknown> = {};
-  command.action((options: Record<string, unknown>) => {
-    parsedOptions = options;
-  });
-
-  if (tokens.includes("--help") || tokens.includes("-h")) {
-    return { kind: "help", text: `${command.helpInformation().trimEnd()}\n` };
-  }
-
-  await parseStandaloneCommand(command, tokens);
-
-  const repo = typeof parsedOptions.repo === "string" ? parsedOptions.repo : undefined;
-  const options = buildCommonOptions(parsedOptions, argv);
-  if (parsedOptions.list === true) {
-    return {
-      kind: "address-list",
-      ...(repo !== undefined ? { repo } : {}),
-      json: parsedOptions.json === true,
-      all: parsedOptions.all === true,
-      options,
-    };
-  }
-  if (parsedOptions.json === true || parsedOptions.all === true) {
-    throw new Error("`--json` and `--all` apply to `hunk address --list`.");
-  }
-  return { kind: "address", ...(repo !== undefined ? { repo } : {}), options };
-}
-
 /** Parse the general pager wrapper command used from Git `core.pager`. */
 async function parsePagerCommand(
   tokens: string[],
@@ -1287,10 +1242,6 @@ function requireReloadableCliInput(input: ParsedCliInput): CliInput {
 
   if (input.kind === "session") {
     throw new Error("Session reload cannot invoke another session command.");
-  }
-
-  if (input.kind === "address-list") {
-    throw new Error("Session reload cannot run `hunk address --list`; drop `--list`.");
   }
 
   if (input.kind === "patch" && (!input.file || input.file === "-")) {
@@ -2345,15 +2296,7 @@ async function parseStashCommand(
   };
 }
 
-const REVIEW_COMMAND_NAMES = new Set([
-  "diff",
-  "show",
-  "patch",
-  "pager",
-  "difftool",
-  "address",
-  "stash",
-]);
+const REVIEW_COMMAND_NAMES = new Set(["diff", "show", "patch", "pager", "difftool", "stash"]);
 const EXTENSION_AWARE_COMMAND_NAMES = new Set([...REVIEW_COMMAND_NAMES, "log"]);
 
 interface LeadingCliFlags {
@@ -2492,8 +2435,6 @@ export async function parseCli(argv: string[]): Promise<ParsedCliInput> {
       return parsePagerCommand(reviewRest, argv);
     case "difftool":
       return parseDifftoolCommand(reviewRest, argv);
-    case "address":
-      return parseAddressCommand(reviewRest, argv);
     case "stash":
       // `show` is Hunk's stash subcommand, so keep it ahead of reconstructed host options.
       return parseStashCommand(rest, argv, extensionFlagTokens);

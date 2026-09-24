@@ -260,10 +260,7 @@ describe("applyLineHighlightsToSpans", () => {
   });
 
   test("resolves each painted piece against its own pre-paint background", () => {
-    const spans: RenderSpan[] = [
-      { text: "alpha" },
-      { text: "beta", bg: "#204020" },
-    ];
+    const spans: RenderSpan[] = [{ text: "alpha" }, { text: "beta", bg: "#204020" }];
     const seen: (string | undefined)[] = [];
 
     const painted = applyLineHighlightsToSpans(

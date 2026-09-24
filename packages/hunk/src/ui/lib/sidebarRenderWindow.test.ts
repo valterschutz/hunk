@@ -12,6 +12,7 @@ function createEntries(ids: string[]): SidebarEntry[] {
           id,
           name: `${id}.ts`,
           depth: 0,
+          approvalText: null,
           agentCommentsText: null,
           additionsText: null,
           deletionsText: null,

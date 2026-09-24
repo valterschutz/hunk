@@ -3,7 +3,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { createTestDiffFile } from "../../../../../test/helpers/diff-helpers";
 import { buildDiffFile } from "./diffFile";
 import type { DiffFile } from "./model";
-import { diffHunkIdentity, hideDecidedHunks } from "./hunkDecisions";
+import { diffHunkIdentity, fileReviewStatus, hideDecidedHunks } from "./hunkDecisions";
 
 const HUNK_ONE = `@@ -1,6 +1,6 @@
  line 1
@@ -97,6 +97,37 @@ describe("diffHunkIdentity", () => {
     expect(diffHunkIdentity(fromContents, fromContents.metadata.hunks[0]!)).toBe(
       diffHunkIdentity(fromPatch, fromPatch.metadata.hunks[0]!),
     );
+  });
+});
+
+describe("fileReviewStatus", () => {
+  test("approves a file only when every hunk is accepted or fixed", () => {
+    const file = fileFromHunks([HUNK_ONE, HUNK_TWO]);
+    const [first, second] = file.metadata.hunks.map((hunk) => diffHunkIdentity(file, hunk));
+
+    expect(fileReviewStatus(file, new Map([[first!, "accepted"]]))).toBeUndefined();
+    expect(
+      fileReviewStatus(
+        file,
+        new Map([
+          [first!, "accepted"],
+          [second!, "rejected"],
+        ]),
+      ),
+    ).toBeUndefined();
+    expect(
+      fileReviewStatus(
+        file,
+        new Map([
+          [first!, "accepted"],
+          [second!, "fixed"],
+        ]),
+      ),
+    ).toBe("approved");
+  });
+
+  test("does not approve a file with no reviewable hunks", () => {
+    expect(fileReviewStatus(fileFromHunks([]), new Map())).toBeUndefined();
   });
 });
 

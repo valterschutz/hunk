@@ -213,7 +213,7 @@ Include diff signs and line numbers in copied selections.
 
 **`review_file`**
 
-Keep hunk decisions (`+` accept, `-` reject, `=` addressed) and your review notes in this JSON Lines file, and derive the per-commit status file `commit-status` beside it. Decided hunks leave the review stream. Unset, hunks cannot be decided and notes last only for the session.
+Keep hunk decisions (`+` accept, `-` reject, `=` fixed) and your review notes in this JSON Lines file, and derive the per-commit status file `commit-status` beside it. Decided hunks leave the review stream. Unset, hunks cannot be decided and notes last only for the session.
 
 - **Type:** string
 - **Accepted:** a file path; `~` expands to the home directory
@@ -224,7 +224,7 @@ Keep hunk decisions (`+` accept, `-` reject, `=` addressed) and your review note
 
 **`show_decided_hunks`**
 
-Start with accepted, rejected, and addressed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.
+Start with accepted, rejected, and fixed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.
 
 - **Type:** boolean
 - **Accepted:** `true` or `false`
@@ -333,15 +333,14 @@ Enable moved-line coloring when the renderer supports it.
 
 ## Command tables
 
-| Table          | Applies to                                                      |
-| -------------- | --------------------------------------------------------------- |
-| `[vcs]`        | working-tree and target reviews (`hunk diff`)                   |
-| `[show]`       | commit and target display reviews (`hunk show`)                 |
-| `[stash-show]` | stash reviews (`hunk stash show`)                               |
-| `[diff]`       | two-file comparisons (`hunk diff --files <left> <right>`)       |
-| `[patch]`      | patch-file reviews (`hunk patch`)                               |
-| `[difftool]`   | Git difftool pair reviews (`hunk difftool`)                     |
-| `[address]`    | rejection reviews rebuilt from the review file (`hunk address`) |
+| Table          | Applies to                                                |
+| -------------- | --------------------------------------------------------- |
+| `[vcs]`        | working-tree and target reviews (`hunk diff`)             |
+| `[show]`       | commit and target display reviews (`hunk show`)           |
+| `[stash-show]` | stash reviews (`hunk stash show`)                         |
+| `[diff]`       | two-file comparisons (`hunk diff --files <left> <right>`) |
+| `[patch]`      | patch-file reviews (`hunk patch`)                         |
+| `[difftool]`   | Git difftool pair reviews (`hunk difftool`)               |
 
 `[pager]` is an additional overlay for any review opened with pager-style chrome. It is applied after the matching command table in the same file.
 
@@ -456,7 +455,7 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.contextRailColor`    | Override the contextRailColor semantic color.    |
 | `custom_theme.acceptedRailColor`   | Override the acceptedRailColor semantic color.   |
 | `custom_theme.rejectedRailColor`   | Override the rejectedRailColor semantic color.   |
-| `custom_theme.addressedRailColor`  | Override the addressedRailColor semantic color.  |
+| `custom_theme.fixedRailColor`      | Override the fixedRailColor semantic color.      |
 | `custom_theme.selectedHunk`        | Override the selectedHunk semantic color.        |
 | `custom_theme.badgeAdded`          | Override the badgeAdded semantic color.          |
 | `custom_theme.badgeRemoved`        | Override the badgeRemoved semantic color.        |

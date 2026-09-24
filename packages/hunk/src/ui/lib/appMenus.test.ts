@@ -70,8 +70,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     triggerEditSelectedFileSplit: noop,
     acceptSelectedHunk: noop,
     rejectSelectedHunk: noop,
-    markSelectedHunkAddressed: noop,
-    openActiveNoteInEditor: noop,
+    markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
     triggerRefreshCurrentInput: noop,
     ...overrides,
@@ -131,8 +130,7 @@ describe("buildAppMenus", () => {
       "Open file in editor (Herdr split pane)",
       "Accept selected hunk",
       "Reject selected hunk",
-      "Mark selected hunk addressed",
-      "Open active note in editor",
+      "Mark selected hunk fixed",
       "Reload",
       "Quit",
     ]);
@@ -178,8 +176,7 @@ describe("buildAppMenus", () => {
       "hunk.review.editSelectedFileSplit",
       "hunk.review.acceptSelectedHunk",
       "hunk.review.rejectSelectedHunk",
-      "hunk.review.markSelectedHunkAddressed",
-      "hunk.review.openActiveNoteInEditor",
+      "hunk.review.markSelectedHunkFixed",
       "hunk.app.refresh",
       "hunk.app.quit",
     ]);
@@ -257,8 +254,7 @@ describe("buildAppMenus", () => {
       "Open file in editor (Herdr split pane)",
       "Accept selected hunk",
       "Reject selected hunk",
-      "Mark selected hunk addressed",
-      "Open active note in editor",
+      "Mark selected hunk fixed",
       "Quit",
     ]);
   });

@@ -74,6 +74,17 @@ describe("files helpers", () => {
     });
   });
 
+  test("buildFlatSidebarEntries marks approved files", () => {
+    const approved = {
+      ...createTestDiffFile({ id: "approved", path: "src/approved.ts" }),
+      reviewStatus: "approved" as const,
+    };
+
+    const [entry] = buildFlatSidebarEntries([approved]).filter((item) => item.kind === "file");
+
+    expect(entry).toMatchObject({ name: "approved.ts", approvalText: "✓" });
+  });
+
   test("buildFlatSidebarEntries includes compact per-file comment counts before diff stats", () => {
     const withComments = createTestDiffFile({
       id: "with-comments",

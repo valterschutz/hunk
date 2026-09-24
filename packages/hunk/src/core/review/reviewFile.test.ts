@@ -53,13 +53,21 @@ const HUNK: HunkRecord = {
   repo: "~/repo",
   path: "a.txt",
   state: "rejected",
-  commit: "abc",
+  commits: ["abc"],
   oldStart: 1,
   newStart: 1,
-  lines: [" ctx", "-old", "+new"],
 };
 
 describe("review records", () => {
+  test("migrates the legacy addressed decision and commit field", () => {
+    const parsed = parseReviewRecord(
+      JSON.stringify({ ...HUNK, state: "addressed", commits: undefined, commit: "abc" }),
+    );
+
+    expect(parsed).toMatchObject({ state: "fixed", commits: ["abc"] });
+    expect(serializeReviewRecords([parsed])).toContain('"state":"fixed","commits":["abc"]');
+  });
+
   test("round-trip through JSON Lines, sorted by kind and key", () => {
     const note: NoteRecord = {
       kind: "note",
@@ -89,12 +97,10 @@ describe("review records", () => {
     expect(() => parseReviewRecord("nope")).toThrow(/not JSON/);
     expect(() => parseReviewRecord('{"kind":"other"}')).toThrow(/kind "other" is unknown/);
     expect(() => parseReviewRecord('{"kind":"hunk","id":"x"}')).toThrow(/not a hunk identity/);
-    expect(() =>
-      parseReviewRecord(JSON.stringify({ ...HUNK, state: "maybe" })),
-    ).toThrow(/is not a decision/);
-    expect(() => parseReviewRecord('{"kind":"commit","repo":"r","hash":"h"}')).toThrow(
-      /hunkCount/,
+    expect(() => parseReviewRecord(JSON.stringify({ ...HUNK, state: "maybe" }))).toThrow(
+      /is not a decision/,
     );
+    expect(() => parseReviewRecord('{"kind":"commit","repo":"r","hash":"h"}')).toThrow(/hunkCount/);
   });
 });
 
@@ -106,18 +112,34 @@ describe("commitStatuses", () => {
     expect(commitStatuses([commit, other]).size).toBe(0);
   });
 
-  test("is verified while a rejection is open, and addressed once none is", () => {
-    expect(commitStatuses([commit, HUNK, other]).get("abc")).toBe("verified");
-    expect(commitStatuses([commit, { ...HUNK, state: "addressed" }, other]).get("abc")).toBe(
-      "addressed",
+  test("is reviewed while a rejection is open, and approved once none is", () => {
+    expect(commitStatuses([commit, HUNK, other]).get("abc")).toBe("reviewed");
+    expect(commitStatuses([commit, { ...HUNK, state: "fixed" }, other]).get("abc")).toBe(
+      "approved",
     );
     expect(commitStatuses([commit, { ...HUNK, state: "accepted" }, other]).get("abc")).toBe(
-      "addressed",
+      "approved",
+    );
+  });
+
+  test("gives every commit in a comparison the aggregate review status", () => {
+    const commits: ReviewRecord[] = [
+      { kind: "commit", repo: "~/repo", hash: "abc", hunkCount: 2 },
+      { kind: "commit", repo: "~/repo", hash: "def", hunkCount: 2 },
+    ];
+    const rangeHunk = { ...HUNK, commits: ["abc", "def"] };
+    const rangeOther = { ...other, commits: ["abc", "def"] };
+
+    expect(commitStatuses([...commits, rangeHunk, rangeOther])).toEqual(
+      new Map([
+        ["abc", "reviewed"],
+        ["def", "reviewed"],
+      ]),
     );
   });
 
   test("ignores decisions made outside a single-commit review", () => {
-    const { commit: _commit, ...uncommitted } = HUNK;
+    const { commits: _commits, ...uncommitted } = HUNK;
     expect(commitStatuses([commit, uncommitted, other]).size).toBe(0);
   });
 
@@ -125,11 +147,11 @@ describe("commitStatuses", () => {
     expect(
       serializeCommitStatuses(
         new Map([
-          ["bbb", "verified"],
-          ["aaa", "addressed"],
+          ["bbb", "reviewed"],
+          ["aaa", "approved"],
         ]),
       ),
-    ).toBe("aaa addressed\nbbb verified\n");
+    ).toBe("aaa approved\nbbb reviewed\n");
     expect(serializeCommitStatuses(new Map())).toBe("");
   });
 });
@@ -160,7 +182,7 @@ describe("persistableNoteRecords", () => {
 
     const { notes, hunks } = persistableNoteRecords(doc, [agentRoot, root, reply], {
       repo: "~/repo",
-      commit: "abc",
+      commits: ["abc"],
     });
 
     const identity = reviewHunkIdentity(file, second);
@@ -170,10 +192,9 @@ describe("persistableNoteRecords", () => {
         id: identity,
         repo: "~/repo",
         path: "sample.ts",
-        commit: "abc",
+        commits: ["abc"],
         oldStart: second.deletionStart,
         newStart: second.additionStart,
-        lines: [" line 13", " line 14", "-line 15", "+second change", " line 16", " line 17"],
       },
     ]);
     expect(notes.map((note) => note.id)).toEqual(["user:1", "mcp:reply"]);
@@ -247,9 +268,7 @@ describe("restoreNoteRecords", () => {
     const records = persistableNoteRecords(doc, [root], { repo: "~/repo" });
     const edited = document(BEFORE, AFTER.replace("second change", "different change"));
 
-    expect(restoreNoteRecords(edited, [...records.hunks, ...records.notes], new Set())).toEqual(
-      [],
-    );
+    expect(restoreNoteRecords(edited, [...records.hunks, ...records.notes], new Set())).toEqual([]);
     const orphanReply: NoteRecord = { ...records.notes[0]!, id: "user:9", parentId: "missing" };
     expect(restoreNoteRecords(doc, [orphanReply], new Set())).toEqual([]);
   });

@@ -23,6 +23,7 @@ import {
 } from "./commands";
 import {
   countGitReviewCommits,
+  loadGitReviewCommitIds,
   loadGitReviewCommits,
   openGitHistory,
   planGitHistoryRangeReview,
@@ -196,13 +197,15 @@ async function createGitComparisonReview(
   });
   if (!endpoints) return undefined;
   const revision = `${endpoints.base}..${endpoints.head}`;
-  const [commits, commitCount] = await Promise.all([
+  const [commits, commitCount, commitIds] = await Promise.all([
     loadGitReviewCommits(revision, { cwd: repoRoot, gitExecutable, signal }),
     countGitReviewCommits(revision, { cwd: repoRoot, gitExecutable, signal }),
+    loadGitReviewCommitIds(revision, { cwd: repoRoot, gitExecutable, signal }),
   ]);
   return {
     endpoints,
     review: comparisonReviewInfo("Git", endpoints.base, endpoints.head, commits, commitCount),
+    commitIds,
   };
 }
 
@@ -453,6 +456,7 @@ export function createGitVcsAdapter({
               signal,
             }),
             review: comparison?.review,
+            reviewCommitIds: comparison?.commitIds,
             ...sourceCapability,
             extraFiles: largeTrackedFiles.map(
               (file): ExtensionVcsExtraFile => ({

@@ -82,7 +82,7 @@ export function monochromeLogTheme(theme: AppTheme, terminalMode: ThemeMode): Ap
     contextRailColor: foreground,
     acceptedRailColor: foreground,
     rejectedRailColor: foreground,
-    addressedRailColor: foreground,
+    fixedRailColor: foreground,
     selectedHunk: selection,
     badgeAdded: foreground,
     badgeRemoved: foreground,

@@ -523,7 +523,7 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     type: "string",
     accepted: "a file path; `~` expands to the home directory",
     description:
-      "Keep hunk decisions (`+` accept, `-` reject, `=` addressed) and your review notes in this JSON Lines file, and derive the per-commit status file `commit-status` beside it. Decided hunks leave the review stream. Unset, hunks cannot be decided and notes last only for the session.",
+      "Keep hunk decisions (`+` accept, `-` reject, `=` fixed) and your review notes in this JSON Lines file, and derive the per-commit status file `commit-status` beside it. Decided hunks leave the review stream. Unset, hunks cannot be decided and notes last only for the session.",
     userOnly: true,
   },
   {
@@ -533,7 +533,7 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     accepted: "`true` or `false`",
     runtimeDefault: false,
     description:
-      "Start with accepted, rejected, and addressed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
+      "Start with accepted, rejected, and fixed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
   },
   {
     key: "one_file_at_a_time",
@@ -631,7 +631,6 @@ export const CONFIG_COMMAND_SECTIONS = {
   diff: "two-file comparisons (`hunk diff --files <left> <right>`)",
   patch: "patch-file reviews (`hunk patch`)",
   difftool: "Git difftool pair reviews (`hunk difftool`)",
-  address: "rejection reviews rebuilt from the review file (`hunk address`)",
 } as const satisfies Record<CliInput["kind"], string>;
 
 /** Reference metadata for the root-only custom-theme tables. */

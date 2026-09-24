@@ -119,30 +119,6 @@ Also accepts `--watch`: auto-reload when the current diff input changes.
 
 Also accepts every [common review option](#common-review-options).
 
-## `hunk address`
-
-review the hunks you rejected in this repository, rebuilt from the review file
-
-### Usage
-
-```bash
-hunk address [--repo <path>]
-hunk address --list [--all] [--json]
-```
-
-### Command-specific options
-
-| Option          | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `--repo <path>` | repository root; defaults to the one containing the cwd  |
-| `--list`        | print the open rejections instead of opening a review    |
-| `--all`         | with --list, include rejections already marked addressed |
-| `--json`        | with --list, emit structured JSON                        |
-
-Also accepts `--watch`: auto-reload when the current diff input changes.
-
-Also accepts every [common review option](#common-review-options).
-
 ## `hunk pager`
 
 general Git pager wrapper with diff detection

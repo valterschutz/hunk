@@ -1,5 +1,5 @@
 /**
- * Owns the synced review file: hunk decisions, addressable hunk text, and the reviewer's notes.
+ * Owns the synced review file: hunk decisions, note anchors, and the reviewer's notes.
  *
  * The file is JSON Lines (`core/review/reviewFile.ts` defines the records) so any file syncing
  * tool carries it between machines; it is re-read before every write so entries added
@@ -31,11 +31,11 @@ export interface ReviewFileLoad {
 }
 
 export interface HunkDecisionInput {
-  hunk: Omit<HunkRecord, "kind" | "state" | "lines"> & { lines: string[] };
+  hunk: Omit<HunkRecord, "kind" | "state">;
   /** Undefined clears the decision. */
   state: HunkDecision | undefined;
-  /** The single commit under review, when there is one, so its status can be derived. */
-  commit?: { hash: string; hunkCount: number };
+  /** The commits covered by this review, so one aggregate range updates all of their statuses. */
+  commits?: readonly { hash: string; hunkCount: number }[];
 }
 
 export interface ReviewFileStore {
@@ -106,11 +106,6 @@ function writeAtomically(path: string, content: string) {
   renameSync(temporaryPath, path);
 }
 
-/** Whether a hunk's text must stay in the file: only while it may still be addressed. */
-function keepsLines(state: HunkDecision | undefined) {
-  return state === "rejected" || state === "addressed";
-}
-
 /** Build the store behind one configured path; undefined or empty disables it. */
 export function createReviewFileStore(configuredPath: string | undefined): ReviewFileStore {
   const path =
@@ -165,7 +160,7 @@ export function createReviewFileStore(configuredPath: string | undefined): Revie
       const { records, warnings } = readFile(path);
       return { records, warnings };
     },
-    setHunkDecision({ hunk, state, commit: reviewedCommit }) {
+    setHunkDecision({ hunk, state, commits: reviewedCommits }) {
       const file = readFile(requirePath());
       const records = file.records.filter(
         (record) => !(record.kind === "hunk" && record.id === hunk.id),
@@ -175,20 +170,19 @@ export function createReviewFileStore(configuredPath: string | undefined): Revie
       );
       const referenced = noteReferences(records).has(hunk.id);
       if (state !== undefined || referenced) {
-        const commitHash = hunk.commit ?? existing?.commit;
+        const commits = hunk.commits ?? existing?.commits;
         records.push({
           kind: "hunk",
           id: hunk.id,
           repo: hunk.repo,
           path: hunk.path,
           ...(state !== undefined ? { state } : {}),
-          ...(commitHash !== undefined ? { commit: commitHash } : {}),
+          ...(commits !== undefined ? { commits: [...commits] } : {}),
           oldStart: hunk.oldStart,
           newStart: hunk.newStart,
-          ...(keepsLines(state) ? { lines: [...hunk.lines] } : {}),
         });
       }
-      if (reviewedCommit) {
+      for (const reviewedCommit of reviewedCommits ?? []) {
         const index = records.findIndex(
           (record) => record.kind === "commit" && record.hash === reviewedCommit.hash,
         );
@@ -213,8 +207,7 @@ export function createReviewFileStore(configuredPath: string | undefined): Revie
       records.push(...notes.notes);
       for (const hunk of notes.hunks) {
         if (hunkIds.has(hunk.id)) continue;
-        const { lines: _lines, ...withoutLines } = hunk;
-        records.push(withoutLines);
+        records.push(hunk);
       }
       return commit(file, records);
     },

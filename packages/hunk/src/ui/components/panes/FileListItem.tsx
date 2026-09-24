@@ -221,11 +221,13 @@ export const FileListItem = memo(function FileListItem({
                 {index > 0 && <text fg={selected ? theme.text : theme.muted}> </text>}
                 <text
                   fg={
-                    stat.kind === "agent-comment"
-                      ? theme.noteBorder
-                      : stat.kind === "addition"
-                        ? theme.badgeAdded
-                        : theme.badgeRemoved
+                    stat.kind === "approval"
+                      ? theme.badgeAdded
+                      : stat.kind === "agent-comment"
+                        ? theme.noteBorder
+                        : stat.kind === "addition"
+                          ? theme.badgeAdded
+                          : theme.badgeRemoved
                   }
                 >
                   {stat.text}

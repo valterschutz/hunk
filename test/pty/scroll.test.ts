@@ -67,6 +67,32 @@ describe("PTY scrolling", () => {
     }
   });
 
+  test("G and gg jump to the review edges", async () => {
+    const fixture = harness.createPagerPatchFixture(60);
+    const session = await harness.launchHunkWithFileBackedStdin({
+      stdinFile: fixture.patchFile,
+      args: ["pager", "--cursor-line", "off"],
+      cols: 140,
+      rows: 12,
+    });
+
+    try {
+      await session.waitForText(/after_01/, { timeout: 15_000 });
+
+      await session.type("G");
+      await session.waitForText(/after_60/, { timeout: 5_000 });
+
+      await session.type("g");
+      await session.waitIdle({ timeout: 300 });
+      expect(await session.text({ immediate: true })).toContain("after_60");
+
+      await session.type("g");
+      await session.waitForText(/after_01/, { timeout: 5_000 });
+    } finally {
+      session.close();
+    }
+  });
+
   test("step keys move one row in pager mode, where the scroll box holds focus", async () => {
     const fixture = harness.createPagerPatchFixture(60);
     const session = await harness.launchHunkWithFileBackedStdin({

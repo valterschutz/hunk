@@ -3761,7 +3761,7 @@ describe("UI components", () => {
       ", / .                    previous / next file",
       "{ / }                    annotated hunk / exact note",
       "Left / Right             scroll code sideways (Shift = faster)",
-      "g / Home                 jump to start",
+      "gg / Home                jump to start",
       "G / End                  jump to end",
       "Mouse",
       "Wheel                    scroll vertically",

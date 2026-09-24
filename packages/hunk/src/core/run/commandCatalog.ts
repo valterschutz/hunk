@@ -113,7 +113,7 @@ const BUILTIN_COMMANDS = [
     id: "hunk.review.jumpToTop",
     title: "Jump to start",
     category: "review",
-    defaultKeys: ["g", "home"],
+    defaultKeys: ["gg", "home"],
     locus: "client-local",
     publicToExtensions: true,
   },

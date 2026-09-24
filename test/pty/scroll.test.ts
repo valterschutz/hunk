@@ -67,7 +67,7 @@ describe("PTY scrolling", () => {
     }
   });
 
-  test("G and gg jump to the review edges", async () => {
+  test("G and gg reveal the selected file's last and first lines", async () => {
     const fixture = harness.createPagerPatchFixture(60);
     const session = await harness.launchHunkWithFileBackedStdin({
       stdinFile: fixture.patchFile,

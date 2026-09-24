@@ -51,6 +51,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     alignCurrentLine: record("alignCurrentLine"),
     applyFilePresentationToAllMatching: record("applyFilePresentationToAllMatching"),
     focusFilter: record("focusFilter"),
+    jumpLineCursorToFileEdge: record("jumpLineCursorToFileEdge"),
     moveSelection: record("moveSelection"),
     moveNoteCursor: record("moveNoteCursor"),
     openAgentSkill: record("openAgentSkill"),
@@ -137,6 +138,15 @@ describe("built-in command chords", () => {
     // The note shortcut is the unmodified c only.
     expect(press({ name: "c", sequence: "c" })).toBe("hunk.review.startNote");
     expect(press({ name: "c", sequence: "c", ctrl: true })).toBeUndefined();
+  });
+
+  test("edge jumps select the corresponding file line", () => {
+    const { commands, ran } = createTestCommands();
+
+    dispatchAppCommand(commands, keyEvent({ name: "g", sequence: "G", shift: true }));
+    executeAppCommand(commands, "hunk.review.jumpToTop");
+
+    expect(ran).toEqual(["jumpLineCursorToFileEdge:end", "jumpLineCursorToFileEdge:start"]);
   });
 
   test("the shifted arrow scrolls further through the same command", () => {

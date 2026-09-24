@@ -1092,20 +1092,8 @@ export function App({
     };
   }, [onFirstFrameReady, renderer]);
 
-  /** Scroll the main review pane by line steps, viewport fractions, or whole-content jumps. */
-  const scrollDiff = (
-    delta: number,
-    unit: "step" | "viewport" | "content" | "half" = "viewport",
-  ) => {
-    if (unit === "content") {
-      if (delta !== 0) {
-        setScrollEdgeRequest((current) => ({
-          id: current.id + 1,
-          edge: delta > 0 ? "bottom" : "top",
-        }));
-      }
-      return;
-    }
+  /** Scroll the main review pane by line steps or viewport fractions. */
+  const scrollDiff = (delta: number, unit: "step" | "viewport" | "half" = "viewport") => {
     if (unit === "half") {
       const scrollBox = diffScrollRef.current;
       if (!scrollBox) return;
@@ -1121,6 +1109,18 @@ export function App({
     }
     diffScrollRef.current?.scrollBy(delta, unit);
   };
+
+  /** Select one file-edge line and prepare its distant rows before revealing it. */
+  const jumpLineCursorToFileEdge = useCallback(
+    (edge: "start" | "end") => {
+      review.jumpLineCursorToFileEdge(edge);
+      setScrollEdgeRequest((current) => ({
+        id: current.id + 1,
+        edge: edge === "start" ? "top" : "bottom",
+      }));
+    },
+    [review.jumpLineCursorToFileEdge],
+  );
 
   /** Ask DiffPane to align the current rendered line using its authoritative row geometry. */
   const alignCurrentLine = useCallback((alignment: CurrentLineAlignment) => {
@@ -1595,6 +1595,7 @@ export function App({
         alignCurrentLine,
         applyFilePresentationToAllMatching,
         focusFilter,
+        jumpLineCursorToFileEdge,
         deleteActiveNote: () => {
           if (!activeRemovableNote) return;
           removeWithPersisted(() => {

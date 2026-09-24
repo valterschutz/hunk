@@ -2,4 +2,4 @@
 "hunkdiff": patch
 ---
 
-Use `gg` and `G` for Vim-style jumps to the start and end of a review.
+Use `gg` and `G` to select the first and last lines of the current file.

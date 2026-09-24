@@ -79,14 +79,13 @@ afterEach(async () => {
 });
 
 describe("AppHost one-file-at-a-time review", () => {
-  test("the default stream carries the next file's changes into the same scroll", async () => {
+  test("G selects the current file's last line without crossing into the next file", async () => {
     setup = await testRender(<AppHost bootstrap={createBootstrap()} />, WIDE);
     await flush(setup);
 
-    // Jumping to the end of the review reaches the last file without any file navigation.
     await pressKeys(setup, "G");
 
-    expect(setup.captureCharFrame()).toContain("beta change");
+    expect(setup.captureCharFrame()).toContain("alpha tail change");
   });
 
   test("one_file_at_a_time bounds the stream to the selected file", async () => {

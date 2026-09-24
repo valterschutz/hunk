@@ -162,6 +162,50 @@ describe("PTY current line", () => {
     }
   });
 
+  test("G and gg select the last and first lines of the file", async () => {
+    const fixture = harness.createMultiHunkFilePair();
+    const configHome = harness.createIsolatedConfigHome();
+    mkdirSync(join(configHome, "hunk"));
+    writeFileSync(join(configHome, "hunk", "config.toml"), "whole_file = true\n");
+    const session = await harness.launchHunk({
+      args: [
+        "diff",
+        "--files",
+        fixture.before,
+        fixture.after,
+        "--mode",
+        "split",
+        "--extension",
+        CURRENT_LINE_LENS_EXTENSION,
+      ],
+      cols: 140,
+      env: { XDG_CONFIG_HOME: configHome },
+      rows: 18,
+    });
+
+    try {
+      await session.waitForText(/Current line · old above, new below/, { timeout: 15_000 });
+
+      await session.type("G");
+      const lastLine = await harness.waitForSnapshot(
+        session,
+        (text) => (text.split("Current line").at(-1) ?? "").includes("line80 = 80;"),
+        5_000,
+      );
+      expect(lastLine.split("Current line").at(-1)).toContain("line80 = 80;");
+
+      await session.type("gg");
+      const firstLine = await harness.waitForSnapshot(
+        session,
+        (text) => (text.split("Current line").at(-1) ?? "").includes("line1 = 100;"),
+        5_000,
+      );
+      expect(firstLine.split("Current line").at(-1)).toContain("line1 = 100;");
+    } finally {
+      session.close();
+    }
+  });
+
   test("one-cell mouse jitter still selects the exact clicked line", async () => {
     const fixture = harness.createScrollableFilePair();
     const session = await harness.launchHunk({

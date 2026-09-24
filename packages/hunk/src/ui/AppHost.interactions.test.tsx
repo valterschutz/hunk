@@ -2546,7 +2546,7 @@ describe("App interactions", () => {
     }
   });
 
-  test("G jumps to the bottom and gg jumps back to the top", async () => {
+  test("G selects the last file line and gg selects the first", async () => {
     const before =
       Array.from(
         { length: 120 },
@@ -2616,7 +2616,7 @@ describe("App interactions", () => {
     }
   });
 
-  test("G supersedes a pending selected-hunk reveal", async () => {
+  test("G supersedes a pending hunk reveal without leaving the selected file", async () => {
     const setup = await testRender(
       <AppHost bootstrap={createCrossFileHunkNavigationBootstrap()} />,
       {
@@ -2640,8 +2640,8 @@ describe("App interactions", () => {
       });
 
       const frame = setup.captureCharFrame();
-      expect(frame).toContain("export const mid = 4;");
-      expect(frame).not.toContain("line 021 changed");
+      expect(frame).toContain("line 342");
+      expect(frame).not.toContain("export const mid = 4;");
     } finally {
       await act(async () => {
         setup.renderer.destroy();
@@ -2649,7 +2649,7 @@ describe("App interactions", () => {
     }
   });
 
-  test("pager mode also supports G and gg top/bottom jumps", async () => {
+  test("pager mode also supports G and gg file-edge selection", async () => {
     const before =
       Array.from(
         { length: 120 },

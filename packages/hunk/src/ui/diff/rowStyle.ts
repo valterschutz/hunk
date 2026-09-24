@@ -46,23 +46,42 @@ export function selectionHighlightBg(baseBg: string, theme: AppTheme) {
   );
 }
 
+const MIN_CURSOR_LINE_TEXT_CONTRAST = 3;
+const CURSOR_LINE_BACKOFF_STEP = 0.01;
+
 /**
- * Lift a cell background toward the theme text color to mark the current line.
+ * Lift a cell background toward the appearance's own extreme to mark the current line.
  *
- * Shifts luminance rather than hue: blending toward one fixed color barely moves a background
- * already sharing that hue, which left the marker invisible on added rows.
+ * Blending toward white (dark themes) or black (light themes) tints the row rather than
+ * recoloring it: hue and relative saturation stay put and only lightness moves, so an added row
+ * reads as a lighter version of the same green instead of picking up the theme text color's own
+ * hue. A prior version blended toward `theme.text`, which is rarely a neutral gray — on a theme
+ * whose text carries its own tint, that mixed a second hue into every row, including the
+ * cursor's on plain context lines.
+ *
+ * A theme whose text is itself pale can see contrast fall as the row lightens toward that same
+ * extreme, so the configured strength backs off a step at a time until the code on top of the
+ * mark clears a minimum contrast — the same trade the theme's own row tints make elsewhere in
+ * this module, just searching down from the configured strength instead of up from zero.
  */
 export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
   return cachedRowColor(cursorLineBackgroundCache, theme, baseBg, () => {
+    const isDark = theme.appearance === "dark";
+    const anchor = isDark ? "#ffffff" : "#000000";
     // Reading the sentinel as a color yields black, so a transparent surface blends from the
-    // appearance's own extreme instead.
-    const source =
-      baseBg === TRANSPARENT_BACKGROUND
-        ? theme.appearance === "dark"
-          ? "#000000"
-          : "#ffffff"
-        : baseBg;
-    return blendHex(theme.text, source, themeTuning(theme).cursorLineStrength);
+    // appearance's own opposite extreme instead.
+    const source = baseBg === TRANSPARENT_BACKGROUND ? (isDark ? "#000000" : "#ffffff") : baseBg;
+
+    let strength = themeTuning(theme).cursorLineStrength;
+    let candidate = blendHex(anchor, source, strength);
+    while (
+      strength > 0 &&
+      contrastRatio(theme.text, candidate) < MIN_CURSOR_LINE_TEXT_CONTRAST
+    ) {
+      strength = Math.max(0, strength - CURSOR_LINE_BACKOFF_STEP);
+      candidate = blendHex(anchor, source, strength);
+    }
+    return candidate;
   });
 }
 

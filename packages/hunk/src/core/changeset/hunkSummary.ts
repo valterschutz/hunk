@@ -30,8 +30,7 @@ export function summarizeHunk(hunk: ReviewHunkHeaderSource, index: number): Exte
   const formattedHeader = hunk.hunkSpecs != null || rangesDerivable ? formatHunkHeader(hunk) : "";
   return {
     index,
-    // Public summaries are commonly embedded in terminal-safe extension rows, so keep this
-    // boundary single-line without changing the raw header formatter used by Hunk itself.
+    // A transform may declare specs with embedded line breaks; extension rows need one line.
     header: formattedHeader.replace(/[\r\n]+/g, " ").trimEnd(),
     ...(rangesDerivable ? reviewHunkRanges(hunk) : {}),
   };

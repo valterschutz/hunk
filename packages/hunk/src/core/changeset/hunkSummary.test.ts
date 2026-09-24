@@ -21,14 +21,12 @@ describe("summarizeHunk", () => {
     const summaries = file.metadata.hunks.map((hunk, index) => summarizeHunk(hunk, index));
 
     for (const [index, hunk] of file.metadata.hunks.entries()) {
-      // Pierre includes a trailing line break in parsed specs. Raw formatting preserves it,
-      // while the public summary boundary makes the same semantic header row-safe.
-      expect(formatHunkHeader(hunk)).toMatch(/[\r\n]$/);
+      // Pierre includes a trailing line break in parsed specs; the formatter drops it, so
+      // the raw header and the public summary are the same single-line text.
+      expect(formatHunkHeader(hunk)).not.toMatch(/[\r\n]/);
       expect(summaries[index]).toEqual({
         index,
-        header: formatHunkHeader(hunk)
-          .replace(/[\r\n]+/g, " ")
-          .trimEnd(),
+        header: formatHunkHeader(hunk),
         ...reviewHunkRanges(hunk),
       });
       expect(summaries[index]!.header).toMatch(/^@@ -\d/);

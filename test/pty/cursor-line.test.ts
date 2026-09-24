@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createPtyHarness,
@@ -53,6 +54,59 @@ describe("PTY current line", () => {
       expect(await measureKeyScroll(session, "j", 12)).toBeGreaterThan(0);
       expect(await measureKeyScroll(session, "j", 12)).toBe(1);
       expect(await measureKeyScroll(session, "k", 12)).toBe(0);
+    } finally {
+      session.close();
+    }
+  });
+
+  test("hunk jumps move the current line to the first line of the destination hunk", async () => {
+    const fixture = harness.createMultiHunkFilePair();
+    const configHome = harness.createIsolatedConfigHome();
+    mkdirSync(join(configHome, "hunk"));
+    writeFileSync(join(configHome, "hunk", "config.toml"), "whole_file = true\n");
+    const session = await harness.launchHunk({
+      args: [
+        "diff",
+        "--files",
+        fixture.before,
+        fixture.after,
+        "--mode",
+        "split",
+        "--extension",
+        CURRENT_LINE_LENS_EXTENSION,
+      ],
+      cols: 140,
+      env: { XDG_CONFIG_HOME: configHome },
+      rows: 18,
+    });
+
+    try {
+      await session.waitForText(/Current line · old above, new below/, { timeout: 15_000 });
+      await session.waitIdle({ timeout: 400 });
+
+      const secondHunk = await harness.pressAndWaitForSnapshot(
+        session,
+        "]",
+        (text) => {
+          const lens = text.split("Current line").at(-1) ?? "";
+          return lens.includes("export const line57 = 57;");
+        },
+        5_000,
+      );
+      const secondHunkLens = secondHunk.split("Current line").at(-1) ?? "";
+      expect(secondHunkLens).toContain("export const line57 = 57;");
+
+      const firstHunk = await harness.pressAndWaitForSnapshot(
+        session,
+        "[",
+        (text) => {
+          const lens = text.split("Current line").at(-1) ?? "";
+          return lens.includes("export const line1 = 100;");
+        },
+        5_000,
+      );
+      const firstHunkLens = firstHunk.split("Current line").at(-1) ?? "";
+      expect(firstHunkLens).toContain("export const line1 = 100;");
     } finally {
       session.close();
     }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +26,39 @@ afterEach(() => {
 });
 
 describe("PTY current line", () => {
+  test("commit reviews start on the first line of the whole file", async () => {
+    const fixture = harness.createCollapsedTopRepoFixture();
+    execFileSync("git", ["add", "."], { cwd: fixture.dir });
+    execFileSync("git", ["commit", "-m", "change a deep line"], { cwd: fixture.dir });
+    const configHome = harness.createIsolatedConfigHome();
+    mkdirSync(join(configHome, "hunk"));
+    writeFileSync(join(configHome, "hunk", "config.toml"), "whole_file = true\n");
+    const session = await harness.launchHunk({
+      args: ["show", "HEAD", "--mode", "unified"],
+      cwd: fixture.dir,
+      cols: 140,
+      env: { XDG_CONFIG_HOME: configHome },
+      rows: 18,
+    });
+
+    try {
+      const initial = await session.waitForText(/export const line010 = 10;/, {
+        timeout: 15_000,
+      });
+      await session.waitIdle({ timeout: 400 });
+
+      expect(initial).toContain("export const line001 = 1;");
+      expect(initial).not.toContain("export const line366 = 9999;");
+      const firstLineRow = lineIndexOf(initial, "export const line001 = 1;") - 1;
+      const secondLineRow = lineIndexOf(initial, "export const line002 = 2;") - 1;
+      expect(rowCellBackgrounds(session, firstLineRow)).not.toEqual(
+        rowCellBackgrounds(session, secondLineRow),
+      );
+    } finally {
+      session.close();
+    }
+  });
+
   test("stepping moves the current line before it moves the viewport", async () => {
     const fixture = harness.createPinnedHeaderRepoFixture();
     const session = await harness.launchHunk({

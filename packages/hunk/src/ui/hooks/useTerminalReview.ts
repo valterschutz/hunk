@@ -321,6 +321,7 @@ export interface AgentNoteGeometrySnapshot {
 /** Own the shared review stream state used by both the UI and session bridge. */
 export function useTerminalReview({
   files,
+  initialLineCursorAtFileStart = false,
   initialShowAgentNotes = false,
   lineCursors = EMPTY_LINE_CURSORS,
   reviewVerticalStops = EMPTY_REVIEW_VERTICAL_STOPS,
@@ -330,6 +331,8 @@ export function useTerminalReview({
   wholeFileByDefault = false,
 }: {
   files: DiffFile[];
+  /** Start the review at the selected file's first rendered source line. */
+  initialLineCursorAtFileStart?: boolean;
   /** Note-layer visibility the launch configuration resolved for this review. */
   initialShowAgentNotes?: boolean;
   /**
@@ -428,6 +431,8 @@ export function useTerminalReview({
   // A held key drains as one stdin chunk, so every press in the burst would otherwise read the
   // same pre-batch state and the cursor would advance a single row.
   const lineCursorRef = useRef<LineCursor | null>(null);
+  const initialLineCursorFileIdRef = useRef<string | null>(null);
+  const initialLineCursorAppliedRef = useRef(false);
   const lineCursorsRef = useRef(lineCursors);
   lineCursorsRef.current = lineCursors;
   /** Read the latest cursor without waiting for React to publish a render. */
@@ -712,6 +717,20 @@ export function useTerminalReview({
       return;
     }
 
+    if (initialLineCursorAtFileStart && !initialLineCursorAppliedRef.current) {
+      initialLineCursorFileIdRef.current ??= selectedFileId ?? null;
+      if (selectedFileId === initialLineCursorFileIdRef.current) {
+        const firstLine = selectedFileId
+          ? lineCursorAtFileEdge(lineCursors, selectedFileId, "start")
+          : null;
+        if (firstLine?.target.line === 1) {
+          initialLineCursorAppliedRef.current = true;
+          revealLineCursor(firstLine);
+          return;
+        }
+      }
+    }
+
     // Expanding a gap leaves the current line where it is: the revealed rows only surround it,
     // and the fall-through below resolves the same stop in the remeasured list. A collapse
     // retires rows, so its restore point waits here for the list that dropped them. Each request
@@ -737,6 +756,7 @@ export function useTerminalReview({
     applyLineCursor(firstLineCursorInHunk(lineCursors, selectedFileId, selectedHunkIndex));
   }, [
     applyLineCursor,
+    initialLineCursorAtFileStart,
     lineCursors,
     revealLineCursor,
     selectedFileId,

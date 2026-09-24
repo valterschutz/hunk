@@ -169,14 +169,19 @@ export const FileListItem = memo(function FileListItem({
   const rowBackground = selected ? theme.panelAlt : theme.panel;
   const stats = sidebarEntryStats(entry);
   const { icon, color } = getFileStateIcon(entry, theme);
-  const iconWidth = icon ? 2 : 0; // icon + space
+  const approvalWidth = entry.approvalText ? 2 : 0;
+  const iconWidth = icon ? 2 : 0;
+  const leadingStatusWidth = approvalWidth + iconWidth;
   const statsSectionWidth = statsWidth > 0 ? statsWidth + 1 : 0;
   const indentWidth = fileSidebarIndentWidth(
     entry.depth,
     textWidth,
-    iconWidth + statsSectionWidth + 1,
+    leadingStatusWidth + statsSectionWidth + 1,
   );
-  const nameWidth = Math.max(1, textWidth - 1 - iconWidth - statsSectionWidth - indentWidth);
+  const nameWidth = Math.max(
+    1,
+    textWidth - 1 - leadingStatusWidth - statsSectionWidth - indentWidth,
+  );
 
   return (
     <box
@@ -201,6 +206,7 @@ export const FileListItem = memo(function FileListItem({
           backgroundColor: rowBackground,
         }}
       >
+        {entry.approvalText && <text fg={theme.badgeAdded}>{entry.approvalText} </text>}
         {icon && <text fg={color}>{icon} </text>}
         <text fg={theme.text}>{padText(fitText(entry.name, nameWidth, "…"), nameWidth)}</text>
         {statsSectionWidth > 0 && (
@@ -221,13 +227,11 @@ export const FileListItem = memo(function FileListItem({
                 {index > 0 && <text fg={selected ? theme.text : theme.muted}> </text>}
                 <text
                   fg={
-                    stat.kind === "approval"
-                      ? theme.badgeAdded
-                      : stat.kind === "agent-comment"
-                        ? theme.noteBorder
-                        : stat.kind === "addition"
-                          ? theme.badgeAdded
-                          : theme.badgeRemoved
+                    stat.kind === "agent-comment"
+                      ? theme.noteBorder
+                      : stat.kind === "addition"
+                        ? theme.badgeAdded
+                        : theme.badgeRemoved
                   }
                 >
                   {stat.text}

@@ -37,7 +37,7 @@ const { DiffPane, storedReviewNoteActions } = await import("./panes/DiffPane");
 const { MenuBar } = await import("./chrome/MenuBar");
 const { MenuDropdown } = await import("./chrome/MenuDropdown");
 const { DiffFileHeaderRow } = await import("./panes/DiffFileHeaderRow");
-const { FileDirectoryRow } = await import("./panes/FileListItem");
+const { FileDirectoryRow, FileListItem } = await import("./panes/FileListItem");
 const { DiffSectionBody } = await import("../diff/DiffSectionBody");
 const { measurePlannedRenderedRowHeight, measureRenderedRowHeight } =
   await import("../diff/codeRowLayout");
@@ -435,6 +435,38 @@ describe("UI components", () => {
 
     element.props.onMouseUp({ button: MouseButton.LEFT });
     expect(toggled).toEqual(["src"]);
+  });
+
+  test("approved file rows put the checkmark at the far left before the change type", async () => {
+    const line = (
+      await captureFrame(
+        <FileListItem
+          entry={{
+            kind: "file",
+            id: "approved",
+            name: "approved.ts",
+            depth: 0,
+            approvalText: "✓",
+            agentCommentsText: null,
+            additionsText: "+1",
+            deletionsText: "-1",
+            changeType: "change",
+            isUntracked: false,
+          }}
+          selected={false}
+          statsWidth={5}
+          textWidth={30}
+          theme={resolveTheme("github-dark-default", null)}
+          onSelectFile={() => {}}
+        />,
+        34,
+        1,
+      )
+    ).split("\n")[0]!;
+
+    expect(line.trimStart()).toStartWith("✓ M approved.ts");
+    expect(line.indexOf("✓")).toBeLessThan(line.indexOf("M"));
+    expect(line.indexOf("M")).toBeLessThan(line.indexOf("approved.ts"));
   });
 
   test("collapsed directory rows right-align singular and plural file counts", async () => {

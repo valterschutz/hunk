@@ -64,6 +64,8 @@ export interface CommonOptions {
   promptSaveViewPreferences?: boolean;
   transparentBackground?: boolean;
   colorMoved?: boolean;
+  /** File that stores the identities of verified hunks, one per line; unset disables verifying. */
+  verifiedHunksFile?: string;
   /** False only when `--no-extensions` disables user extension loading for this run. */
   extensions?: boolean;
   /** Entry paths from repeated `--extension` flags, for development and testing. */

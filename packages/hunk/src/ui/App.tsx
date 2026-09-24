@@ -17,6 +17,7 @@ import {
 import type { PersistedViewPreferences } from "../core/run/config";
 import { HISTORY_COMMAND_NAMES } from "../core/run/historyCommandCatalog";
 import type { ExtensionReviewReloadResult } from "../extension-api/types";
+import { hideVerifiedHunks } from "../core/changeset/verifiedHunks";
 import { experimentalFeatureEnabled, resolveExperimentalDiffFiles } from "../core/run/experimental";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../core/run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../core/run/tabWidth";
@@ -120,6 +121,7 @@ import { HUNK_FILES_PANE_KEY } from "../extensions/extensionIds";
 import { maxFileHeaderStatsWidth } from "./lib/fileHeader";
 import { setMouseCapture } from "./lib/mouseCapture";
 import { openSelectedFileInEditor, openSelectedFileInEditorSplit } from "./lib/openInEditor";
+import { createVerifiedHunksStore } from "./lib/verifiedHunksStore";
 import { resolveResponsiveLayout } from "./lib/responsive";
 import type { WorkspaceRefreshRequest } from "./currentReviewRefresh";
 import { ThemeController } from "./theme/controller";
@@ -216,10 +218,27 @@ export function App({
   const fileGap = bootstrap.initialFileGap ?? DEFAULT_FILE_GAP;
   const hunkGap = bootstrap.initialHunkGap ?? DEFAULT_HUNK_GAP;
   const stmlEnabled = experimentalFeatureEnabled(bootstrap.input.options, "stml");
-  const reviewFiles = useMemo(
+  const experimentalFiles = useMemo(
     () => resolveExperimentalDiffFiles(bootstrap.changeset.files, bootstrap.input.options),
     [bootstrap.changeset.files, bootstrap.input.options.experimental],
   );
+  // Verified hunks leave the review stream. The store file is re-read on every reload and
+  // after every toggle, so marks synced from another machine appear without a restart.
+  const verifiedHunksStore = useMemo(
+    () => createVerifiedHunksStore(bootstrap.input.options.verifiedHunksFile),
+    [bootstrap.input.options.verifiedHunksFile],
+  );
+  const [verifiedHunksRevision, setVerifiedHunksRevision] = useState(0);
+  const verifiedHunks = useMemo(
+    () => verifiedHunksStore.load(),
+    [verifiedHunksStore, verifiedHunksRevision, bootstrap.changeset.files],
+  );
+  const [showVerifiedHunks, setShowVerifiedHunks] = useState(false);
+  const verifiedHunksProjection = useMemo(
+    () => hideVerifiedHunks(experimentalFiles, showVerifiedHunks ? new Set() : verifiedHunks),
+    [experimentalFiles, showVerifiedHunks, verifiedHunks],
+  );
+  const reviewFiles = verifiedHunksProjection.files;
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
   const noteGeometryRef = useRef<AgentNoteGeometrySnapshot | null>(null);
@@ -364,6 +383,12 @@ export function App({
   );
   const selectedFile = review.selectedFile;
   const selectedHunkIndex = review.selectedHunkIndex;
+  const selectedHunkVerified =
+    selectedFile !== undefined &&
+    verifiedHunks.has(
+      verifiedHunksProjection.hunkIdentitiesByFileId.get(selectedFile.id)?.[selectedHunkIndex] ??
+        "",
+    );
   const selectedFileId = selectedFile?.id ?? null;
   /** The review stream's current line, or null when line-level navigation is off. */
   const activeLineCursor = useMemo(
@@ -528,6 +553,22 @@ export function App({
         priority: 1,
       });
     }
+    if (verifiedHunksProjection.hiddenHunkCount > 0) {
+      const count = verifiedHunksProjection.hiddenHunkCount;
+      hostItems.push({
+        id: "host:verified",
+        spans: [
+          { text: `${count} verified ${count === 1 ? "hunk" : "hunks"} hidden`, tone: "muted" },
+        ],
+        priority: 1,
+      });
+    } else if (showVerifiedHunks && selectedHunkVerified) {
+      hostItems.push({
+        id: "host:verified",
+        spans: [{ text: "selected hunk verified", tone: "muted" }],
+        priority: 1,
+      });
+    }
     if (statusNoticeText) {
       hostItems.push({ id: "host:notice", spans: [{ text: statusNoticeText, tone: "muted" }] });
     }
@@ -540,7 +581,15 @@ export function App({
       });
     }
     return { items: [...hostItems, ...statusLineState.items], prompt: statusLineState.prompt };
-  }, [daemonNoticeText, review.filter, statusLineState, statusNoticeText]);
+  }, [
+    daemonNoticeText,
+    review.filter,
+    selectedHunkVerified,
+    showVerifiedHunks,
+    statusLineState,
+    statusNoticeText,
+    verifiedHunksProjection.hiddenHunkCount,
+  ]);
   const statusBarVisible = statusLineHasContent(statusLineSnapshot, keyboardModeHint ?? null);
   const bodyHeight = Math.max(
     0,
@@ -1141,7 +1190,49 @@ export function App({
     if (message) {
       showSessionNotice(message);
     }
-  }, [activeLineCursor, bootstrap.changeset.sourceLabel, bootstrap.input.kind, review.selectedHunk, selectedFile, showSessionNotice]);
+  }, [
+    activeLineCursor,
+    bootstrap.changeset.sourceLabel,
+    bootstrap.input.kind,
+    review.selectedHunk,
+    selectedFile,
+    showSessionNotice,
+  ]);
+
+  /** Mark the selected hunk as verified, or unmark it, and hide or reveal it accordingly. */
+  const toggleSelectedHunkVerified = useCallback(() => {
+    if (!verifiedHunksStore.enabled) {
+      showSessionNotice("Set verified_hunks_file in your config to verify hunks");
+      return;
+    }
+    const identity = selectedFile
+      ? verifiedHunksProjection.hunkIdentitiesByFileId.get(selectedFile.id)?.[selectedHunkIndex]
+      : undefined;
+    if (identity === undefined) {
+      showSessionNotice("No hunk selected");
+      return;
+    }
+    try {
+      verifiedHunksStore.toggle(identity);
+    } catch (error) {
+      showSessionNotice(
+        `Could not update verified hunks: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return;
+    }
+    setVerifiedHunksRevision((revision) => revision + 1);
+  }, [
+    selectedFile,
+    selectedHunkIndex,
+    showSessionNotice,
+    verifiedHunksProjection,
+    verifiedHunksStore,
+  ]);
+
+  /** Show verified hunks in the stream again, or hide them. */
+  const toggleVerifiedHunks = useCallback(() => {
+    setShowVerifiedHunks((current) => !current);
+  }, []);
 
   /** Close the agent skill setup overlay. */
   const closeAgentSkill = useCallback(() => {
@@ -1337,6 +1428,8 @@ export function App({
         triggerEditSelectedFile,
         triggerEditSelectedFileSplit,
         triggerRefreshCurrentInput,
+        toggleSelectedHunkVerified,
+        toggleVerifiedHunks,
       }).map((command) =>
         returnToHistory && command.id === "hunk.app.quit"
           ? { ...command, title: "Back to history" }
@@ -1395,6 +1488,7 @@ export function App({
     showHunkHeaders,
     showLineNumbers,
     showMenuBar,
+    showVerifiedHunks,
     wrapLines,
   });
 

@@ -485,6 +485,15 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     description: "Include diff signs and line numbers in copied selections.",
   },
   {
+    key: "verified_hunks_file",
+    property: "verifiedHunksFile",
+    type: "string",
+    accepted: "a file path; `~` expands to the home directory",
+    description:
+      "Store the hunks marked verified with `!` in this file, one content hash per line, and hide them from the review stream. Unset, hunks cannot be verified.",
+    userOnly: true,
+  },
+  {
     key: VIEW_PREFERENCES_PROMPT_CONFIG_KEY,
     property: "promptSaveViewPreferences",
     type: "boolean",
@@ -1005,6 +1014,7 @@ function normalizeConfigReferenceValue(property: keyof CommonOptions, value: unk
     case "vcs":
       return normalizeVcsMode(value);
     case "theme":
+    case "verifiedHunksFile":
       return normalizeString(value);
     case "tabWidth":
       return normalizeTabWidth(value);
@@ -1093,6 +1103,7 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
       overrides.promptSaveViewPreferences ?? base.promptSaveViewPreferences,
     transparentBackground: overrides.transparentBackground ?? base.transparentBackground,
     colorMoved: overrides.colorMoved ?? base.colorMoved,
+    verifiedHunksFile: overrides.verifiedHunksFile ?? base.verifiedHunksFile,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,
   };

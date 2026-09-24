@@ -1,0 +1,186 @@
+import { describe, expect, test } from "bun:test";
+import { parsePatchFiles } from "@pierre/diffs";
+import { createTestDiffFile } from "../../../../../test/helpers/diff-helpers";
+import { buildDiffFile } from "./diffFile";
+import type { DiffFile } from "./model";
+import { hideVerifiedHunks, verifiedHunkIdentity } from "./verifiedHunks";
+
+const HUNK_ONE = `@@ -1,6 +1,6 @@
+ line 1
+ line 2
+-line 3
++line 3 changed
+ line 4
+ line 5
+ line 6
+`;
+const HUNK_TWO = `@@ -12,7 +12,8 @@ ctx
+ line 12
+ line 13
+ line 14
+-line 15
++line 15 changed
++line 15b
+ line 16
+ line 17
+ line 18
+`;
+const HUNK_THREE = `@@ -25,6 +26,5 @@
+ line 25
+ line 26
+ line 27
+-line 28
+ line 29
+ line 30
+`;
+
+/** Parse one git patch for `path` into the file model the app reviews. */
+function fileFromHunks(hunks: string[], path = "f.txt"): DiffFile {
+  const patch = `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n${hunks.join("")}`;
+  const metadata = parsePatchFiles(patch, "patch", true)[0]?.files[0];
+  if (!metadata) throw new Error("patch did not parse");
+  return buildDiffFile(metadata, patch, 0, "test", null);
+}
+
+/** The geometry a renderer reads from one hunk, without the array indices that change with the line arrays. */
+function geometry(hunk: DiffFile["metadata"]["hunks"][number]) {
+  const {
+    collapsedBefore,
+    splitLineStart,
+    splitLineCount,
+    unifiedLineStart,
+    unifiedLineCount,
+    additionStart,
+    additionCount,
+    deletionStart,
+    deletionCount,
+  } = hunk;
+  return {
+    collapsedBefore,
+    splitLineStart,
+    splitLineCount,
+    unifiedLineStart,
+    unifiedLineCount,
+    additionStart,
+    additionCount,
+    deletionStart,
+    deletionCount,
+  };
+}
+
+describe("verifiedHunkIdentity", () => {
+  test("ignores line numbers but not content, kind, or path", () => {
+    const original = fileFromHunks([HUNK_ONE, HUNK_TWO]);
+    const shifted = fileFromHunks([HUNK_TWO.replace("@@ -12,7 +12,8 @@", "@@ -40,7 +41,8 @@")]);
+    const edited = fileFromHunks([HUNK_TWO.replace("line 15b", "line 15c")]);
+    const contextBecameAddition = fileFromHunks([
+      HUNK_TWO.replace(" line 16", "+line 16").replace("-12,7", "-12,6"),
+    ]);
+    const otherPath = fileFromHunks([HUNK_TWO], "g.txt");
+
+    const identity = verifiedHunkIdentity(original, original.metadata.hunks[1]!);
+    expect(identity).toMatch(/^[0-9a-f]{32}$/);
+    expect(verifiedHunkIdentity(shifted, shifted.metadata.hunks[0]!)).toBe(identity);
+    expect(verifiedHunkIdentity(edited, edited.metadata.hunks[0]!)).not.toBe(identity);
+    expect(
+      verifiedHunkIdentity(contextBecameAddition, contextBecameAddition.metadata.hunks[0]!),
+    ).not.toBe(identity);
+    expect(verifiedHunkIdentity(otherPath, otherPath.metadata.hunks[0]!)).not.toBe(identity);
+  });
+
+  test("agrees between a patch parse and a full-content parse of the same change", () => {
+    const before = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    const after = before.replace("line 15\n", "line 15 changed\nline 15b\n");
+    const fromContents = createTestDiffFile({ after, before, context: 3, path: "f.txt" });
+    const fromPatch = fileFromHunks([HUNK_TWO]);
+
+    expect(verifiedHunkIdentity(fromContents, fromContents.metadata.hunks[0]!)).toBe(
+      verifiedHunkIdentity(fromPatch, fromPatch.metadata.hunks[0]!),
+    );
+  });
+});
+
+describe("hideVerifiedHunks", () => {
+  test("returns the same file object and every hunk identity when nothing is verified", () => {
+    const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
+
+    const projection = hideVerifiedHunks([file], new Set());
+
+    expect(projection.files[0]).toBe(file);
+    expect(projection.hiddenHunkCount).toBe(0);
+    expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual(
+      file.metadata.hunks.map((hunk) => verifiedHunkIdentity(file, hunk)),
+    );
+  });
+
+  test("lays the kept hunks out as Pierre would have parsed them alone", () => {
+    const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
+    const expected = fileFromHunks([HUNK_ONE, HUNK_THREE]);
+    const hidden = verifiedHunkIdentity(file, file.metadata.hunks[1]!);
+
+    const projection = hideVerifiedHunks([file], new Set([hidden]));
+    const [kept] = projection.files;
+
+    expect(projection.hiddenHunkCount).toBe(1);
+    expect(kept).not.toBe(file);
+    expect(kept?.id).toBe(file.id);
+    expect(kept?.metadata.hunks.map(geometry)).toEqual(expected.metadata.hunks.map(geometry));
+    expect(kept?.metadata.splitLineCount).toBe(expected.metadata.splitLineCount);
+    expect(kept?.metadata.unifiedLineCount).toBe(expected.metadata.unifiedLineCount);
+    expect(kept?.stats).toEqual(expected.stats);
+    expect(kept?.metadata.cacheKey).not.toBe(file.metadata.cacheKey);
+    // The line arrays stay whole, so the kept hunks still index into them correctly.
+    expect(kept?.metadata.additionLines).toBe(file.metadata.additionLines);
+    expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual([
+      verifiedHunkIdentity(file, file.metadata.hunks[0]!),
+      verifiedHunkIdentity(file, file.metadata.hunks[2]!),
+    ]);
+  });
+
+  test("keeps rows the parser counted after the last hunk", () => {
+    const before = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    const after = before
+      .replace("line 3\n", "line 3 changed\n")
+      .replace("line 15\n", "line 15 changed\n");
+    const file = createTestDiffFile({ after, before, context: 2, path: "f.txt" });
+    const expected = createTestDiffFile({
+      after: before.replace("line 15\n", "line 15 changed\n"),
+      before,
+      context: 2,
+      path: "f.txt",
+    });
+    const hidden = verifiedHunkIdentity(file, file.metadata.hunks[0]!);
+
+    const [kept] = hideVerifiedHunks([file], new Set([hidden])).files;
+
+    expect(kept?.metadata.hunks.map(geometry)).toEqual(expected.metadata.hunks.map(geometry));
+    expect(kept?.metadata.splitLineCount).toBe(expected.metadata.splitLineCount);
+    expect(kept?.metadata.unifiedLineCount).toBe(expected.metadata.unifiedLineCount);
+  });
+
+  test("drops a file whose every hunk is verified and keeps the rest in order", () => {
+    const first = fileFromHunks([HUNK_ONE], "a.txt");
+    const second = fileFromHunks([HUNK_ONE, HUNK_TWO], "b.txt");
+    const third = fileFromHunks([HUNK_THREE], "c.txt");
+    const verified = new Set([
+      verifiedHunkIdentity(second, second.metadata.hunks[0]!),
+      verifiedHunkIdentity(second, second.metadata.hunks[1]!),
+      verifiedHunkIdentity(third, third.metadata.hunks[0]!),
+    ]);
+
+    const projection = hideVerifiedHunks([first, second, third], verified);
+
+    expect(projection.files.map((file) => file.path)).toEqual(["a.txt"]);
+    expect(projection.hiddenHunkCount).toBe(3);
+    expect([...projection.hunkIdentitiesByFileId.keys()]).toEqual([first.id]);
+  });
+
+  test("passes a file without hunks through untouched", () => {
+    const file = fileFromHunks([]);
+
+    const projection = hideVerifiedHunks([file], new Set(["anything"]));
+
+    expect(projection.files[0]).toBe(file);
+    expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual([]);
+  });
+});

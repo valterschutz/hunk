@@ -71,6 +71,7 @@ describe("app command catalog", () => {
       "hunk.app.refresh",
       "hunk.review.editSelectedFile",
       "hunk.review.editSelectedFileSplit",
+      "hunk.review.toggleSelectedHunkVerified",
     ]);
   });
 

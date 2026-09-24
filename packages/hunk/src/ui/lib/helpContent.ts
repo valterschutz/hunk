@@ -124,6 +124,10 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
         ],
         description: "edit / reply / delete active note",
       },
+      {
+        commandIds: ["hunk.review.toggleSelectedHunkVerified", "hunk.view.toggleVerifiedHunks"],
+        description: "verify hunk / show verified hunks",
+      },
       { commandIds: ["hunk.app.toggleFocusArea"], description: "toggle files/filter focus" },
       { keys: "F10", description: "open menus" },
       { commandIds: ["hunk.app.refresh"], description: "reload the review" },

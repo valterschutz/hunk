@@ -259,6 +259,29 @@ describe("applyLineHighlightsToSpans", () => {
     ]);
   });
 
+  test("resolves each painted piece against its own pre-paint background", () => {
+    const spans: RenderSpan[] = [
+      { text: "alpha" },
+      { text: "beta", bg: "#204020" },
+    ];
+    const seen: (string | undefined)[] = [];
+
+    const painted = applyLineHighlightsToSpans(
+      spans,
+      [{ startCol: 0, endCol: 9, tone: "match" }],
+      (tone, spanBg) => {
+        seen.push(spanBg);
+        return { bg: `blend-of-${spanBg ?? "row"}` };
+      },
+    );
+
+    expect(seen).toEqual([undefined, "#204020"]);
+    expect(painted).toEqual([
+      { text: "alpha", bg: "blend-of-row" },
+      { text: "beta", bg: "blend-of-#204020" },
+    ]);
+  });
+
   test("applies a foreground too when the tone style inverts", () => {
     const spans: RenderSpan[] = [{ text: "const alpha = 10;", fg: "#ffffff" }];
 

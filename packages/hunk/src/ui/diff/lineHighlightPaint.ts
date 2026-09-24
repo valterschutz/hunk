@@ -412,15 +412,20 @@ export interface LineHighlightSpanStyle {
  *
  * Returns new span objects — cell spans are shared cached arrays (context
  * cells even share one array across sides) and must never be mutated. Text is
- * preserved exactly, so this cannot move geometry. `resolveStyle` returning
- * `undefined` leaves the original colors, degrading like word diff does on
- * surfaces that cannot take a blend; a style carrying `fg` (reverse-video
- * marks) overrides the span foreground as well.
+ * preserved exactly, so this cannot move geometry. `resolveStyle` receives
+ * each span's own pre-paint background (e.g. a word-diff emphasis bg), so a
+ * tone can blend from what is really there instead of one fixed row color.
+ * Returning `undefined` leaves the original colors, degrading like word diff
+ * does on surfaces that cannot take a blend; a style carrying `fg`
+ * (reverse-video marks) overrides the span foreground as well.
  */
 export function applyLineHighlightsToSpans(
   spans: readonly RenderSpan[],
   ranges: readonly LineHighlightColRange[],
-  resolveStyle: (tone: ExtensionLineHighlightTone) => LineHighlightSpanStyle | undefined,
+  resolveStyle: (
+    tone: ExtensionLineHighlightTone,
+    spanBg: string | undefined,
+  ) => LineHighlightSpanStyle | undefined,
 ): RenderSpan[] {
   if (ranges.length === 0) {
     return [...spans];
@@ -437,7 +442,7 @@ export function applyLineHighlightsToSpans(
   const paint = (span: RenderSpan, text: string, startCol: number) => {
     if (text.length === 0) return;
     const tone = toneAtColumn(plan, startCol);
-    const style = tone === undefined ? undefined : resolveStyle(tone);
+    const style = tone === undefined ? undefined : resolveStyle(tone, span.bg);
     if (style === undefined) {
       appendSpan(result, { ...span, text });
       return;

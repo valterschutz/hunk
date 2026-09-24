@@ -949,8 +949,8 @@ function withSplitCellLineHighlights(
   const contentBg = splitCellPalette(cell.kind, theme, cell.moveKind).contentBg;
   return {
     ...cell,
-    spans: applyLineHighlightsToSpans(cell.spans, ranges, (tone) =>
-      lineHighlightToneStyle(tone, contentBg, theme),
+    spans: applyLineHighlightsToSpans(cell.spans, ranges, (tone, spanBg) =>
+      lineHighlightToneStyle(tone, spanBg ?? contentBg, theme),
     ),
   };
 }
@@ -997,8 +997,8 @@ function withRowLineHighlights(
       ...row,
       cell: {
         ...cell,
-        spans: applyLineHighlightsToSpans(cell.spans, ranges, (tone) =>
-          lineHighlightToneStyle(tone, contentBg, theme),
+        spans: applyLineHighlightsToSpans(cell.spans, ranges, (tone, spanBg) =>
+          lineHighlightToneStyle(tone, spanBg ?? contentBg, theme),
         ),
       },
     };

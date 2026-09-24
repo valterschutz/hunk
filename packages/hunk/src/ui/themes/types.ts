@@ -20,6 +20,9 @@ export interface AppTheme {
   addedContentBg: string;
   removedContentBg: string;
   contextContentBg: string;
+  /** Optional foreground for the word-diff span; unset keeps the syntax-highlighter color. */
+  addedContentFg?: string;
+  removedContentFg?: string;
   addedSignColor: string;
   removedSignColor: string;
   lineNumberBg: string;

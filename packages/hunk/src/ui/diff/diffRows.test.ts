@@ -604,6 +604,55 @@ describe("Pierre diff rows", () => {
     expect(addedWordSpan?.bg).toBe(TRANSPARENT_BACKGROUND);
   });
 
+  test("applies addedContentFg/removedContentFg to word-diff spans when the theme sets them", async () => {
+    const file = createDiffFile();
+    const theme = {
+      ...resolveTheme("github-dark-default", null),
+      addedContentFg: "#1e1e2e",
+      removedContentFg: "#1e1e2e",
+    };
+    const highlighted = await loadHighlightedDiff(file);
+    const rows = buildSplitRows(file, highlighted, theme);
+    const changedRow = rows.find(
+      (row) =>
+        row.type === "split-line" && row.left.kind === "deletion" && row.right.kind === "addition",
+    );
+
+    expect(changedRow).toBeDefined();
+    if (!changedRow || changedRow.type !== "split-line") {
+      throw new Error("Expected a split-line change row");
+    }
+
+    const removedWordSpan = changedRow.left.spans.find((span) => span.text.includes("41"));
+    const addedWordSpan = changedRow.right.spans.find((span) => span.text.includes("42"));
+
+    expect(removedWordSpan?.fg).toBe("#1e1e2e");
+    expect(addedWordSpan?.fg).toBe("#1e1e2e");
+  });
+
+  test("keeps the syntax-highlighter foreground on word-diff spans when no content fg is set", async () => {
+    const file = createDiffFile();
+    const theme = resolveTheme("github-dark-default", null);
+    const highlighted = await loadHighlightedDiff(file);
+    const rows = buildSplitRows(file, highlighted, theme);
+    const changedRow = rows.find(
+      (row) =>
+        row.type === "split-line" && row.left.kind === "deletion" && row.right.kind === "addition",
+    );
+
+    expect(changedRow).toBeDefined();
+    if (!changedRow || changedRow.type !== "split-line") {
+      throw new Error("Expected a split-line change row");
+    }
+
+    const addedWordSpan = changedRow.right.spans.find((span) => span.text.includes("42"));
+
+    // No addedContentFg is set, so the span keeps whatever the syntax highlighter assigned —
+    // in particular, not the highlighter-pen override used by the previous test.
+    expect(addedWordSpan?.fg).toBeDefined();
+    expect(addedWordSpan?.fg).not.toBe("#1e1e2e");
+  });
+
   test("expands highlighted tabs across syntax span boundaries for each configured width", async () => {
     const metadata = parseDiffFromFile(
       { name: "tabs.ts", contents: "let a\t= 1;\n", cacheKey: "tabs-before" },

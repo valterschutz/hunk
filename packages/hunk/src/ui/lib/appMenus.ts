@@ -46,6 +46,7 @@ export interface BuildAppMenusOptions {
   showHunkHeaders: boolean;
   showLineNumbers: boolean;
   showMenuBar: boolean;
+  showVerifiedHunks: boolean;
   wrapLines: boolean;
 }
 
@@ -141,6 +142,7 @@ export function buildAppMenus({
   showHunkHeaders,
   showLineNumbers,
   showMenuBar,
+  showVerifiedHunks,
   wrapLines,
 }: BuildAppMenusOptions): AppMenus {
   const specs: Record<Exclude<MenuId, "extensions" | "commit">, MenuEntrySpec[]> = {
@@ -152,6 +154,7 @@ export function buildAppMenus({
         commandId: "hunk.review.editSelectedFileSplit",
         label: "Open file in editor (Herdr split pane)",
       },
+      { commandId: "hunk.review.toggleSelectedHunkVerified", label: "Verify selected hunk" },
       { commandId: "hunk.app.refresh", label: "Reload" },
       SEPARATOR,
       { commandId: "hunk.app.quit" },
@@ -182,6 +185,11 @@ export function buildAppMenus({
         commandId: "hunk.view.toggleCopyDecorations",
         label: "Copy decorations",
         checked: copyDecorations,
+      },
+      {
+        commandId: "hunk.view.toggleVerifiedHunks",
+        label: "Verified hunks",
+        checked: showVerifiedHunks,
       },
       {
         commandId: "hunk.view.cursorLineRow",

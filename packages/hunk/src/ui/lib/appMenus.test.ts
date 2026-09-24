@@ -22,6 +22,7 @@ const MENU_STATE: Omit<BuildAppMenusOptions, "commands" | "extensionCommands"> =
   showAgentNotes: true,
   showHelp: false,
   showHunkHeaders: false,
+  showVerifiedHunks: false,
   showLineNumbers: true,
   showMenuBar: true,
   wrapLines: true,
@@ -66,6 +67,8 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     toggleFilesPane: record("toggleFilesPane"),
     triggerEditSelectedFile: noop,
     triggerEditSelectedFileSplit: noop,
+    toggleSelectedHunkVerified: noop,
+    toggleVerifiedHunks: noop,
     triggerRefreshCurrentInput: noop,
     ...overrides,
   });
@@ -122,6 +125,7 @@ describe("buildAppMenus", () => {
       "Focus filter",
       "Open file in editor",
       "Open file in editor (Herdr split pane)",
+      "Verify selected hunk",
       "Reload",
       "Quit",
     ]);
@@ -165,6 +169,7 @@ describe("buildAppMenus", () => {
       "hunk.review.focusFilter",
       "hunk.review.editSelectedFile",
       "hunk.review.editSelectedFileSplit",
+      "hunk.review.toggleSelectedHunkVerified",
       "hunk.app.refresh",
       "hunk.app.quit",
     ]);
@@ -240,6 +245,7 @@ describe("buildAppMenus", () => {
       "Focus filter",
       "Open file in editor",
       "Open file in editor (Herdr split pane)",
+      "Verify selected hunk",
       "Quit",
     ]);
   });

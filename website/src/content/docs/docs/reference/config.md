@@ -201,6 +201,17 @@ Include diff signs and line numbers in copied selections.
 
 ---
 
+**`verified_hunks_file`**
+
+Store the hunks marked verified with `!` in this file, one content hash per line, and hide them from the review stream. Unset, hunks cannot be verified.
+
+- **Type:** string
+- **Accepted:** a file path; `~` expands to the home directory
+- **Built-in default:** —
+- **Scope:** user config only
+
+---
+
 **`prompt_save_view_preferences`**
 
 Ask before discarding view changes that can be persisted.
@@ -343,6 +354,8 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.addedContentBg`      | Override the addedContentBg semantic color.      |
 | `custom_theme.removedContentBg`    | Override the removedContentBg semantic color.    |
 | `custom_theme.contextContentBg`    | Override the contextContentBg semantic color.    |
+| `custom_theme.addedContentFg`      | Override the addedContentFg semantic color.      |
+| `custom_theme.removedContentFg`    | Override the removedContentFg semantic color.    |
 | `custom_theme.addedSignColor`      | Override the addedSignColor semantic color.      |
 | `custom_theme.removedSignColor`    | Override the removedSignColor semantic color.    |
 | `custom_theme.lineNumberBg`        | Override the lineNumberBg semantic color.        |

@@ -156,6 +156,8 @@ export interface BuildAppCommandsOptions {
   triggerEditSelectedFile: () => void;
   triggerEditSelectedFileSplit: () => void;
   triggerRefreshCurrentInput: () => void;
+  toggleSelectedHunkVerified: () => void;
+  toggleVerifiedHunks: () => void;
 }
 
 /**
@@ -278,6 +280,8 @@ function builtinCommandHandlers(
     "hunk.review.toggleHunkGap": { run: () => options.toggleGapForSelectedHunk() },
     "hunk.review.editSelectedFile": { run: () => options.triggerEditSelectedFile() },
     "hunk.review.editSelectedFileSplit": { run: () => options.triggerEditSelectedFileSplit() },
+    "hunk.review.toggleSelectedHunkVerified": { run: () => options.toggleSelectedHunkVerified() },
+    "hunk.view.toggleVerifiedHunks": { run: () => options.toggleVerifiedHunks() },
     "hunk.review.previousHunk": {
       run: (_key, count, entry) => runSelectionMove(options, entry, count),
     },
@@ -387,6 +391,8 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     triggerEditSelectedFile: noop,
     triggerEditSelectedFileSplit: noop,
     triggerRefreshCurrentInput: noop,
+    toggleSelectedHunkVerified: noop,
+    toggleVerifiedHunks: noop,
   };
 })();
 

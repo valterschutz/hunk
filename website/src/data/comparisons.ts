@@ -231,7 +231,7 @@ export const COMPARISONS: Comparison[] = [
       {
         heading: "What Hunk does differently",
         body: [
-          "Hunk parses the changeset into a document, then draws a UI over it. Every visible file becomes one continuous review stream, and the sidebar indexes that stream instead of hiding the rest of the change. `[` and `]` walk hunks across the whole changeset, `,` and `.` walk files, and the selection is real state that the sidebar, note cards, and context expansion all follow.",
+          "Hunk parses the changeset into a document, then draws a UI over it. Every visible file becomes one continuous review stream, and the sidebar indexes that stream instead of hiding the rest of the change. `[` and `]` walk hunks within the selected file, `,` and `.` walk files, and the selection is real state that the sidebar, note cards, and context expansion all follow.",
           "Holding the model in memory makes things easy that a pager cannot do at all. Press `z` to expand unchanged context around a hunk without re-running the diff. Press `1`, `2`, or `0` for unified, split, or responsive layout. Press `w` for wrapping or `t` for another theme, mid-review. `hunk diff --watch` reloads as you keep editing.",
           "The part with no delta equivalent is agent context. An agent that wrote the change can attach its reasoning to specific hunks through `hunk session`, and Hunk renders those notes inline, next to the code, instead of in a pane you correlate by hand.",
         ],
@@ -420,7 +420,7 @@ export const COMPARISONS: Comparison[] = [
       {
         heading: "What Hunk is",
         body: [
-          "Hunk is line-based and is not competing on diff algorithms. It changes the reading. Every visible file is one continuous review stream, the sidebar indexes that stream, `[` and `]` walk hunks across the whole changeset, and `z` expands unchanged context around the hunk you are on without re-running anything.",
+          "Hunk is line-based and is not competing on diff algorithms. It changes the reading. Every visible file is one continuous review stream, the sidebar indexes that stream, `[` and `]` walk hunks within the selected file, and `z` expands unchanged context around the hunk you are on without re-running anything.",
           "It is a real terminal UI, not printed output, so layout, wrapping, line numbers, and theme all change while you read, the mouse works, and `hunk diff --watch` keeps the review current. If an agent produced the change, it can attach reasoning to specific hunks through `hunk session`, and those notes render inline beside the code.",
         ],
       },
@@ -578,7 +578,7 @@ export const COMPARISONS: Comparison[] = [
         heading: "What you get by moving to Hunk",
         body: [
           "The two usual reasons people leave are the two things diff-so-fancy does not do: syntax highlighting and side-by-side. Hunk has both, with a responsive `auto` layout that picks split on wide terminals and unified on narrow ones, plus theme selection you change from inside the review.",
-          "Past that it is a different category of tool. Every visible file forms one review stream with a sidebar indexing it, `[` and `]` walk hunks across the whole changeset, `z` expands unchanged context without re-running the diff, and the mouse works for scrolling, menus, and jumping to a file. `hunk diff --watch` keeps the review current while you edit, and agent notes render inline beside the hunks they explain.",
+          "Past that it is a different category of tool. Every visible file forms one review stream with a sidebar indexing it, `[` and `]` walk hunks within the selected file, `z` expands unchanged context without re-running the diff, and the mouse works for scrolling, menus, and jumping to a file. `hunk diff --watch` keeps the review current while you edit, and agent notes render inline beside the hunks they explain.",
           "The trade is real. Hunk is a bigger program than a Perl script, and it takes over the screen instead of printing into your scrollback. If tidy output in `less` is what you want, diff-so-fancy is still fine.",
         ],
         code: {
@@ -737,7 +737,7 @@ export const COMPARISONS: Comparison[] = [
       {
         heading: "What Hunk changes",
         body: [
-          "Hunk runs Git underneath and renders the result as a UI. Every visible file becomes one continuous review stream and the sidebar indexes it, so selecting a file jumps you there without hiding the rest of the change. `[` and `]` move hunk by hunk across the changeset, `,` and `.` move file by file, and `z` expands unchanged context without re-running anything.",
+          "Hunk runs Git underneath and renders the result as a UI. Every visible file becomes one continuous review stream and the sidebar indexes it, so selecting a file jumps you there without hiding the rest of the change. `[` and `]` move hunk by hunk within the selected file, `,` and `.` move file by file, and `z` expands unchanged context without re-running anything.",
           "Layout, line numbers, wrapping, and theme all change while you read. The mouse works: click a file, use the wheel or scrollbar, open menus. `hunk diff` also includes untracked files, which `git diff` leaves out and which is a routine source of confusion about files you know you wrote.",
           "The rest is agents. When one produced the change, it can attach reasoning to specific hunks via `hunk session`, and Hunk renders those notes inline beside the code instead of in a chat window you read separately.",
         ],

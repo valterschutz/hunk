@@ -46,7 +46,7 @@ describe("PTY scrolling", () => {
 
       const bottomAligned = await harness.pressAndWaitForSnapshot(
         session,
-        "]",
+        ".",
         (text) => text.includes("shortLine1 = 10;"),
         5_000,
       );

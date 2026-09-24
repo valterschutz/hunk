@@ -171,9 +171,9 @@ duplication); hunk header text (browser delegates to Pierre separators); platfor
   _Repaid (Phase 1 PR 3)_: `REVIEW_SELECTION_WRAP_POLICY` names the policy per scope —
   hunk/file/annotated-hunk clamp, annotated-file wraps — and `findNextAnnotatedFile` is deleted.
   The asymmetry is today's terminal behavior kept deliberately, including two quirks now stated
-  rather than implied: a clamping hunk move at an edge re-selects and re-reveals the same hunk
-  while a file move at an edge publishes nothing at all, and annotated-file navigation from a
-  file with no notes enters the ring at its start (so the first forward step lands on the ring's
+  rather than implied: hunk navigation publishes nothing at a selected-file boundary, file
+  navigation publishes nothing at a stream boundary, and annotated-file navigation from a file
+  with no notes enters the ring at its start (so the first forward step lands on the ring's
   _second_ entry). Fixture `scope-wrap-and-clamp`.
 - **B3. File-jump semantics — hard-coded identically in both clients.** "Hunk 0 + file-top
   reveal" in terminal `App.tsx`/`useReviewController.ts` and web `App.tsx`; the terminal-only
@@ -181,9 +181,10 @@ duplication); hunk header text (browser delegates to Pierre separators); platfor
   intent owning the rule.
   _Repaid (Phase 1 PR 3, core and terminal sites)_: `selection/select-file` owns "first hunk"
   (`REVIEW_FILE_JUMP_HUNK_INDEX`) with `REVIEW_FILE_JUMP_REVEAL` as its default reveal, and the
-  forward-cross-file alignment rule moved into the hunk-move planner, where the crossing is
-  known. The terminal's `selectFile` lowers to the intent and no longer takes a hunk index.
-  Fixture `scope-wrap-and-clamp` pins both reveals. The browser's copy lands in Phase 5.
+  hunk-move planner now treats file boundaries as hard stops, leaving `selection/select-file`
+  as the explicit cross-file path. The terminal's `selectFile` lowers to that intent and no
+  longer takes a hunk index. Fixture `scope-wrap-and-clamp` pins both behaviors. The browser's
+  copy lands in Phase 5.
 - **B4. Selection fallback after reload/filter — 2 divergent answers.** Terminal
   `resolveSelectedFile` returns undefined (renders "no file"); web `validSelection` and
   `treeSource.reset` silently fall back to `files[0]`. Core permits `fileKey: null`. Fix:

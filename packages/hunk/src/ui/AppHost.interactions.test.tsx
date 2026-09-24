@@ -575,15 +575,6 @@ async function pressHunkNavigationKey(
   }
 }
 
-function firstCrossFileHunkNavigationHeader(frame: string) {
-  return (
-    frame
-      .split("\n")
-      .map((line) => line.trim())
-      .find((line) => line.startsWith("long-file.txt") || line.startsWith("short-file.ts")) ?? ""
-  );
-}
-
 async function waitForSnapshot(
   setup: Awaited<ReturnType<typeof testRender>>,
   getSnapshot: () => HunkSessionSnapshot["state"] | null,
@@ -3330,38 +3321,23 @@ describe("App interactions", () => {
     }
   });
 
-  test("hunk navigation makes the destination file own the top of the review pane", async () => {
-    const setup = await testRender(<AppHost bootstrap={createTwoFileHunkBootstrap()} />, {
-      width: 220,
-      height: 10,
-    });
+  test("next-hunk navigation stops at the selected file boundary", async () => {
+    const { getLatestSnapshot, hostClient } = createMockHostClient();
+    const setup = await testRender(
+      <AppHost bootstrap={createTwoFileHunkBootstrap()} hostClient={hostClient} />,
+      { width: 220, height: 10 },
+    );
 
     try {
       await flush(setup);
-
-      for (let index = 0; index < 10; index += 1) {
-        await act(async () => {
-          await setup.mockInput.pressArrow("down");
-        });
-        await flush(setup);
-      }
-
-      let frame = setup.captureCharFrame();
-      expect(frame).toContain("first.ts");
+      expect(getLatestSnapshot()?.selectedFileId).toBe("first");
 
       await act(async () => {
         await setup.mockInput.typeText("]");
       });
       await flush(setup);
 
-      frame = await waitForFrame(
-        setup,
-        (nextFrame) =>
-          nextFrame.includes("second.ts") && (nextFrame.match(/first\.ts/g) ?? []).length === 1,
-        24,
-      );
-      expect(frame).toContain("second.ts");
-      expect((frame.match(/first\.ts/g) ?? []).length).toBe(1);
+      expect(getLatestSnapshot()?.selectedFileId).toBe("first");
     } finally {
       await act(async () => {
         setup.renderer.destroy();
@@ -3443,67 +3419,27 @@ describe("App interactions", () => {
     }
   });
 
-  test("forward cross-file hunk navigation keeps the destination file owning the review pane", async () => {
+  test("previous-hunk navigation stops at the selected file boundary", async () => {
+    const { getLatestSnapshot, hostClient } = createMockHostClient();
     const setup = await testRender(
-      <AppHost bootstrap={createCrossFileHunkNavigationBootstrap()} />,
-      {
-        width: 120,
-        height: 16,
-      },
+      <AppHost bootstrap={createTwoFileHunkBootstrap()} hostClient={hostClient} />,
+      { width: 220, height: 10 },
     );
 
     try {
       await flush(setup);
-      await pressHunkNavigationKey(setup, "]", 18);
-
-      let frame = await waitForFrame(
-        setup,
-        (nextFrame) =>
-          nextFrame.includes("short-file.ts") && nextFrame.includes("export const top = 2;"),
-        24,
-      );
-      expect(firstCrossFileHunkNavigationHeader(frame)).toContain("short-file.ts");
-
-      await pressHunkNavigationKey(setup, "]", 1);
-      frame = await waitForFrame(
-        setup,
-        (nextFrame) => nextFrame.includes("export const mid = 4;"),
-        24,
-      );
-
-      expect(firstCrossFileHunkNavigationHeader(frame)).toContain("short-file.ts");
-      expect(frame).not.toContain("line 341 changed");
-    } finally {
       await act(async () => {
-        setup.renderer.destroy();
+        await setup.mockInput.typeText(".");
       });
-    }
-  });
-
-  test("backward cross-file hunk navigation reveals the target hunk instead of the file top", async () => {
-    const setup = await testRender(
-      <AppHost bootstrap={createCrossFileHunkNavigationBootstrap()} />,
-      {
-        width: 120,
-        height: 16,
-      },
-    );
-
-    try {
       await flush(setup);
-      await pressHunkNavigationKey(setup, "]", 19);
-      await waitForFrame(setup, (nextFrame) => nextFrame.includes("export const mid = 4;"), 24);
+      expect(getLatestSnapshot()?.selectedFileId).toBe("second");
 
-      await pressHunkNavigationKey(setup, "[", 2);
-      const frame = await waitForFrame(
-        setup,
-        (nextFrame) =>
-          nextFrame.includes("line 341 changed") || nextFrame.includes("line 002 changed"),
-        24,
-      );
+      await act(async () => {
+        await setup.mockInput.typeText("[");
+      });
+      await flush(setup);
 
-      expect(frame).toContain("line 341 changed");
-      expect(frame).not.toContain("line 002 changed");
+      expect(getLatestSnapshot()?.selectedFileId).toBe("second");
     } finally {
       await act(async () => {
         setup.renderer.destroy();

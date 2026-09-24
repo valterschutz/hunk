@@ -10,13 +10,13 @@
  * Two rules are stated rather than implied, because the previous copies disagreed about
  * both:
  *
- * - **Wrap policy is per scope** (B2). Plain hunk and file navigation clamps at the ends
- *   of the stream; annotated-file navigation cycles. That asymmetry is the terminal's
- *   long-standing behavior and is named here instead of falling out of whichever
- *   arithmetic each copy happened to use.
- * - **A move carries its own reveal request** (B3). "Next hunk" crossing forward into
- *   another file puts that file's header on screen; crossing backward reveals the hunk
- *   itself; annotated-hunk navigation asks for the note. Callers do not re-decide this.
+ * - **Wrap policy is per scope** (B2). Plain hunk navigation clamps within the selected
+ *   file, file navigation clamps at the ends of the stream, and annotated-file navigation
+ *   cycles. That asymmetry is named here instead of falling out of whichever arithmetic
+ *   each copy happened to use.
+ * - **A move carries its own reveal request** (B3). Hunk navigation asks for the target
+ *   hunk, file navigation asks for the file header, and annotated-hunk navigation asks for
+ *   the note. Callers do not re-decide this.
  *
  * The model this plans over is structural — file keys and hunk counts, plus an annotation
  * index the consumer supplies. Which hunks count as annotated depends on note sources the
@@ -34,8 +34,9 @@ export type ReviewSelectionWrapPolicy = "clamp" | "wrap";
  * The wrap policy each scope navigates under.
  *
  * Clamping is the default because hunk and file navigation double as "am I at the end
- * yet?"; annotated-file navigation cycles because a review with two annotated files is a
- * ring the reviewer tours rather than a list they walk off.
+ * yet?" Hunk navigation uses the selected file as its boundary; annotated-file navigation
+ * cycles because a review with two annotated files is a ring the reviewer tours rather
+ * than a list they walk off.
  */
 export const REVIEW_SELECTION_WRAP_POLICY: Readonly<
   Record<ReviewSelectionScope, ReviewSelectionWrapPolicy>
@@ -249,25 +250,26 @@ function stepCursors(
   return cursors[nextIndex] ?? null;
 }
 
-/** Plan a move through every hunk of the visible stream. */
+/** Plan a move through the selected file's hunks without crossing a file boundary. */
 function planHunkMove(
   model: ReviewNavigationModel,
   selection: ReviewSemanticSelection,
   delta: number,
 ): ReviewSelectionMoveTarget | null {
-  const cursors = reviewStreamCursors(model.files);
-  const target = stepCursors(cursors, cursors, selection, delta);
-  if (!target) {
+  const selectedFile = model.files.find((file) => file.fileKey === selection.fileKey);
+  if (!selectedFile) {
     return null;
   }
 
-  // Forward jumps into another file land on its header, so the reviewer sees which file
-  // they entered. Backward jumps reveal the hunk itself: the target usually sits near the
-  // bottom of the previous file, and a header alignment would leave it off screen.
-  const crossesFileForward = target.fileKey !== selection.fileKey && delta > 0;
+  const cursors = reviewStreamCursors([selectedFile]);
+  const target = stepCursors(cursors, cursors, selection, delta);
+  if (!target || cursorMatches(target, selection)) {
+    return null;
+  }
+
   return {
     ...target,
-    reveal: { anchor: crossesFileForward ? "file-top" : "hunk", scrollToNote: false },
+    reveal: { anchor: "hunk", scrollToNote: false },
   };
 }
 

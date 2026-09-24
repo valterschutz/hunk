@@ -23,4 +23,4 @@ Raw diff is deliberately the default. To build the mixed stream:
 3. Click `styles/theme.css` and press **F8**.
 4. Click `README.md` to return to the top, then scroll through the main pane.
 
-Selecting files only jumps the main review stream; it does not collapse other files. The three preview selections therefore remain active together, interleaved with the two raw Pierre diffs. Use `[` and `]` while scrolling to verify that hunk navigation crosses raw and custom sections using the same host-owned geometry.
+Selecting files only jumps the main review stream; it does not collapse other files. The three preview selections therefore remain active together, interleaved with the two raw Pierre diffs. Use `[` and `]` while scrolling to verify that host-owned hunk navigation stays within the selected raw or custom file section.

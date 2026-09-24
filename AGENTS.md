@@ -179,14 +179,14 @@ ReviewIntent + caller facts -> planReviewIntent -> ReviewAction[] -> reducer -> 
 ## review behavior
 
 - Default behavior is a multi-file review stream in sidebar order. `one_file_at_a_time` narrows the
-  stream to the selected file; `,` and `.` then carry the reviewer between files, and `[` / `]`
-  still cross file boundaries because the streamed file follows the selection.
+  stream to the selected file. `,` and `.` carry the reviewer between files in either mode; `[` and
+  `]` always stay within the selected file.
 - `cursor_scroll` picks where reveals land the current line: `nearest` (default) only pulls it on
   screen, `center` keeps it mid-viewport on every step and hunk jump. Keep both paths in DiffPane's
   reveal effects and `hunkScroll.ts`; do not grow a second scroll policy elsewhere.
 - Layout modes are `auto`, `split`, and `unified`. `auto` chooses split on wide terminals and unified
   on narrow ones; explicit modes override it.
-- `[` and `]` navigate hunks across the full review stream. Do not reintroduce `j`/`k` hunk navigation unless the user asks.
+- `[` and `]` navigate hunks only within the selected file. File boundaries are hard stops; `,` and `.` are the explicit cross-file navigation. Do not reintroduce `j`/`k` hunk navigation unless the user asks.
 - Agent context belongs beside the code, not hidden in a separate mode or workflow.
 - Agent notes are hunk-specific: show notes for the selected hunk, render them in the diff flow near the annotated row, and keep a clear spatial relationship to the code they explain.
 - Keep note behavior explicit. If the UI intentionally prioritizes one note, one selection, or one active target, encode that as a named policy rather than scattering array-index assumptions through the codebase.

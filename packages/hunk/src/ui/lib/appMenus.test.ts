@@ -330,8 +330,8 @@ describe("the Extensions menu", () => {
 
     expect(items(menus.extensions).map((item) => item.label)).toEqual(["Sync notes"]);
     expect(items(menus.navigate).map((item) => [item.label, item.hint])).toEqual([
-      ["Previous hunk", "["],
-      ["Next hunk", "]"],
+      ["Previous hunk in file", "["],
+      ["Next hunk in file", "]"],
       ["Previous comment", "{"],
       ["Next comment", "}"],
       ["Search diff content…", "/"],

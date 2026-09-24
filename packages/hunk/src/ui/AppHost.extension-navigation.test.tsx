@@ -151,9 +151,9 @@ describe("extension command navigation", () => {
         `    appendFileSync(${JSON.stringify(logPath)}, "selected " + label + " " + hunkIndex + "\\n");\n` +
         `  });\n` +
         `  hunk.registerCommand({ id: "probe", title: "Probe", key: "Y" }, (ctx) => {\n` +
-        `    appendFileSync(${JSON.stringify(logPath)}, "enabled " + ctx.commands.isEnabled("hunk.review.nextHunk") + "\\n");\n` +
+        `    appendFileSync(${JSON.stringify(logPath)}, "enabled " + ctx.commands.isEnabled("hunk.review.nextFile") + "\\n");\n` +
         `    appendFileSync(${JSON.stringify(logPath)}, "own " + ctx.commands.execute("ext.probe") + "\\n");\n` +
-        `    appendFileSync(${JSON.stringify(logPath)}, "move " + ctx.commands.execute("hunk.review.nextHunk", { count: 2 }) + "\\n");\n` +
+        `    appendFileSync(${JSON.stringify(logPath)}, "move " + ctx.commands.execute("hunk.review.nextFile", { count: 2 }) + "\\n");\n` +
         `    appendFileSync(${JSON.stringify(logPath)}, "align " + ctx.commands.execute("hunk.review.alignCurrentLineCenter") + "\\n");\n` +
         `  });\n` +
         `}\n`,
@@ -172,7 +172,7 @@ describe("extension command navigation", () => {
       await flushUntil(
         setup,
         () => readProbeLog(logPath).includes("selected third 0"),
-        "the counted command to land directly on the third hunk",
+        "the counted command to land directly on the third file",
       );
 
       expect(readProbeLog(logPath)).toEqual(

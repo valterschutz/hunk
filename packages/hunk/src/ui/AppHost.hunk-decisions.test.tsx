@@ -210,8 +210,8 @@ describe("AppHost hunk decisions", () => {
     ]);
     expect(hunkRecords(reviewFile).filter((record) => record.state === "accepted")).toHaveLength(2);
 
-    // Show the decided hunks, step back to the rejected one, and mark it addressed.
-    await pressKeys(setup, "V[[");
+    // Show the decided hunks, return to the rejected file, and mark its first hunk addressed.
+    await pressKeys(setup, "V,");
     frame = setup.captureCharFrame();
     expect(frame).toContain("first change");
     expect(frame).toContain("selected hunk rejected");
@@ -225,9 +225,9 @@ describe("AppHost hunk decisions", () => {
     expect(railColorOfLine(setup, "first change")).toBe(
       resolveTheme("github-dark-default", null).addressedRailColor.toLowerCase(),
     );
-    expect(hunkRecords(reviewFile).find((record) => record.state === "addressed")?.lines).toHaveLength(
-      6,
-    );
+    expect(
+      hunkRecords(reviewFile).find((record) => record.state === "addressed")?.lines,
+    ).toHaveLength(6);
   });
 
   test("= refuses a hunk that is not rejected", async () => {

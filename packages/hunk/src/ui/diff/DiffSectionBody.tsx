@@ -438,6 +438,11 @@ export function DiffSectionBody({
         }
 
         const isCursorRow = plannedRowMatchesCursor(plannedRow, cursorHighlight);
+        // Expansion rows fill a gap with plain file content between hunks; they carry the
+        // neighbor hunk's index for ordering only (see DiffRow's isExpansionRow doc) and must
+        // not read as that hunk's own content for selection or decision painting, or a whole
+        // expanded file would look like one hunk.
+        const isExpansionRow = "isExpansionRow" in plannedRow.row && plannedRow.row.isExpansionRow === true;
 
         return (
           <box key={plannedRow.key} id={rowId} style={{ width: "100%", flexDirection: "column" }}>
@@ -450,8 +455,8 @@ export function DiffSectionBody({
               wrapLines={wrapLines}
               codeHorizontalOffset={codeHorizontalOffset}
               theme={theme}
-              selected={plannedRow.row.hunkIndex === selectedHunkIndex}
-              decision={hunkDecisions?.get(plannedRow.row.hunkIndex)}
+              selected={!isExpansionRow && plannedRow.row.hunkIndex === selectedHunkIndex}
+              decision={isExpansionRow ? undefined : hunkDecisions?.get(plannedRow.row.hunkIndex)}
               copySelectedRowRange={copySelectedRowRanges?.get(plannedRow.key)}
               copySelectedSide={copySelectedSide}
               cursorHighlight={isCursorRow ? cursorHighlight : undefined}

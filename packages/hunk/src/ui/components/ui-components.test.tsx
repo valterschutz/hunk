@@ -4454,6 +4454,80 @@ describe("UI components", () => {
     }
   });
 
+  test("DiffSectionBody draws no rail marker on a whole-file expansion's gap rows", async () => {
+    const totalLines = 40;
+    const changedLine = 20;
+    const beforeLines = Array.from(
+      { length: totalLines },
+      (_, index) => `export const line${index + 1} = ${index + 1};`,
+    );
+    const afterLines = [...beforeLines];
+    afterLines[changedLine - 1] = `export const line${changedLine} = 9999;`;
+    const after = lines(...afterLines);
+    const file = buildTestDiffFile({
+      after,
+      before: lines(...beforeLines),
+      context: 3,
+      id: "whole-file-rail",
+      path: "whole-file-rail.ts",
+    });
+    const theme = resolveTheme("github-dark-default", null);
+    const setup = await testRender(
+      <DiffSectionBody
+        file={file}
+        layout="unified"
+        theme={theme}
+        width={80}
+        selectedHunkIndex={0}
+        expandedGapKeys={new Set(["before:0", "trailing:0"])}
+        sourceStatus={{ kind: "loaded", text: after }}
+        scrollable={false}
+      />,
+      { width: 84, height: totalLines + 10 },
+    );
+
+    try {
+      const hasRailMarkerFor = (frame: ReturnType<typeof setup.captureSpans>, marker: string) => {
+        for (const line of frame.lines) {
+          if (!line.spans.some((span) => span.text.includes(marker))) {
+            continue;
+          }
+          return line.spans.some((span) => span.text === "▌");
+        }
+        return undefined;
+      };
+
+      let farContextHasRail: boolean | undefined;
+      let hunkContextHasRail: boolean | undefined;
+
+      for (let iteration = 0; iteration < 200; iteration += 1) {
+        await act(async () => {
+          await setup.renderOnce();
+          await Bun.sleep(0);
+          await setup.renderOnce();
+          await Bun.sleep(0);
+        });
+
+        const frame = setup.captureSpans();
+        // Deep inside the whole-file expansion, far from the actual edit: not part of any hunk.
+        farContextHasRail = hasRailMarkerFor(frame, "line2 ");
+        // Inside the real git hunk's own three lines of context around the edit.
+        hunkContextHasRail = hasRailMarkerFor(frame, "line18 ");
+
+        if (farContextHasRail !== undefined && hunkContextHasRail !== undefined) {
+          break;
+        }
+      }
+
+      expect(hunkContextHasRail).toBe(true);
+      expect(farContextHasRail).toBe(false);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
   test("DiffSectionBody renders word-diff spans with a visibly different background in split view", async () => {
     const file = createTestDiffFile(
       "word-diff",

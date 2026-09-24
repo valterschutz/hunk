@@ -216,13 +216,17 @@ export function CodeRowView({
     const addNoteTarget = resolveCodeRowNoteTarget(row);
 
     const addBadgeWidth = splitLayout.addNoteBadgeWidth;
+    // An expansion row is plain file content shown by a gap expansion, not a hunk's own line;
+    // leaving its rail blank instead of drawing a marker lets the rail itself answer "does this
+    // line belong to a hunk?".
+    const railText = row.isExpansionRow ? " " : diffRailMarker();
     const leftPrefix = {
-      text: diffRailMarker(),
+      text: railText,
       fg: splitLeftRailColor(row.left.kind, theme, selected, decision),
       bg: theme.panel,
     };
     const rightPrefix = {
-      text: "▌",
+      text: railText,
       fg: splitRightRailColor(row.right.kind, theme, selected, decision),
       bg: theme.panel,
     };
@@ -343,8 +347,9 @@ export function CodeRowView({
   const hasRangeGuide = unifiedLayout.noteGuideSide !== undefined;
   const addNoteTarget = resolveCodeRowNoteTarget(row);
   const addBadgeWidth = unifiedLayout.addNoteBadgeWidth;
+  // See the split-view rail above: an expansion row draws no rail marker at all.
   const prefix = {
-    text: diffRailMarker(),
+    text: row.isExpansionRow ? " " : diffRailMarker(),
     fg: unifiedRailColor(row.cell.kind, theme, selected, decision),
     bg: theme.panel,
   };

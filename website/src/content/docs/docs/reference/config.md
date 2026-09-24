@@ -222,6 +222,16 @@ Start with verified hunks shown in the review stream instead of hidden; `V` stil
 
 ---
 
+**`one_file_at_a_time`**
+
+Show only the selected file in the review stream, so scrolling stays inside it and `,` and `.` are the way between files. The sidebar still lists every file.
+
+- **Type:** boolean
+- **Accepted:** `true` or `false`
+- **Built-in default:** `false`
+
+---
+
 **`prompt_save_view_preferences`**
 
 Ask before discarding view changes that can be persisted.

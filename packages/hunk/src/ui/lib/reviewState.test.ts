@@ -8,6 +8,7 @@ import {
   buildReviewStreamState,
   buildSelectedHunkSummary,
   resolveReviewNavigationTarget,
+  selectReviewStreamFiles,
 } from "./reviewState";
 
 function createAnnotatedFile(id: string, path: string) {
@@ -52,6 +53,38 @@ describe("review state helpers", () => {
     // The agent's file summary is part of the haystack, not just the path.
     expect(visibleFor("gamma.ts note")).toEqual(["gamma"]);
     expect(visibleFor("nothing-matches")).toEqual([]);
+  });
+
+  // Intent: one-file-at-a-time review bounds the stream without narrowing the visible set.
+  test("selectReviewStreamFiles keeps the whole stream unless one-file review is on", () => {
+    const visibleFiles = [
+      createTestDiffFile({ id: "alpha", path: "src/alpha.ts" }),
+      createTestDiffFile({ id: "beta", path: "src/beta.ts" }),
+    ];
+    const streamedIds = (options: { selectedFileId: string | null; oneFileAtATime: boolean }) =>
+      selectReviewStreamFiles({ visibleFiles, ...options }).map((file) => file.id);
+
+    expect(streamedIds({ selectedFileId: "beta", oneFileAtATime: false })).toEqual([
+      "alpha",
+      "beta",
+    ]);
+    expect(streamedIds({ selectedFileId: "beta", oneFileAtATime: true })).toEqual(["beta"]);
+    // A filter hiding the selected file leaves the selection alone, so show the first visible
+    // file rather than an empty pane.
+    expect(streamedIds({ selectedFileId: "hidden", oneFileAtATime: true })).toEqual(["alpha"]);
+    expect(streamedIds({ selectedFileId: null, oneFileAtATime: true })).toEqual(["alpha"]);
+    expect(
+      selectReviewStreamFiles({ visibleFiles: [], selectedFileId: null, oneFileAtATime: true }),
+    ).toEqual([]);
+  });
+
+  // Intent: the multi-file stream keeps its array identity so memoized geometry stays warm.
+  test("selectReviewStreamFiles returns the visible array itself when off", () => {
+    const visibleFiles = [createTestDiffFile({ id: "alpha", path: "src/alpha.ts" })];
+
+    expect(
+      selectReviewStreamFiles({ visibleFiles, selectedFileId: "alpha", oneFileAtATime: false }),
+    ).toBe(visibleFiles);
   });
 
   // Intent: annotated navigation plans against a file-key index the terminal derives once.

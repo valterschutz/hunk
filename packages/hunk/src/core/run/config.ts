@@ -522,6 +522,15 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
       "Start with verified hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
   },
   {
+    key: "one_file_at_a_time",
+    property: "oneFileAtATime",
+    type: "boolean",
+    accepted: "`true` or `false`",
+    runtimeDefault: false,
+    description:
+      "Show only the selected file in the review stream, so scrolling stays inside it and `,` and `.` are the way between files. The sidebar still lists every file.",
+  },
+  {
     key: VIEW_PREFERENCES_PROMPT_CONFIG_KEY,
     property: "promptSaveViewPreferences",
     type: "boolean",
@@ -1204,6 +1213,7 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     colorMoved: overrides.colorMoved ?? base.colorMoved,
     verifiedHunksFile: overrides.verifiedHunksFile ?? base.verifiedHunksFile,
     showVerifiedHunks: overrides.showVerifiedHunks ?? base.showVerifiedHunks,
+    oneFileAtATime: overrides.oneFileAtATime ?? base.oneFileAtATime,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,
   };

@@ -329,26 +329,28 @@ describe("unfocusedHunkRow", () => {
   });
 });
 
-describe("verified hunk rails", () => {
-  test("paint every row of a verified hunk in the verified color, dimmed outside the selection", () => {
+describe("decided hunk rails", () => {
+  test("paint every row of a decided hunk in its decision's color, dimmed outside the selection", () => {
     for (const theme of THEMES) {
-      const verified = theme.verifiedRailColor;
-      expect(unifiedRailColor("addition", theme, true, true)).toBe(verified);
-      expect(unifiedRailColor("deletion", theme, true, true)).toBe(verified);
-      expect(unifiedRailColor("context", theme, true, true)).toBe(verified);
-      expect(splitLeftRailColor("deletion", theme, true, true)).toBe(verified);
-      expect(splitRightRailColor("context", theme, true, true)).toBe(verified);
-      expect(metaRailColor(theme, true, true)).toBe(verified);
+      const accepted = theme.acceptedRailColor;
+      expect(unifiedRailColor("addition", theme, true, "accepted")).toBe(accepted);
+      expect(unifiedRailColor("deletion", theme, true, "accepted")).toBe(accepted);
+      expect(unifiedRailColor("context", theme, true, "accepted")).toBe(accepted);
+      expect(splitLeftRailColor("deletion", theme, true, "accepted")).toBe(accepted);
+      expect(splitRightRailColor("context", theme, true, "accepted")).toBe(accepted);
+      expect(metaRailColor(theme, true, "accepted")).toBe(accepted);
+      expect(unifiedRailColor("addition", theme, true, "rejected")).toBe(theme.rejectedRailColor);
+      expect(metaRailColor(theme, true, "addressed")).toBe(theme.addressedRailColor);
 
-      const dimmed = dimRailColor(verified, theme);
-      expect(unifiedRailColor("addition", theme, false, true)).toBe(dimmed);
-      expect(metaRailColor(theme, false, true)).toBe(dimmed);
+      const dimmed = dimRailColor(accepted, theme);
+      expect(unifiedRailColor("addition", theme, false, "accepted")).toBe(dimmed);
+      expect(metaRailColor(theme, false, "accepted")).toBe(dimmed);
     }
   });
 
-  test("leave unverified hunks on their own rail colors", () => {
+  test("leave undecided hunks on their own rail colors", () => {
     expect(unifiedRailColor("addition", DARK, true)).toBe(DARK.addedRailColor);
-    expect(unifiedRailColor("deletion", DARK, true, false)).toBe(DARK.removedRailColor);
+    expect(unifiedRailColor("deletion", DARK, true, undefined)).toBe(DARK.removedRailColor);
     expect(metaRailColor(DARK, true)).toBe(DARK.contextRailColor);
   });
 });

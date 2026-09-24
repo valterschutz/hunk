@@ -76,8 +76,11 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     toggleFilesPane: record("toggleFilesPane"),
     triggerEditSelectedFile: record("triggerEditSelectedFile"),
     triggerEditSelectedFileSplit: record("triggerEditSelectedFileSplit"),
-    toggleSelectedHunkVerified: record("toggleSelectedHunkVerified"),
-    toggleVerifiedHunks: record("toggleVerifiedHunks"),
+    acceptSelectedHunk: record("acceptSelectedHunk"),
+    rejectSelectedHunk: record("rejectSelectedHunk"),
+    markSelectedHunkAddressed: record("markSelectedHunkAddressed"),
+    openActiveNoteInEditor: record("openActiveNoteInEditor"),
+    toggleDecidedHunks: record("toggleDecidedHunks"),
     triggerRefreshCurrentInput: record("triggerRefreshCurrentInput"),
   };
 
@@ -505,7 +508,7 @@ describe("command catalog parity", () => {
       showHunkHeaders: true,
       showLineNumbers: true,
       showMenuBar: true,
-      showVerifiedHunks: false,
+      showDecidedHunks: false,
       wrapLines: false,
     });
     const menuCommandIds = Object.values(menus)

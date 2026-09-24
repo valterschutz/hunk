@@ -1,4 +1,5 @@
 /** Renders collapsed gaps and hunk headers without introducing code-row geometry policy. */
+import type { HunkDecision } from "../../core/review/reviewFile";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import { reviewGapId } from "../../core/review/expansion";
 import type { AppTheme } from "../themes";
@@ -13,8 +14,8 @@ export interface DiffMetaRowViewProps {
   width: number;
   theme: AppTheme;
   selected: boolean;
-  /** The row belongs to a hunk the reviewer marked verified. */
-  verified?: boolean;
+  /** The decision on the hunk the row belongs to, when decided hunks are shown. */
+  decision?: HunkDecision;
   showHunkHeaders: boolean;
   showAddNoteBadge?: boolean;
   onHoverRow?: (rowKey: string) => void;
@@ -39,7 +40,7 @@ export function DiffMetaRowView({
   width,
   theme,
   selected,
-  verified = false,
+  decision,
   showHunkHeaders,
   showAddNoteBadge = false,
   onHoverRow,
@@ -86,7 +87,7 @@ export function DiffMetaRowView({
         onMouseUp={handleCollapsedClick}
       >
         <text>
-          <span fg={metaRailColor(theme, selected, verified)} bg={rowTheme.panelAlt}>
+          <span fg={metaRailColor(theme, selected, decision)} bg={rowTheme.panelAlt}>
             {diffRailMarker()}
           </span>
           <span
@@ -117,7 +118,7 @@ export function DiffMetaRowView({
         onMouseUp={handleCollapsedClick}
       >
         <text>
-          <span fg={metaRailColor(theme, selected, verified)} bg={rowTheme.panelAlt}>
+          <span fg={metaRailColor(theme, selected, decision)} bg={rowTheme.panelAlt}>
             {diffRailMarker()}
           </span>
           <span

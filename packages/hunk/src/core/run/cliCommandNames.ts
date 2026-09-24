@@ -6,6 +6,7 @@ export const BUILT_IN_CLI_COMMAND_NAMES = new Set([
   "patch",
   "pager",
   "difftool",
+  "address",
   "stash",
   "session",
   "markup",

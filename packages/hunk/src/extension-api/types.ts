@@ -652,8 +652,12 @@ export interface CustomThemeConfig {
   removedRailColor?: string;
   /** Rail marker beside context lines and hunk headers; defaults to lineNumberFg. */
   contextRailColor?: string;
-  /** Rail marker beside every row of a verified hunk; defaults to addedRailColor. */
-  verifiedRailColor?: string;
+  /** Rail marker beside every row of an accepted hunk; defaults to addedRailColor. */
+  acceptedRailColor?: string;
+  /** Rail marker beside every row of a rejected hunk; defaults to removedRailColor. */
+  rejectedRailColor?: string;
+  /** Rail marker beside every row of an addressed hunk; defaults to contextRailColor. */
+  addressedRailColor?: string;
   selectedHunk?: string;
   badgeAdded?: string;
   badgeRemoved?: string;

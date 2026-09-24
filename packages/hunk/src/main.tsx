@@ -94,6 +94,18 @@ async function main() {
     );
   }
 
+  if (startupPlan.kind === "address-list") {
+    const { runAddressListCommand } = await import("./app/addressCommand");
+    process.exit(
+      runAddressListCommand(startupPlan.input, {
+        cwd: process.cwd(),
+        vcsCatalog: startupPlan.vcsCatalog,
+        stdout: (text) => writeStdout(text),
+        stderr: (text) => process.stderr.write(text),
+      }),
+    );
+  }
+
   if (startupPlan.kind === "markup-guide") {
     const { runMarkupGuideCommand } = await import("./ui/lib/stml/cli");
     process.exit(runMarkupGuideCommand({ stdout: (text) => writeStdout(text) }));

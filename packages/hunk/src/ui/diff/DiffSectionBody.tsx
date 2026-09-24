@@ -4,6 +4,7 @@
  * `DiffSection` owns the file header and picks a body; this is the diff-row body it picks
  * for a normal review, beside `FileView` for the alternate file views.
  */
+import type { HunkDecision } from "../../core/review/reviewFile";
 import { useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_HUNK_GAP } from "../../core/run/reviewGap";
@@ -83,7 +84,7 @@ export function DiffSectionBody({
   hoverClearSignal = 0,
   width,
   selectedHunkIndex,
-  verifiedHunkIndices,
+  hunkDecisions,
   sectionGeometry,
   shouldLoadHighlight = true,
   offloadLargeDiff = false,
@@ -119,8 +120,8 @@ export function DiffSectionBody({
   hoverClearSignal?: number;
   width: number;
   selectedHunkIndex: number;
-  /** Hunks of this file the reviewer marked verified, when verified hunks are shown. */
-  verifiedHunkIndices?: ReadonlySet<number>;
+  /** Decisions on this file's hunks by hunk index, when decided hunks are shown. */
+  hunkDecisions?: ReadonlyMap<number, HunkDecision>;
   sectionGeometry?: DiffSectionGeometry;
   shouldLoadHighlight?: boolean;
   offloadLargeDiff?: boolean;
@@ -450,7 +451,7 @@ export function DiffSectionBody({
               codeHorizontalOffset={codeHorizontalOffset}
               theme={theme}
               selected={plannedRow.row.hunkIndex === selectedHunkIndex}
-              verified={verifiedHunkIndices?.has(plannedRow.row.hunkIndex) ?? false}
+              decision={hunkDecisions?.get(plannedRow.row.hunkIndex)}
               copySelectedRowRange={copySelectedRowRanges?.get(plannedRow.key)}
               copySelectedSide={copySelectedSide}
               cursorHighlight={isCursorRow ? cursorHighlight : undefined}

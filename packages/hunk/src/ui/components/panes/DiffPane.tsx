@@ -1,3 +1,4 @@
+import type { HunkDecision } from "../../../core/review/reviewFile";
 import { type MouseEvent as TuiMouseEvent, type ScrollBoxRenderable } from "@opentui/core";
 import { useRenderer } from "@opentui/react";
 import {
@@ -332,7 +333,7 @@ export function DiffPane({
   scrollRef,
   selectedFileId,
   selectedHunkIndex,
-  verifiedHunkIndicesByFileId,
+  hunkDecisionsByFileId,
   activeNoteId,
   noteActionKeyLabels,
   cursorLine = "off",
@@ -415,8 +416,8 @@ export function DiffPane({
   scrollRef: RefObject<ScrollBoxRenderable | null>;
   selectedFileId?: string;
   selectedHunkIndex: number;
-  /** Verified hunk indices by file id, present only while verified hunks are shown. */
-  verifiedHunkIndicesByFileId?: ReadonlyMap<string, ReadonlySet<number>>;
+  /** Decisions by file id and hunk index, present only while decided hunks are shown. */
+  hunkDecisionsByFileId?: ReadonlyMap<string, ReadonlyMap<number, HunkDecision>>;
   activeNoteId?: string;
   noteActionKeyLabels?: { delete: string; edit: string; reply: string };
   cursorLine?: CursorLine;
@@ -2642,7 +2643,7 @@ export function DiffPane({
                         headerStatsWidth={headerStatsWidth}
                         layout={layout}
                         selectedHunkIndex={file.id === selectedFileId ? selectedHunkIndex : -1}
-                        verifiedHunkIndices={verifiedHunkIndicesByFileId?.get(file.id)}
+                        hunkDecisions={hunkDecisionsByFileId?.get(file.id)}
                         copySelectedRowRanges={copySelectedRowKeysByFile.get(file.id)}
                         copySelectedSide={copySelectionSide}
                         cursorHighlight={

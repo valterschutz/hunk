@@ -504,22 +504,22 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
     description: "Include diff signs and line numbers in copied selections.",
   },
   {
-    key: "verified_hunks_file",
-    property: "verifiedHunksFile",
+    key: "review_file",
+    property: "reviewFile",
     type: "string",
     accepted: "a file path; `~` expands to the home directory",
     description:
-      "Store the hunks marked verified with `!` in this file, one content hash per line, and hide them from the review stream. Unset, hunks cannot be verified.",
+      "Keep hunk decisions (`+` accept, `-` reject, `=` addressed) and your review notes in this JSON Lines file, and derive the per-commit status file `commit-status` beside it. Decided hunks leave the review stream. Unset, hunks cannot be decided and notes last only for the session.",
     userOnly: true,
   },
   {
-    key: "show_verified_hunks",
-    property: "showVerifiedHunks",
+    key: "show_decided_hunks",
+    property: "showDecidedHunks",
     type: "boolean",
     accepted: "`true` or `false`",
     runtimeDefault: false,
     description:
-      "Start with verified hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
+      "Start with accepted, rejected, and addressed hunks shown in the review stream instead of hidden; `V` still toggles them during the session.",
   },
   {
     key: "one_file_at_a_time",
@@ -617,6 +617,7 @@ export const CONFIG_COMMAND_SECTIONS = {
   diff: "two-file comparisons (`hunk diff --files <left> <right>`)",
   patch: "patch-file reviews (`hunk patch`)",
   difftool: "Git difftool pair reviews (`hunk difftool`)",
+  address: "rejection reviews rebuilt from the review file (`hunk address`)",
 } as const satisfies Record<CliInput["kind"], string>;
 
 /** Reference metadata for the root-only custom-theme tables. */
@@ -1103,7 +1104,7 @@ function normalizeConfigReferenceValue(property: keyof CommonOptions, value: unk
     case "vcs":
       return normalizeVcsMode(value);
     case "theme":
-    case "verifiedHunksFile":
+    case "reviewFile":
       return normalizeString(value);
     case "tabWidth":
       return normalizeTabWidth(value);
@@ -1211,8 +1212,8 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
       overrides.promptSaveViewPreferences ?? base.promptSaveViewPreferences,
     transparentBackground: overrides.transparentBackground ?? base.transparentBackground,
     colorMoved: overrides.colorMoved ?? base.colorMoved,
-    verifiedHunksFile: overrides.verifiedHunksFile ?? base.verifiedHunksFile,
-    showVerifiedHunks: overrides.showVerifiedHunks ?? base.showVerifiedHunks,
+    reviewFile: overrides.reviewFile ?? base.reviewFile,
+    showDecidedHunks: overrides.showDecidedHunks ?? base.showDecidedHunks,
     oneFileAtATime: overrides.oneFileAtATime ?? base.oneFileAtATime,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,

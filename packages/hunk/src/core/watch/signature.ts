@@ -1,3 +1,4 @@
+import { createReviewFileStore } from "../process/reviewFileStore";
 import fs from "node:fs";
 import { resolve } from "node:path";
 import { createVcsWatchSignature, getConfiguredVcsAdapter, operationFromInput } from "../vcs";
@@ -62,6 +63,14 @@ export async function computeWatchSignature(
       }
       parts.push(statSignature(resolveInputPath(input.file)));
       break;
+    case "address": {
+      const reviewFile = createReviewFileStore(input.options.reviewFile).path;
+      if (reviewFile === undefined) {
+        throw new Error("Watch mode for `hunk address` requires a configured review_file.");
+      }
+      parts.push(statSignature(reviewFile));
+      break;
+    }
   }
 
   if (input.options.agentContext && input.options.agentContext !== "-") {

@@ -157,8 +157,11 @@ export interface BuildAppCommandsOptions {
   triggerEditSelectedFile: () => void;
   triggerEditSelectedFileSplit: () => void;
   triggerRefreshCurrentInput: () => void;
-  toggleSelectedHunkVerified: () => void;
-  toggleVerifiedHunks: () => void;
+  acceptSelectedHunk: () => void;
+  rejectSelectedHunk: () => void;
+  markSelectedHunkAddressed: () => void;
+  openActiveNoteInEditor: () => void;
+  toggleDecidedHunks: () => void;
 }
 
 /**
@@ -282,8 +285,11 @@ function builtinCommandHandlers(
     "hunk.review.toggleFileContext": { run: () => options.toggleFileContext() },
     "hunk.review.editSelectedFile": { run: () => options.triggerEditSelectedFile() },
     "hunk.review.editSelectedFileSplit": { run: () => options.triggerEditSelectedFileSplit() },
-    "hunk.review.toggleSelectedHunkVerified": { run: () => options.toggleSelectedHunkVerified() },
-    "hunk.view.toggleVerifiedHunks": { run: () => options.toggleVerifiedHunks() },
+    "hunk.review.acceptSelectedHunk": { run: () => options.acceptSelectedHunk() },
+    "hunk.review.rejectSelectedHunk": { run: () => options.rejectSelectedHunk() },
+    "hunk.review.markSelectedHunkAddressed": { run: () => options.markSelectedHunkAddressed() },
+    "hunk.review.openActiveNoteInEditor": { run: () => options.openActiveNoteInEditor() },
+    "hunk.view.toggleDecidedHunks": { run: () => options.toggleDecidedHunks() },
     "hunk.review.previousHunk": {
       run: (_key, count, entry) => runSelectionMove(options, entry, count),
     },
@@ -394,8 +400,11 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     triggerEditSelectedFile: noop,
     triggerEditSelectedFileSplit: noop,
     triggerRefreshCurrentInput: noop,
-    toggleSelectedHunkVerified: noop,
-    toggleVerifiedHunks: noop,
+    acceptSelectedHunk: noop,
+    rejectSelectedHunk: noop,
+    markSelectedHunkAddressed: noop,
+    openActiveNoteInEditor: noop,
+    toggleDecidedHunks: noop,
   };
 })();
 

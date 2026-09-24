@@ -434,7 +434,7 @@ test("CodeRowView overlays the nowrap add-note badge instead of shifting the not
   }
 });
 
-test("CodeRowView paints the rail of a verified hunk in the verified color", async () => {
+test("CodeRowView paints the rail of a decided hunk in its decision color", async () => {
   const theme = resolveTheme("catppuccin-mocha", null);
   const plannedRow: PlannedCodeReviewRow = {
     kind: "diff-row",
@@ -465,7 +465,7 @@ test("CodeRowView paints the rail of a verified hunk in the verified color", asy
       codeHorizontalOffset={0}
       theme={theme}
       selected={true}
-      verified={true}
+      decision="accepted"
     />,
     { width: 16, height: 1 },
   );
@@ -476,7 +476,7 @@ test("CodeRowView paints the rail of a verified hunk in the verified color", asy
     });
     const spans = setup.captureSpans();
 
-    expect(foregroundForText(spans, "▌")).toBe(theme.verifiedRailColor.toLowerCase());
+    expect(foregroundForText(spans, "▌")).toBe(theme.acceptedRailColor.toLowerCase());
     expect(foregroundForText(spans, "▌")).not.toBe(
       unifiedRailColor("deletion", theme, true).toLowerCase(),
     );

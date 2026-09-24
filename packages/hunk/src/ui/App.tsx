@@ -17,7 +17,13 @@ import {
 import type { PersistedViewPreferences } from "../core/run/config";
 import { HISTORY_COMMAND_NAMES } from "../core/run/historyCommandCatalog";
 import type { ExtensionReviewReloadResult } from "../extension-api/types";
-import { hideVerifiedHunks } from "../core/changeset/verifiedHunks";
+import { diffHunkLines, hideDecidedHunks } from "../core/changeset/hunkDecisions";
+import {
+  persistableNoteRecords,
+  restoreNoteRecords,
+  type HunkDecision,
+} from "../core/review/reviewFile";
+import { reviewNoteAnchorLine, reviewNoteOwnerHunkIndex } from "../core/review/state";
 import { experimentalFeatureEnabled, resolveExperimentalDiffFiles } from "../core/run/experimental";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../core/run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../core/run/tabWidth";
@@ -122,7 +128,7 @@ import { HUNK_FILES_PANE_KEY } from "../extensions/extensionIds";
 import { maxFileHeaderStatsWidth } from "./lib/fileHeader";
 import { setMouseCapture } from "./lib/mouseCapture";
 import { openSelectedFileInEditor, openSelectedFileInEditorSplit } from "./lib/openInEditor";
-import { createVerifiedHunksStore } from "./lib/verifiedHunksStore";
+import { collapseHomePath, createReviewFileStore } from "../core/process/reviewFileStore";
 import { resolveResponsiveLayout } from "./lib/responsive";
 import type { WorkspaceRefreshRequest } from "./currentReviewRefresh";
 import { ThemeController } from "./theme/controller";
@@ -223,38 +229,69 @@ export function App({
     () => resolveExperimentalDiffFiles(bootstrap.changeset.files, bootstrap.input.options),
     [bootstrap.changeset.files, bootstrap.input.options.experimental],
   );
-  // Verified hunks leave the review stream. The store file is re-read on every reload and
-  // after every toggle, so marks synced from another machine appear without a restart.
-  const verifiedHunksStore = useMemo(
-    () => createVerifiedHunksStore(bootstrap.input.options.verifiedHunksFile),
-    [bootstrap.input.options.verifiedHunksFile],
+  // Decided hunks leave the review stream. The review file is re-read on every reload and
+  // after every write, so decisions and notes synced from another machine appear without a
+  // restart. An address session shows exactly the rejected hunks, so nothing is hidden there.
+  const addressSession = bootstrap.input.kind === "address";
+  const reviewFileStore = useMemo(
+    () => createReviewFileStore(bootstrap.input.options.reviewFile),
+    [bootstrap.input.options.reviewFile],
   );
-  const [verifiedHunksRevision, setVerifiedHunksRevision] = useState(0);
-  const verifiedHunks = useMemo(
-    () => verifiedHunksStore.load(),
-    [verifiedHunksStore, verifiedHunksRevision, bootstrap.changeset.files],
+  const [reviewFileRevision, setReviewFileRevision] = useState(0);
+  const reviewFileLoad = useMemo(
+    () => reviewFileStore.load(),
+    [reviewFileStore, reviewFileRevision, bootstrap.changeset.files],
   );
-  const [showVerifiedHunks, setShowVerifiedHunks] = useState(
-    bootstrap.input.options.showVerifiedHunks ?? false,
+  const hunkDecisions = useMemo(() => {
+    const decisions = new Map<string, HunkDecision>();
+    for (const record of reviewFileLoad.records) {
+      if (record.kind === "hunk" && record.state !== undefined) {
+        decisions.set(record.id, record.state);
+      }
+    }
+    return decisions;
+  }, [reviewFileLoad]);
+  /** The repository the review file attributes decisions and notes to. */
+  const reviewRepo = useMemo(
+    () => collapseHomePath(bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd),
+    [bootstrap.reloadContext.cwd, bootstrap.reloadContext.repoRoot],
   );
-  const verifiedHunksProjection = useMemo(
-    () => hideVerifiedHunks(experimentalFiles, showVerifiedHunks ? new Set() : verifiedHunks),
-    [experimentalFiles, showVerifiedHunks, verifiedHunks],
+  /** The single commit under review, whose status the decisions decide, when there is one. */
+  const reviewedCommit = useMemo(
+    () =>
+      bootstrap.review?.kind === "commit"
+        ? {
+            hash: bootstrap.review.revision,
+            hunkCount: bootstrap.changeset.files.reduce(
+              (count, file) => count + file.metadata.hunks.length,
+              0,
+            ),
+          }
+        : undefined,
+    [bootstrap.changeset.files, bootstrap.review],
   );
-  const reviewFiles = verifiedHunksProjection.files;
-  // While verified hunks are shown, the rail marks them so the reviewer can tell them apart.
-  const verifiedHunkIndicesByFileId = useMemo(() => {
-    if (!showVerifiedHunks || verifiedHunks.size === 0) return undefined;
-    const byFileId = new Map<string, ReadonlySet<number>>();
-    for (const [fileId, identities] of verifiedHunksProjection.hunkIdentitiesByFileId) {
-      const indices = new Set<number>();
+  const [showDecidedHunks, setShowDecidedHunks] = useState(
+    addressSession || (bootstrap.input.options.showDecidedHunks ?? false),
+  );
+  const decisionsProjection = useMemo(
+    () => hideDecidedHunks(experimentalFiles, showDecidedHunks ? new Map() : hunkDecisions),
+    [experimentalFiles, hunkDecisions, showDecidedHunks],
+  );
+  const reviewFiles = decisionsProjection.files;
+  // While decided hunks are shown, the rail marks each one with its decision.
+  const hunkDecisionsByFileId = useMemo(() => {
+    if (!showDecidedHunks || hunkDecisions.size === 0) return undefined;
+    const byFileId = new Map<string, ReadonlyMap<number, HunkDecision>>();
+    for (const [fileId, identities] of decisionsProjection.hunkIdentitiesByFileId) {
+      const decisions = new Map<number, HunkDecision>();
       identities.forEach((identity, index) => {
-        if (verifiedHunks.has(identity)) indices.add(index);
+        const decision = hunkDecisions.get(identity);
+        if (decision !== undefined) decisions.set(index, decision);
       });
-      if (indices.size > 0) byFileId.set(fileId, indices);
+      if (decisions.size > 0) byFileId.set(fileId, decisions);
     }
     return byFileId;
-  }, [showVerifiedHunks, verifiedHunks, verifiedHunksProjection]);
+  }, [decisionsProjection, hunkDecisions, showDecidedHunks]);
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
   const noteGeometryRef = useRef<AgentNoteGeometrySnapshot | null>(null);
@@ -393,12 +430,11 @@ export function App({
   const filteredFiles = review.visibleFiles;
   const selectedFile = review.selectedFile;
   const selectedHunkIndex = review.selectedHunkIndex;
-  const selectedHunkVerified =
-    selectedFile !== undefined &&
-    verifiedHunks.has(
-      verifiedHunksProjection.hunkIdentitiesByFileId.get(selectedFile.id)?.[selectedHunkIndex] ??
-        "",
-    );
+  const selectedHunkIdentity = selectedFile
+    ? decisionsProjection.hunkIdentitiesByFileId.get(selectedFile.id)?.[selectedHunkIndex]
+    : undefined;
+  const selectedHunkDecision =
+    selectedHunkIdentity === undefined ? undefined : hunkDecisions.get(selectedHunkIdentity);
   const selectedFileId = selectedFile?.id ?? null;
   // One-file-at-a-time review narrows the rendered stream to the selected file. Only the diff
   // pane and the geometry that measures it follow this; the sidebar, extensions, and the review
@@ -578,19 +614,19 @@ export function App({
         priority: 1,
       });
     }
-    if (verifiedHunksProjection.hiddenHunkCount > 0) {
-      const count = verifiedHunksProjection.hiddenHunkCount;
+    if (decisionsProjection.hiddenHunkCount > 0) {
+      const count = decisionsProjection.hiddenHunkCount;
       hostItems.push({
-        id: "host:verified",
+        id: "host:decided",
         spans: [
-          { text: `${count} verified ${count === 1 ? "hunk" : "hunks"} hidden`, tone: "muted" },
+          { text: `${count} decided ${count === 1 ? "hunk" : "hunks"} hidden`, tone: "muted" },
         ],
         priority: 1,
       });
-    } else if (showVerifiedHunks && selectedHunkVerified) {
+    } else if (showDecidedHunks && selectedHunkDecision !== undefined) {
       hostItems.push({
-        id: "host:verified",
-        spans: [{ text: "selected hunk verified", tone: "muted" }],
+        id: "host:decided",
+        spans: [{ text: `selected hunk ${selectedHunkDecision}`, tone: "muted" }],
         priority: 1,
       });
     }
@@ -609,11 +645,11 @@ export function App({
   }, [
     daemonNoticeText,
     review.filter,
-    selectedHunkVerified,
-    showVerifiedHunks,
+    selectedHunkDecision,
+    showDecidedHunks,
     statusLineState,
     statusNoticeText,
-    verifiedHunksProjection.hiddenHunkCount,
+    decisionsProjection.hiddenHunkCount,
   ]);
   const statusBarVisible = statusLineHasContent(statusLineSnapshot, keyboardModeHint ?? null);
   const bodyHeight = Math.max(
@@ -923,13 +959,51 @@ export function App({
     [extensionLineHighlights, review.agentLineHighlightsByFileId],
   );
 
+  /**
+   * Run one note removal and forget the notes it removed from the review file as well.
+   *
+   * Every removal path — the delete key, an agent's `comment rm` or `comment clear` — goes
+   * through here, so a note deleted anywhere is gone from the file too. Only an explicit
+   * removal counts: a reload that drops a note leaves its record for the review that shows
+   * its hunk again.
+   */
+  const removeWithPersisted = useCallback(
+    <T,>(run: () => T): T => {
+      const noteIds = (snapshot: ReturnType<typeof review.store.getSnapshot>) =>
+        [...snapshot.liveNotes, ...snapshot.userNotes].map((entry) => entry.note.id);
+      const before = noteIds(review.store.getSnapshot());
+      const result = run();
+      const after = new Set(noteIds(review.store.getSnapshot()));
+      const vanished = before.filter((id) => !after.has(id));
+      if (vanished.length > 0 && reviewFileStore.enabled) {
+        try {
+          reviewFileStore.removeNotes(vanished);
+        } catch (error) {
+          showSessionNotice(
+            `Could not update the review file: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+      return result;
+    },
+    [review.store, reviewFileStore, showSessionNotice],
+  );
+  const removeLiveCommentAndPersisted = useCallback<typeof review.removeLiveComment>(
+    (commentId) => removeWithPersisted(() => review.removeLiveComment(commentId)),
+    [removeWithPersisted, review.removeLiveComment],
+  );
+  const clearLiveCommentsAndPersisted = useCallback<typeof review.clearLiveComments>(
+    (filePath, options) => removeWithPersisted(() => review.clearLiveComments(filePath, options)),
+    [removeWithPersisted, review.clearLiveComments],
+  );
+
   useHunkSessionBridge({
     onConnectionNotice: setDaemonNoticeText,
     addAgentLineHighlight: review.addAgentLineHighlight,
     addLiveComment: review.addLiveComment,
     addLiveCommentBatch: review.addLiveCommentBatch,
     clearAgentLineHighlights: review.clearAgentLineHighlights,
-    clearLiveComments: review.clearLiveComments,
+    clearLiveComments: clearLiveCommentsAndPersisted,
     hostClient,
     liveCommentCount: review.liveCommentCount,
     liveCommentSummaries: review.liveCommentSummaries,
@@ -937,7 +1011,7 @@ export function App({
     noteMarkupWidth: stmlEnabled ? noteMarkupWidth : undefined,
     openAgentNotes,
     reloadSession: onReloadSession,
-    removeLiveComment: review.removeLiveComment,
+    removeLiveComment: removeLiveCommentAndPersisted,
     reviewProducer,
     reviewNoteCount: review.reviewNoteCount,
     reviewNoteSummaries: review.reviewNoteSummaries,
@@ -1169,10 +1243,15 @@ export function App({
     showNotice: showSessionNotice,
   });
 
-  const triggerEditSelectedFile = useCallback(() => {
-    const basePath = isVcsReviewInput(bootstrap.input)
-      ? bootstrap.changeset.sourceLabel
+  // Files of a VCS review are addressed from the repository root, which the changeset carries as
+  // its source label; an address session names the root outright.
+  const editorBasePath = isVcsReviewInput(bootstrap.input)
+    ? bootstrap.changeset.sourceLabel
+    : addressSession
+      ? (bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd)
       : undefined;
+  const triggerEditSelectedFile = useCallback(() => {
+    const basePath = editorBasePath;
     const message = openSelectedFileInEditor({
       basePath,
       file: selectedFile,
@@ -1191,8 +1270,7 @@ export function App({
     }
   }, [
     activeLineCursor,
-    bootstrap.changeset.sourceLabel,
-    bootstrap.input.kind,
+    editorBasePath,
     canRefreshCurrentInput,
     renderer,
     review.selectedHunk,
@@ -1202,9 +1280,7 @@ export function App({
   ]);
 
   const triggerEditSelectedFileSplit = useCallback(() => {
-    const basePath = isVcsReviewInput(bootstrap.input)
-      ? bootstrap.changeset.sourceLabel
-      : undefined;
+    const basePath = editorBasePath;
     const message = openSelectedFileInEditorSplit({
       basePath,
       file: selectedFile,
@@ -1215,49 +1291,207 @@ export function App({
     if (message) {
       showSessionNotice(message);
     }
+  }, [activeLineCursor, editorBasePath, review.selectedHunk, selectedFile, showSessionNotice]);
+
+  /**
+   * Open the editor on the active note's line, beside the review when Herdr can split.
+   *
+   * Activating a note clears the line cursor, so the line comes from the note's own anchor
+   * rather than from the cursor the other editor commands follow.
+   */
+  const openActiveNoteInEditor = useCallback(() => {
+    const snapshot = review.store.getSnapshot();
+    const active = selectActiveStoredReviewNote(snapshot);
+    if (!active) {
+      showSessionNotice("No active note");
+      return;
+    }
+    const documentFile = snapshot.document.files.find(
+      (candidate) => candidate.key === active.note.fileKey,
+    );
+    const file = documentFile
+      ? reviewFiles.find((candidate) => candidate.id === documentFile.runtimeId)
+      : undefined;
+    if (!file) {
+      showSessionNotice("The active note's file is not in the review");
+      return;
+    }
+    const hunkIndex = reviewNoteOwnerHunkIndex(active.note);
+    const lineCursor = {
+      fileId: file.id,
+      hunkIndex,
+      target: reviewNoteAnchorLine(active.note),
+    };
+    const selectedHunk = file.metadata.hunks[hunkIndex];
+    if (process.env.HERDR_ENV === "1") {
+      const message = openSelectedFileInEditorSplit({
+        basePath: editorBasePath,
+        file,
+        lineCursor,
+        selectedHunk,
+      });
+      if (message) showSessionNotice(message);
+      return;
+    }
+    const message = openSelectedFileInEditor({
+      basePath: editorBasePath,
+      file,
+      lineCursor,
+      renderer,
+      selectedHunk,
+    });
+    if (message) {
+      showSessionNotice(message);
+      return;
+    }
+    if (canRefreshCurrentInput) {
+      triggerRefreshCurrentInput();
+    }
   }, [
-    activeLineCursor,
-    bootstrap.changeset.sourceLabel,
-    bootstrap.input.kind,
-    review.selectedHunk,
-    selectedFile,
+    canRefreshCurrentInput,
+    editorBasePath,
+    renderer,
+    review.store,
+    reviewFiles,
     showSessionNotice,
+    triggerRefreshCurrentInput,
   ]);
 
-  /** Mark the selected hunk as verified, or unmark it, and hide or reveal it accordingly. */
-  const toggleSelectedHunkVerified = useCallback(() => {
-    if (!verifiedHunksStore.enabled) {
-      showSessionNotice("Set verified_hunks_file in your config to verify hunks");
-      return;
+  /**
+   * Record a decision on the selected hunk, writing the review file and re-reading it.
+   *
+   * `decide` maps the current decision to the next one; null leaves everything untouched. In an
+   * address session, marking a hunk addressed reloads so the hunk leaves the view.
+   */
+  const decideSelectedHunk = useCallback(
+    (decide: (current: HunkDecision | undefined) => HunkDecision | undefined | null) => {
+      if (!reviewFileStore.enabled) {
+        showSessionNotice("Set review_file in your config to decide hunks");
+        return;
+      }
+      const hunk = selectedFile?.metadata.hunks[selectedHunkIndex];
+      if (!selectedFile || !hunk || selectedHunkIdentity === undefined) {
+        showSessionNotice("No hunk selected");
+        return;
+      }
+      const state = decide(hunkDecisions.get(selectedHunkIdentity));
+      if (state === null) return;
+      try {
+        reviewFileStore.setHunkDecision({
+          hunk: {
+            id: selectedHunkIdentity,
+            repo: reviewRepo,
+            path: selectedFile.path,
+            ...(reviewedCommit ? { commit: reviewedCommit.hash } : {}),
+            oldStart: hunk.deletionStart,
+            newStart: hunk.additionStart,
+            lines: diffHunkLines(selectedFile, hunk),
+          },
+          state,
+          ...(reviewedCommit ? { commit: reviewedCommit } : {}),
+        });
+      } catch (error) {
+        showSessionNotice(
+          `Could not update the review file: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return;
+      }
+      setReviewFileRevision((revision) => revision + 1);
+      if (addressSession && state === "addressed" && canRefreshCurrentInput) {
+        triggerRefreshCurrentInput();
+      }
+    },
+    [
+      addressSession,
+      canRefreshCurrentInput,
+      hunkDecisions,
+      reviewFileStore,
+      reviewRepo,
+      reviewedCommit,
+      selectedFile,
+      selectedHunkIdentity,
+      selectedHunkIndex,
+      showSessionNotice,
+      triggerRefreshCurrentInput,
+    ],
+  );
+
+  /** Accept the selected hunk, or clear the decision when it is already accepted. */
+  const acceptSelectedHunk = useCallback(() => {
+    decideSelectedHunk((current) => (current === "accepted" ? undefined : "accepted"));
+  }, [decideSelectedHunk]);
+
+  /** Reject the selected hunk, or clear the decision when it is already rejected. */
+  const rejectSelectedHunk = useCallback(() => {
+    decideSelectedHunk((current) => (current === "rejected" ? undefined : "rejected"));
+  }, [decideSelectedHunk]);
+
+  /** Mark the selected rejected hunk as addressed, or make an addressed hunk rejected again. */
+  const markSelectedHunkAddressed = useCallback(() => {
+    decideSelectedHunk((current) => {
+      if (current === "addressed") return "rejected";
+      if (current === "rejected") return "addressed";
+      showSessionNotice("Only a rejected hunk can be marked addressed");
+      return null;
+    });
+  }, [decideSelectedHunk, showSessionNotice]);
+
+  /** Show decided hunks in the stream again, or hide them. */
+  const toggleDecidedHunks = useCallback(() => {
+    setShowDecidedHunks((current) => !current);
+  }, []);
+
+  // Notes the review file holds for hunks this document shows come back after every document
+  // change, so a restart, a reload, and a sync from another machine all restore them.
+  const reviewSnapshotDocument = review.store.getSnapshot().document;
+  useEffect(() => {
+    if (!reviewFileStore.enabled) return;
+    const snapshot = review.store.getSnapshot();
+    const present = new Set(
+      [...snapshot.liveNotes, ...snapshot.userNotes].map((entry) => entry.note.id),
+    );
+    const restored = restoreNoteRecords(snapshot.document, reviewFileLoad.records, present);
+    if (restored.length > 0) {
+      review.store.dispatch({ type: "notes/restore", notes: restored });
     }
-    const identity = selectedFile
-      ? verifiedHunksProjection.hunkIdentitiesByFileId.get(selectedFile.id)?.[selectedHunkIndex]
-      : undefined;
-    if (identity === undefined) {
-      showSessionNotice("No hunk selected");
-      return;
+  }, [review.store, reviewFileLoad, reviewFileStore, reviewSnapshotDocument]);
+  useEffect(() => {
+    for (const warning of reviewFileLoad.warnings) {
+      showSessionNotice(`Skipped a malformed review record: ${warning}`);
     }
+  }, [reviewFileLoad, showSessionNotice]);
+
+  // Every note of a thread the reviewer started is written back whenever it changes: a new
+  // note, an edit, an agent's reply, or a reload that moved it. Removal is explicit and handled
+  // where notes are removed, so a reload that drops a note never erases it from the file.
+  const lastPersistedNotesRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!reviewFileStore.enabled) return;
+    const snapshot = review.store.getSnapshot();
+    const persistable = persistableNoteRecords(
+      snapshot.document,
+      [...snapshot.liveNotes, ...snapshot.userNotes],
+      { repo: reviewRepo, ...(reviewedCommit ? { commit: reviewedCommit.hash } : {}) },
+    );
+    const fingerprint = JSON.stringify(persistable);
+    if (fingerprint === lastPersistedNotesRef.current) return;
+    lastPersistedNotesRef.current = fingerprint;
+    if (persistable.notes.length === 0) return;
     try {
-      verifiedHunksStore.toggle(identity);
+      reviewFileStore.upsertNotes(persistable);
     } catch (error) {
       showSessionNotice(
-        `Could not update verified hunks: ${error instanceof Error ? error.message : String(error)}`,
+        `Could not update the review file: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return;
     }
-    setVerifiedHunksRevision((revision) => revision + 1);
   }, [
-    selectedFile,
-    selectedHunkIndex,
+    review.stateRevision,
+    review.store,
+    reviewFileStore,
+    reviewRepo,
+    reviewedCommit,
     showSessionNotice,
-    verifiedHunksProjection,
-    verifiedHunksStore,
   ]);
-
-  /** Show verified hunks in the stream again, or hide them. */
-  const toggleVerifiedHunks = useCallback(() => {
-    setShowVerifiedHunks((current) => !current);
-  }, []);
 
   /** Close the agent skill setup overlay. */
   const closeAgentSkill = useCallback(() => {
@@ -1410,11 +1644,13 @@ export function App({
         focusFilter,
         deleteActiveNote: () => {
           if (!activeRemovableNote) return;
-          if (activeRemovableNote.source === "user") {
-            review.removeUserNote(activeRemovableNote.noteId);
-          } else {
-            review.removeLiveComment(activeRemovableNote.noteId);
-          }
+          removeWithPersisted(() => {
+            if (activeRemovableNote.source === "user") {
+              review.removeUserNote(activeRemovableNote.noteId);
+            } else {
+              review.removeLiveComment(activeRemovableNote.noteId);
+            }
+          });
         },
         editActiveNote: () => {
           if (activeEditableNoteId) startUserNoteEdit(activeEditableNoteId);
@@ -1454,8 +1690,11 @@ export function App({
         triggerEditSelectedFile,
         triggerEditSelectedFileSplit,
         triggerRefreshCurrentInput,
-        toggleSelectedHunkVerified,
-        toggleVerifiedHunks,
+        acceptSelectedHunk,
+        rejectSelectedHunk,
+        markSelectedHunkAddressed,
+        openActiveNoteInEditor,
+        toggleDecidedHunks,
       }).map((command) =>
         returnToHistory && command.id === "hunk.app.quit"
           ? { ...command, title: "Back to history" }
@@ -1514,7 +1753,7 @@ export function App({
     showHunkHeaders,
     showLineNumbers,
     showMenuBar,
-    showVerifiedHunks,
+    showDecidedHunks,
     wrapLines,
   });
 
@@ -1780,7 +2019,7 @@ export function App({
             scrollRef={diffScrollRef}
             selectedFileId={selectedFile?.id}
             selectedHunkIndex={selectedHunkIndex}
-            verifiedHunkIndicesByFileId={verifiedHunkIndicesByFileId}
+            hunkDecisionsByFileId={hunkDecisionsByFileId}
             activeNoteId={activeNoteId}
             noteActionKeyLabels={noteActionKeyLabels}
             scrollToNote={review.scrollToNote}

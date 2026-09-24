@@ -1,7 +1,7 @@
 /**
  * Row geometry for a hunk list, computed the way Pierre's parser computes it.
  *
- * Every transform that rebuilds a file's hunk list (splitting hunks, hiding verified
+ * Every transform that rebuilds a file's hunk list (splitting hunks, hiding decided
  * ones) has to re-derive the same three per-hunk facts Pierre derives while parsing:
  * the collapsed gap before the hunk and the hunk's first row in each layout. Keeping
  * that derivation here means all such transforms agree with the parser and with each

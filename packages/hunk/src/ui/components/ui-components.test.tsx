@@ -3706,13 +3706,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes()}
-        terminalHeight={40}
+        terminalHeight={42}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      40,
+      42,
     );
 
     const expectedRows = [
@@ -3741,6 +3741,9 @@ describe("UI components", () => {
       "e                        open file in $EDITOR",
       "Review",
       "c                        create review note",
+      "+ / - / =                accept / reject / mark addressed",
+      "V                        show decided hunks",
+      "o                        open note in editor",
       "Tab                      toggle files/filter focus",
       "F10                      open menus",
       "r                        reload the review",
@@ -3826,13 +3829,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes(keys)}
-        terminalHeight={40}
+        terminalHeight={42}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      40,
+      42,
     );
 
     expect(frame).toContain("Ctrl+X");

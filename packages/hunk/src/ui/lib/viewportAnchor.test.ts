@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { resolveTheme } from "../themes";
 import { buildInStreamFileHeaderHeights } from "./fileSectionLayout";
 import { measureDiffSectionGeometry } from "../diff/diffSectionGeometry";
-import { findViewportRowAnchor, resolveViewportRowAnchorTop } from "./viewportAnchor";
+import {
+  findViewportRowAnchor,
+  resolveAnchoredRowScrollTop,
+  resolveViewportRowAnchorTop,
+} from "./viewportAnchor";
 import { createTestDiffFile, lines } from "../../../../../test/helpers/diff-helpers";
 
 describe("viewport row anchors", () => {
@@ -143,5 +147,48 @@ describe("viewport row anchors", () => {
     );
 
     expect(roundTripTop).toBe(unifiedDeletionTop!);
+  });
+});
+
+describe("resolveAnchoredRowScrollTop", () => {
+  test("keeps a visible row on the same screen row after rows appear above it", () => {
+    expect(
+      resolveAnchoredRowScrollTop({
+        previousRowTop: 12,
+        currentRowTop: 20,
+        previousScrollTop: 10,
+        viewportHeight: 8,
+      }),
+    ).toBe(18);
+  });
+
+  test("leaves the scroll position alone when nothing above the row changed", () => {
+    expect(
+      resolveAnchoredRowScrollTop({
+        previousRowTop: 12,
+        currentRowTop: 12,
+        previousScrollTop: 10,
+        viewportHeight: 8,
+      }),
+    ).toBe(10);
+  });
+
+  test("declines to follow a row that was outside the previous viewport", () => {
+    expect(
+      resolveAnchoredRowScrollTop({
+        previousRowTop: 30,
+        currentRowTop: 38,
+        previousScrollTop: 10,
+        viewportHeight: 8,
+      }),
+    ).toBeNull();
+    expect(
+      resolveAnchoredRowScrollTop({
+        previousRowTop: 4,
+        currentRowTop: 4,
+        previousScrollTop: 10,
+        viewportHeight: 8,
+      }),
+    ).toBeNull();
   });
 });

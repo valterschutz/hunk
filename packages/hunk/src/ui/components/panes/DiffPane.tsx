@@ -84,6 +84,7 @@ import {
 } from "../../lib/viewportTiming";
 import {
   findViewportRowAnchor,
+  resolveAnchoredRowScrollTop,
   resolveViewportRowAnchorTop,
   type ViewportRowAnchor,
 } from "../../lib/viewportAnchor";
@@ -865,6 +866,8 @@ export function DiffPane({
   const draftNoteId = draftNote?.id ?? null;
   const draftNoteFileId = draftNote?.fileId ?? null;
   const previousDraftNoteIdRef = useRef(draftNoteId);
+  const previousExpandedGapsByFileIdRef = useRef(expandedGapsByFileId);
+  const previousSourceStatusByFileIdRef = useRef(sourceStatusByFileId);
   const previousSelectedFileTopAlignRequestIdRef = useRef(selectedFileTopAlignRequestId);
   const previousLayoutToggleRequestIdRef = useRef(layoutToggleRequestId);
   const previousSelectedHunkRevealRequestIdRef = useRef(selectedHunkRevealRequestId);
@@ -1984,8 +1987,16 @@ export function DiffPane({
     const previousFiles = previousFilesRef.current;
     const currentDraftNoteId = draftNoteId;
     const draftChanged = previousDraftNoteIdRef.current !== currentDraftNoteId;
+    // Opening or closing a gap, and the source load that later fills it, regrow the stream around
+    // the reviewer's current line just as a draft composer does, so the same anchoring keeps
+    // that line on the same screen row instead of letting the new rows push it away.
+    const expansionChanged =
+      previousExpandedGapsByFileIdRef.current !== expandedGapsByFileId ||
+      previousSourceStatusByFileIdRef.current !== sourceStatusByFileId;
+    previousExpandedGapsByFileIdRef.current = expandedGapsByFileId;
+    previousSourceStatusByFileIdRef.current = sourceStatusByFileId;
 
-    if (draftChanged && previousSectionMetrics && previousFiles.length > 0) {
+    if ((draftChanged || expansionChanged) && previousSectionMetrics && previousFiles.length > 0) {
       const previousScrollTop = scrollRef.current?.scrollTop ?? scrollViewport.top;
       const previousSectionHeaderHeights = buildInStreamFileHeaderHeights(previousFiles);
       const anchor =
@@ -2021,7 +2032,12 @@ export function DiffPane({
         : undefined;
       const cursorAnchoredTop =
         previousCursorBounds && currentCursorBounds
-          ? currentCursorBounds.top - (previousCursorBounds.top - previousScrollTop)
+          ? resolveAnchoredRowScrollTop({
+              previousRowTop: previousCursorBounds.top,
+              currentRowTop: currentCursorBounds.top,
+              previousScrollTop,
+              viewportHeight: scrollRef.current?.viewport.height || scrollViewport.height,
+            })
           : null;
       const anchorTop =
         cursorAnchoredTop ??

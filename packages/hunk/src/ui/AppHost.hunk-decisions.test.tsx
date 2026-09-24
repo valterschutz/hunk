@@ -394,6 +394,34 @@ describe("AppHost hunk decisions", () => {
     expect(frame).not.toContain("first change");
   });
 
+  test("toggleAllHunkStates shows every state, then hides them all", async () => {
+    const reviewFile = createReviewFile();
+    setup = await testRender(
+      <AppHost
+        bootstrap={{
+          ...createBootstrap(reviewFile, { shownHunks: ["rejected"] }),
+          keybindings: { "hunk.view.toggleAllHunkStates": "T" },
+        }}
+      />,
+      WIDE,
+    );
+    await flush(setup);
+    expect(setup.captureCharFrame()).toContain("○ ○ ● ○");
+
+    await pressKeys(setup, "T");
+    let frame = setup.captureCharFrame();
+    expect(frame).toContain("● ● ● ●");
+    expect(frame).toContain("first change");
+
+    await pressKeys(setup, "T");
+    frame = setup.captureCharFrame();
+    expect(frame).toContain("○ ○ ○ ○ 3 hidden");
+    expect(frame).not.toContain("first change");
+
+    await pressKeys(setup, "T");
+    expect(setup.captureCharFrame()).toContain("● ● ● ●");
+  });
+
   test("a review of uncommitted changes records no commit review", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(

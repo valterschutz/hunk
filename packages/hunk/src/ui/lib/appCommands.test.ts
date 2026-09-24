@@ -81,6 +81,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     rejectSelectedHunk: record("rejectSelectedHunk"),
     markSelectedHunkFixed: record("markSelectedHunkFixed"),
     toggleDecidedHunks: record("toggleDecidedHunks"),
+    toggleAllHunkStates: record("toggleAllHunkStates"),
     toggleHunkState: record("toggleHunkState"),
     triggerRefreshCurrentInput: record("triggerRefreshCurrentInput"),
   };
@@ -330,6 +331,7 @@ describe("builtinCommandKeyDefaults", () => {
       "hunk.view.cursorLineOff",
       "hunk.view.cursorLineRow",
       "hunk.view.toggleAcceptedHunks",
+      "hunk.view.toggleAllHunkStates",
       "hunk.view.toggleCopyDecorations",
       "hunk.view.toggleFixedHunks",
       "hunk.view.toggleRejectedHunks",

@@ -1413,6 +1413,15 @@ export function App({
     );
   }, []);
 
+  /** Show every hunk state, or hide them all once every one is shown. */
+  const toggleAllHunkStates = useCallback(() => {
+    setShownHunkStates((current) =>
+      HUNK_STATES.every((state) => current.has(state))
+        ? new Set<HunkState>()
+        : new Set(HUNK_STATES),
+    );
+  }, []);
+
   /** Show the hunks in one state, or hide them. */
   const toggleHunkState = useCallback((state: HunkState) => {
     setShownHunkStates((current) => {
@@ -1688,6 +1697,7 @@ export function App({
         rejectSelectedHunk,
         markSelectedHunkFixed,
         toggleDecidedHunks,
+        toggleAllHunkStates,
         toggleHunkState,
       }).map((command) =>
         returnToHistory && command.id === "hunk.app.quit"

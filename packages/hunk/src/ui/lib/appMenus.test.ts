@@ -73,6 +73,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
+    toggleAllHunkStates: noop,
     toggleHunkState: noop,
     triggerRefreshCurrentInput: noop,
     ...overrides,

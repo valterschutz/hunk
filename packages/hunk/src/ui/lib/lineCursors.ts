@@ -152,8 +152,9 @@ function nearestCursorInFile(cursors: LineCursor[], fileId: string, hunkIndex: n
 /**
  * Find the first navigable line inside one hunk.
  *
- * Stays inside the requested file: falling back to the top of the stream would move the marker,
- * and with it the selection, off the file the reviewer just picked.
+ * Expanded inter-hunk context inherits the following hunk's index but precedes that hunk, so the
+ * first real patch row wins. Stays inside the requested file: falling back to the top of the stream
+ * would move the marker, and with it the selection, off the file the reviewer just picked.
  */
 export function firstLineCursorInHunk(
   cursors: LineCursor[],
@@ -164,7 +165,16 @@ export function firstLineCursorInHunk(
     return cursors[0] ?? null;
   }
 
-  return nearestCursorInFile(cursors, fileId, hunkIndex) ?? null;
+  return (
+    cursors.find(
+      (cursor) =>
+        cursor.fileId === fileId &&
+        cursor.hunkIndex === hunkIndex &&
+        cursor.expandedGapKey === undefined,
+    ) ??
+    nearestCursorInFile(cursors, fileId, hunkIndex) ??
+    null
+  );
 }
 
 /** Move forward or backward through the review-stream line cursor list. */

@@ -351,6 +351,24 @@ describe("firstLineCursorInHunk", () => {
     });
   });
 
+  test("skips expanded inter-hunk context when finding the hunk's first line", () => {
+    const expandedBeforeHunk: LineCursor = {
+      fileId: "beta",
+      hunkIndex: 1,
+      stableKey: "line:1:context:5:5",
+      target: { side: "new", line: 5 },
+      expandedGapKey: "between:0",
+    };
+    const hunkStart: LineCursor = {
+      fileId: "beta",
+      hunkIndex: 1,
+      stableKey: "line:1:context:10:10",
+      target: { side: "new", line: 10 },
+    };
+
+    expect(firstLineCursorInHunk([expandedBeforeHunk, hunkStart], "beta", 1)).toEqual(hunkStart);
+  });
+
   test("falls back within the file when the hunk is gone", () => {
     expect(firstLineCursorInHunk(cursors, "beta", 7)?.fileId).toBe("beta");
   });

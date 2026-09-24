@@ -1,3 +1,4 @@
+import { DEFAULT_TUNING_PERCENTS } from "./themeTuning";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -417,6 +418,54 @@ describe("config resolution", () => {
       expect(() => resolveConfiguredCliInput(input, { cwd: repo, env })).toThrow(
         /wheel_scroll_lines/,
       );
+    }
+  });
+
+  test("resolves theme tuning percents from config and rejects out-of-range ones", () => {
+    const home = createTempDir("hunk-config-tuning-home-");
+    const repo = createTempDir("hunk-config-tuning-repo-");
+    createRepo(repo);
+    const input = createPatchPagerInput();
+    const env = { HOME: home };
+    const options = () => resolveConfiguredCliInput(input, { cwd: repo, env }).input.options;
+
+    // An unset key resolves to the built-in strength rather than to nothing.
+    expect(options().unfocusedHunkBackgroundFade).toBe(
+      DEFAULT_TUNING_PERCENTS.unfocusedHunkBackgroundFade,
+    );
+    expect(options().wordDiffEmphasis).toBe(DEFAULT_TUNING_PERCENTS.wordDiffEmphasis);
+
+    mkdirSync(join(home, ".config", "hunk"), { recursive: true });
+    writeFileSync(
+      join(home, ".config", "hunk", "config.toml"),
+      [
+        "unfocused_hunk_background_fade = 90",
+        "unfocused_hunk_text_fade = 70",
+        "inactive_rail_fade = 80",
+        "cursor_line_strength = 0",
+        "copy_selection_strength = 60",
+        "word_diff_emphasis = 150",
+      ].join("\n"),
+    );
+
+    expect(options().unfocusedHunkBackgroundFade).toBe(90);
+    expect(options().unfocusedHunkTextFade).toBe(70);
+    expect(options().inactiveRailFade).toBe(80);
+    expect(options().cursorLineStrength).toBe(0);
+    expect(options().copySelectionStrength).toBe(60);
+    expect(options().wordDiffEmphasis).toBe(150);
+
+    for (const [key, invalid] of [
+      ["unfocused_hunk_background_fade", "101"],
+      ["unfocused_hunk_text_fade", "-1"],
+      ["inactive_rail_fade", "0.5"],
+      ["cursor_line_strength", '"half"'],
+      ["copy_selection_strength", "200"],
+      // Emphasis is the one key that reads past 100, and it still has a ceiling.
+      ["word_diff_emphasis", "201"],
+    ] as const) {
+      writeFileSync(join(home, ".config", "hunk", "config.toml"), `${key} = ${invalid}\n`);
+      expect(() => resolveConfiguredCliInput(input, { cwd: repo, env })).toThrow(new RegExp(key));
     }
   });
 

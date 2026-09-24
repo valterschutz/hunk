@@ -347,6 +347,7 @@ export function App({
     onTransientNotice: showTransientNotice,
     themeController: activeThemeController,
     transparentBackground: bootstrap.input.options.transparentBackground ?? false,
+    tuning: bootstrap.initialThemeTuning,
   });
   const currentViewPreferences = useMemo<PersistedViewPreferences>(
     () => ({

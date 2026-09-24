@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { contrastRatio, hexColorDistance } from "../lib/color";
-import { THEMES, TRANSPARENT_BACKGROUND, withTransparentSurfaces } from "../themes";
+import { DEFAULT_THEME_TUNING } from "../../core/run/themeTuning";
+import {
+  THEMES,
+  TRANSPARENT_BACKGROUND,
+  withThemeTuning,
+  withTransparentSurfaces,
+} from "../themes";
 import type { DiffRow } from "./diffRowModel";
 import {
   cursorLineHighlightBg,
@@ -8,6 +14,7 @@ import {
   lineHighlightToneStyle,
   metaRailColor,
   splitCellPalette,
+  selectionHighlightBg,
   splitLeftRailColor,
   splitRightRailColor,
   unfocusedHunkRow,
@@ -343,5 +350,48 @@ describe("verified hunk rails", () => {
     expect(unifiedRailColor("addition", DARK, true)).toBe(DARK.addedRailColor);
     expect(unifiedRailColor("deletion", DARK, true, false)).toBe(DARK.removedRailColor);
     expect(metaRailColor(DARK, true)).toBe(DARK.contextRailColor);
+  });
+});
+
+describe("theme tuning", () => {
+  const theme = THEMES.find((candidate) => candidate.id === "github-dark-default")!;
+
+  /** Build a theme tuned to one strength, leaving the rest at their built-in values. */
+  function tuned(overrides: Partial<typeof DEFAULT_THEME_TUNING>) {
+    return withThemeTuning(theme, { ...DEFAULT_THEME_TUNING, ...overrides });
+  }
+
+  test("a zero fade leaves an unfocused hunk painting exactly like a focused one", () => {
+    const unfaded = unfocusedHunkTheme(
+      tuned({ unfocusedHunkBackgroundFade: 0, unfocusedHunkTextFade: 0 }),
+    );
+
+    expect(unfaded.addedBg).toBe(theme.addedBg);
+    expect(unfaded.removedBg).toBe(theme.removedBg);
+    expect(unfaded.addedSignColor).toBe(theme.addedSignColor);
+    expect(unfaded.syntaxColors.default).toBe(theme.syntaxColors.default);
+  });
+
+  test("a deeper fade moves an unfocused hunk closer to the surface", () => {
+    const surface = surfaceOf(theme);
+    const shallow = unfocusedHunkTheme(tuned({ unfocusedHunkBackgroundFade: 0.4 }));
+    const deep = unfocusedHunkTheme(tuned({ unfocusedHunkBackgroundFade: 0.9 }));
+
+    expect(hexColorDistance(deep.addedBg, surface)).toBeLessThan(
+      hexColorDistance(shallow.addedBg, surface),
+    );
+  });
+
+  test("each strength drives its own effect", () => {
+    const railTheme = tuned({ inactiveRailFade: 0 });
+    expect(dimRailColor(theme.addedRailColor, railTheme)).toBe(theme.addedRailColor);
+    expect(dimRailColor(theme.addedRailColor, tuned({ inactiveRailFade: 1 }))).toBe(theme.panel);
+
+    const contextBg = unifiedCellPalette("context", theme).contentBg;
+    expect(cursorLineHighlightBg(contextBg, tuned({ cursorLineStrength: 0 }))).toBe(contextBg);
+    expect(selectionHighlightBg(contextBg, tuned({ copySelectionStrength: 0 }))).toBe(contextBg);
+    expect(selectionHighlightBg(contextBg, tuned({ copySelectionStrength: 1 }))).toBe(
+      theme.selectedHunk,
+    );
   });
 });

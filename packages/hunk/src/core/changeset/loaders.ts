@@ -17,6 +17,7 @@ import { changesetFromPatch } from "./fromPatch";
 
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../run/tabWidth";
+import { resolveThemeTuning } from "../run/themeTuning";
 import { DEFAULT_WHEEL_SCROLL_LINES } from "../run/wheelScrollLines";
 import {
   getConfiguredVcsAdapter,
@@ -347,6 +348,7 @@ export async function loadAppBootstrap(
     initialFileGap: input.options.fileGap ?? DEFAULT_FILE_GAP,
     initialHunkGap: input.options.hunkGap ?? DEFAULT_HUNK_GAP,
     initialWheelScrollLines: input.options.wheelScrollLines ?? DEFAULT_WHEEL_SCROLL_LINES,
+    initialThemeTuning: resolveThemeTuning(input.options),
     initialWrapLines: input.options.wrapLines ?? false,
     initialShowHunkHeaders: input.options.hunkHeaders ?? true,
     initialShowMenuBar: input.options.menuBar ?? true,

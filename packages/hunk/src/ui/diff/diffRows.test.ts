@@ -19,7 +19,9 @@ import { renderCodeOnlyPlannedRowText, renderDecoratedPlannedRowText } from "./p
 import { unifiedCellPalette } from "./rowStyle";
 import { buildReviewRenderPlan } from "./reviewRenderPlan";
 import { measureTextWidth } from "../lib/text";
-import { TRANSPARENT_BACKGROUND, resolveTheme } from "../themes";
+import { TRANSPARENT_BACKGROUND, resolveTheme, withThemeTuning } from "../themes";
+import { DEFAULT_THEME_TUNING } from "../../core/run/themeTuning";
+import { hexColorDistance } from "../lib/color";
 import { createTestSourceFetcher } from "../../../../../test/helpers/diff-helpers";
 import { createTestCustomThemes } from "../../../../../test/helpers/theme-helpers";
 import { registerHighlightWorker } from "./worker";
@@ -602,6 +604,39 @@ describe("Pierre diff rows", () => {
 
     expect(removedWordSpan?.bg).toBe(TRANSPARENT_BACKGROUND);
     expect(addedWordSpan?.bg).toBe(TRANSPARENT_BACKGROUND);
+  });
+
+  test("scales word-diff emphasis by the strength this session tuned", async () => {
+    const file = createDiffFile();
+    const base = resolveTheme("github-dark-default", null);
+    const highlighted = await loadHighlightedDiff(file);
+
+    /** Return the background painted behind the changed word of the first change row. */
+    const emphasisBg = (emphasis: number) => {
+      const theme = withThemeTuning(base, { ...DEFAULT_THEME_TUNING, wordDiffEmphasis: emphasis });
+      const changedRow = buildSplitRows(file, highlighted, theme).find(
+        (row) =>
+          row.type === "split-line" &&
+          row.left.kind === "deletion" &&
+          row.right.kind === "addition",
+      );
+      if (!changedRow || changedRow.type !== "split-line") {
+        throw new Error("Expected a split-line change row");
+      }
+
+      return changedRow.right.spans.find((span) => span.text.includes("42"))?.bg;
+    };
+
+    const themeOwn = emphasisBg(1)!;
+    expect(themeOwn).toBeDefined();
+    // Flattened emphasis is the line's own background; louder emphasis leaves it further behind.
+    expect(emphasisBg(0)).toBe(base.addedBg);
+    expect(hexColorDistance(emphasisBg(2)!, base.addedBg)).toBeGreaterThan(
+      hexColorDistance(themeOwn, base.addedBg),
+    );
+    expect(hexColorDistance(emphasisBg(0.5)!, base.addedBg)).toBeLessThan(
+      hexColorDistance(themeOwn, base.addedBg),
+    );
   });
 
   test("applies addedContentFg/removedContentFg to word-diff spans when the theme sets them", async () => {

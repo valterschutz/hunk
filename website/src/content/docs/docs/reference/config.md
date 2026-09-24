@@ -233,6 +233,66 @@ Let the terminal background show through Hunk surfaces.
 
 ---
 
+**`unfocused_hunk_background_fade`**
+
+How far the backgrounds of hunks outside the focused one fade toward the surface behind them. `0` leaves them at full strength.
+
+- **Type:** integer
+- **Accepted:** a whole percent, 0 through 100
+- **Built-in default:** `75`
+
+---
+
+**`unfocused_hunk_text_fade`**
+
+How far the text of hunks outside the focused one fades toward that surface. Fading stops early where the code would stop being readable.
+
+- **Type:** integer
+- **Accepted:** a whole percent, 0 through 100
+- **Built-in default:** `55`
+
+---
+
+**`inactive_rail_fade`**
+
+How far the rail marker beside an unfocused hunk fades into the panel.
+
+- **Type:** integer
+- **Accepted:** a whole percent, 0 through 100
+- **Built-in default:** `65`
+
+---
+
+**`cursor_line_strength`**
+
+How far the current line's background lifts toward the theme's text color. `0` hides the marker even when `cursor_line` paints a row.
+
+- **Type:** integer
+- **Accepted:** a whole percent, 0 through 100
+- **Built-in default:** `20`
+
+---
+
+**`copy_selection_strength`**
+
+How far a copy-selected row pulls toward the theme's selection color.
+
+- **Type:** integer
+- **Accepted:** a whole percent, 0 through 100
+- **Built-in default:** `75`
+
+---
+
+**`word_diff_emphasis`**
+
+How loud intra-line word-diff emphasis is against the theme's own. `100` keeps the theme's colors, `0` flattens emphasis into its line, and higher values push it toward the diff sign color.
+
+- **Type:** integer
+- **Accepted:** a whole percent, 0 through 200
+- **Built-in default:** `100`
+
+---
+
 **`color_moved`**
 
 Enable moved-line coloring when the renderer supports it.

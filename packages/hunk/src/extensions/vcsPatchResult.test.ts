@@ -169,8 +169,40 @@ describe("published review metadata", () => {
     ).toThrow("cannot contain control characters");
   });
 
+  test("copies and validates the complete commit identity list", () => {
+    const reviewCommitIds = ["abc", "def"];
+    const review = {
+      kind: "comparison" as const,
+      provider: "Demo VCS",
+      title: "Two commits",
+      base: "base",
+      head: "def",
+      commitCount: 2,
+      commits: [{ title: "Latest", revision: "def", displayRevision: "def" }],
+    };
+    const result = toInternalVcsPatchResult(baseResult({ review, reviewCommitIds }));
+
+    expect(result.reviewCommitIds).toEqual(reviewCommitIds);
+    expect(result.reviewCommitIds).not.toBe(reviewCommitIds);
+    expect(Object.isFrozen(result.reviewCommitIds)).toBe(true);
+    expect(() =>
+      toInternalVcsPatchResult(baseResult({ review, reviewCommitIds: ["duplicate", "duplicate"] })),
+    ).toThrow("must be unique");
+    expect(() =>
+      toInternalVcsPatchResult(baseResult({ review, reviewCommitIds: ["unsafe\nidentity"] })),
+    ).toThrow("terminal-safe strings");
+    expect(() =>
+      toInternalVcsPatchResult(baseResult({ review, reviewCommitIds: ["def"] })),
+    ).toThrow("declared commit count");
+    expect(() => toInternalVcsPatchResult(baseResult({ reviewCommitIds }))).toThrow(
+      "require commit or comparison metadata",
+    );
+  });
+
   test("stays absent when an operation does not describe a commit review", () => {
-    expect(toInternalVcsPatchResult(baseResult()).review).toBeUndefined();
+    const result = toInternalVcsPatchResult(baseResult());
+    expect(result.review).toBeUndefined();
+    expect(result.reviewCommitIds).toBeUndefined();
   });
 });
 

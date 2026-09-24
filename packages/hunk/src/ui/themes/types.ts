@@ -39,8 +39,8 @@ export interface AppTheme {
   acceptedRailColor: string;
   /** Rail marker beside every row of a hunk the reviewer rejected. */
   rejectedRailColor: string;
-  /** Rail marker beside every row of a rejected hunk the reviewer has since addressed. */
-  addressedRailColor: string;
+  /** Rail marker beside every row of a rejected hunk the reviewer has since fixed. */
+  fixedRailColor: string;
   selectedHunk: string;
   badgeAdded: string;
   badgeRemoved: string;

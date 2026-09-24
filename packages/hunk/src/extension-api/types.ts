@@ -21,7 +21,7 @@
  * Extensions can branch on `hunk.apiVersion` so a newer Hunk can keep loading
  * older extensions without guessing at their expectations.
  */
-export const HUNK_EXTENSION_API_VERSION = 28;
+export const HUNK_EXTENSION_API_VERSION = 29;
 export type HunkExtensionApiVersion = typeof HUNK_EXTENSION_API_VERSION;
 
 export type ExtensionNotifyType = "info" | "warning" | "error";
@@ -202,6 +202,8 @@ export interface ExtensionDiffFile {
   isUntracked?: boolean;
   isBinary?: boolean;
   isTooLarge?: boolean;
+  /** Review outcome derived by the host for the complete file. */
+  reviewStatus?: "approved";
 }
 
 /** One reviewed changeset, as extensions see it. */
@@ -656,8 +658,8 @@ export interface CustomThemeConfig {
   acceptedRailColor?: string;
   /** Rail marker beside every row of a rejected hunk; defaults to removedRailColor. */
   rejectedRailColor?: string;
-  /** Rail marker beside every row of an addressed hunk; defaults to contextRailColor. */
-  addressedRailColor?: string;
+  /** Rail marker beside every row of an fixed hunk; defaults to contextRailColor. */
+  fixedRailColor?: string;
   selectedHunk?: string;
   badgeAdded?: string;
   badgeRemoved?: string;
@@ -1056,6 +1058,8 @@ export interface ExtensionVcsPatchResult {
   patchText: string;
   /** Commit or comparison context shown above revision-backed reviews. */
   review?: ExtensionReviewDescriptor;
+  /** Every commit identity covered by this review, including entries omitted from display metadata. */
+  reviewCommitIds?: string[];
   /**
    * Untracked files to review beside the patch, as repo-root-relative paths.
    *

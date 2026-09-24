@@ -216,6 +216,7 @@ describe("GitVcsAdapter", () => {
     expect(result.title).not.toContain(from);
     expect(result.title).not.toContain(to);
     expect(result.untrackedPaths).toEqual([]);
+    expect(result.reviewCommitIds).toEqual([to]);
     expect(result.review).toMatchObject({
       kind: "comparison",
       provider: "Git",

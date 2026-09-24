@@ -116,24 +116,6 @@ export interface PatchCommandInput {
   options: CommonOptions;
 }
 
-/** Review the open rejections of one repository, rebuilt from the review file. */
-export interface AddressCommandInput {
-  kind: "address";
-  /** Repository root whose rejections to show; the detected root of the cwd when unset. */
-  repo?: string;
-  options: CommonOptions;
-}
-
-/** Print the open rejections of one repository without opening a review. */
-export interface AddressListCommandInput {
-  kind: "address-list";
-  repo?: string;
-  json: boolean;
-  /** Include hunks already marked addressed. */
-  all: boolean;
-  options: CommonOptions;
-}
-
 export interface DiffToolCommandInput {
   kind: "difftool";
   left: string;
@@ -148,8 +130,7 @@ export type CliInput =
   | VcsStashShowCommandInput
   | FileCommandInput
   | PatchCommandInput
-  | DiffToolCommandInput
-  | AddressCommandInput;
+  | DiffToolCommandInput;
 
 /**
  * Note provenance, and the filter `hunk session comment-list --type` accepts.
@@ -470,7 +451,6 @@ export type ExtensionManageCommandInput =
 
 export type ParsedCliInput =
   | CliInput
-  | AddressListCommandInput
   | HistoryCommandInput
   | HelpCommandInput
   | PagerCommandInput

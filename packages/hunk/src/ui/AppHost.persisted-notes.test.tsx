@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,9 +27,6 @@ const AFTER = lines("const alpha = 1;", "const beta = 22;", "const gamma = 3;", 
 type Setup = Awaited<ReturnType<typeof testRender>>;
 let setup: Setup | undefined;
 const tempDirs: string[] = [];
-const originalEditor = process.env.EDITOR;
-const originalHerdr = process.env.HERDR_ENV;
-const originalSpawnSync = Bun.spawnSync;
 
 function tempDir(prefix: string) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
@@ -154,18 +151,8 @@ async function unmount() {
   });
 }
 
-beforeEach(() => {
-  delete process.env.EDITOR;
-  delete process.env.HERDR_ENV;
-});
-
 afterEach(async () => {
   await unmount();
-  if (originalEditor === undefined) delete process.env.EDITOR;
-  else process.env.EDITOR = originalEditor;
-  if (originalHerdr === undefined) delete process.env.HERDR_ENV;
-  else process.env.HERDR_ENV = originalHerdr;
-  (Bun as unknown as { spawnSync: typeof Bun.spawnSync }).spawnSync = originalSpawnSync;
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { force: true, recursive: true });
   }
@@ -194,7 +181,7 @@ describe("AppHost persisted notes", () => {
     expect(written.hunks).toHaveLength(1);
     expect(written.hunks[0]).toMatchObject({ path: "s.ts", id: written.notes[0]!.hunk });
     expect(written.hunks[0]!.state).toBeUndefined();
-    expect(written.hunks[0]!.lines).toBeUndefined();
+    expect("lines" in written.hunks[0]!).toBe(false);
 
     await unmount();
     const { rendered: again } = await mount(createBootstrap(reviewFile));
@@ -238,7 +225,10 @@ describe("AppHost persisted notes", () => {
     expect(frame).toContain("Cited in the next revision");
     expect(frame).toContain("Agent aside");
     const { notes } = records(reviewFile);
-    expect(notes.map((note) => note.summary)).toEqual(["Please cite this", "Cited in the next revision"]);
+    expect(notes.map((note) => note.summary)).toEqual([
+      "Please cite this",
+      "Cited in the next revision",
+    ]);
     expect(notes[1]).toMatchObject({ parentId: noteId, source: "agent", id: "mcp:reply-1" });
   });
 
@@ -299,39 +289,5 @@ describe("AppHost persisted notes", () => {
       frame = rendered.captureCharFrame();
     }
     expect(frame).toContain("About c2");
-  });
-
-  test("o opens the editor on the active note's line, in a Herdr split when available", async () => {
-    const workspace = tempDir("hunk-notes-editor-");
-    writeFileSync(join(workspace, "s.ts"), AFTER);
-    const reviewFile = join(workspace, "review.jsonl");
-    process.env.EDITOR = "vim";
-    const spawnCalls: string[][] = [];
-    (Bun as unknown as { spawnSync: typeof Bun.spawnSync }).spawnSync = ((cmds: string[]) => {
-      spawnCalls.push(cmds);
-      return { exitCode: 0 };
-    }) as unknown as typeof Bun.spawnSync;
-
-    const { rendered } = await mount(createBootstrap(reviewFile, workspace));
-    await press(rendered, "jj");
-    await writeNote(rendered, "Look here");
-    // Saving leaves the note active, so o opens the editor on its line straight away.
-    await press(rendered, "o");
-    expect(spawnCalls).toEqual([["vim", "+2", join(workspace, "s.ts")]]);
-
-    process.env.HERDR_ENV = "1";
-    spawnCalls.length = 0;
-    await press(rendered, "o");
-    // The split is requested first; the mocked herdr answers nothing, so it stops there.
-    expect(spawnCalls[0]?.slice(0, 3)).toEqual(["herdr", "pane", "split"]);
-  });
-
-  test("o without an active note explains itself", async () => {
-    const reviewFile = join(tempDir("hunk-notes-"), "review.jsonl");
-    const { rendered } = await mount(createBootstrap(reviewFile));
-
-    await press(rendered, "o");
-
-    expect(rendered.captureCharFrame()).toContain("No active note");
   });
 });

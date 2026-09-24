@@ -262,7 +262,7 @@ function buildShikiTheme(themeId: BundledShikiThemeId): AppTheme {
     contextRailColor: lineNumberForeground,
     acceptedRailColor: addedSignColor,
     rejectedRailColor: removedSignColor,
-    addressedRailColor: lineNumberForeground,
+    fixedRailColor: lineNumberForeground,
     copyAction: lineNumberForeground,
     selectedHunk: blendHex(modifiedColor, editorBackground, selectedTint),
     noteBackground: neutralPanel,
@@ -343,10 +343,8 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
       customTheme.acceptedRailColor ?? customTheme.addedRailColor ?? baseTheme.acceptedRailColor,
     rejectedRailColor:
       customTheme.rejectedRailColor ?? customTheme.removedRailColor ?? baseTheme.rejectedRailColor,
-    addressedRailColor:
-      customTheme.addressedRailColor ??
-      customTheme.contextRailColor ??
-      baseTheme.addressedRailColor,
+    fixedRailColor:
+      customTheme.fixedRailColor ?? customTheme.contextRailColor ?? baseTheme.fixedRailColor,
     copyAction: customTheme.lineNumberFg ?? baseTheme.copyAction,
     selectedHunk: customTheme.selectedHunk ?? baseTheme.selectedHunk,
     badgeAdded: customTheme.badgeAdded ?? baseTheme.badgeAdded,

@@ -2,25 +2,19 @@
  * Defines the records of the synced review file and the pure conversions around them.
  *
  * The file keeps three things a reviewer produces while reading a commit hunk by hunk: the
- * decision on each hunk (accepted, rejected, or rejected-then-addressed), the text of every
- * hunk that still needs addressing so `hunk address` can rebuild a review of it without the
- * VCS, and the notes written beside those hunks. Everything hangs off the hunk content
- * identity (`hunkIdentity.ts`), never off line numbers, so a rebase keeps decisions and notes
- * and a sync tool can carry the file between machines.
+ * decision on each hunk (accepted, rejected, or rejected-then-fixed) and the notes written
+ * beside those hunks. Everything hangs off the hunk
+ * content identity (`hunkIdentity.ts`), never off line numbers, so a rebase keeps decisions and
+ * notes and a sync tool can carry the file between machines.
  *
- * A `commit` record remembers how many hunks a commit had when it was reviewed, which is what
- * turns per-hunk decisions into the per-commit status lazygit shows: a commit is verified once
- * every hunk is decided, and addressed once no rejected hunk is left unaddressed.
+ * A `commit` record remembers how many hunks its review had. One aggregate comparison can name
+ * several commits on every hunk record, so lazygit gives the whole selected range the same status:
+ * reviewed once every hunk is decided, and approved once no rejection remains open.
  *
  * This module does no I/O; `ui/lib/reviewFileStore.ts` owns the file.
  */
 import { resolveReviewNoteAnchor } from "./anchors";
-import {
-  isHunkIdentity,
-  reviewHunkIdentity,
-  reviewHunkLines,
-  stripLineEnding,
-} from "./hunkIdentity";
+import { isHunkIdentity, reviewHunkIdentity, stripLineEnding } from "./hunkIdentity";
 import { reviewNoteAnchorLine, reviewNoteOwnerHunkIndex, type ReviewStoredNote } from "./state";
 import type {
   ReviewDocumentV1,
@@ -31,11 +25,11 @@ import type {
   ReviewSide,
 } from "./types";
 
-export type HunkDecision = "accepted" | "rejected" | "addressed";
-export const HUNK_DECISIONS: readonly HunkDecision[] = ["accepted", "rejected", "addressed"];
+export type HunkDecision = "accepted" | "rejected" | "fixed";
+export const HUNK_DECISIONS: readonly HunkDecision[] = ["accepted", "rejected", "fixed"];
 
 /** A commit's derived status; a commit with an undecided hunk has none. */
-export type CommitStatus = "verified" | "addressed";
+export type CommitStatus = "reviewed" | "approved";
 
 /** How many hunks one reviewed commit had, so its decisions can be counted complete. */
 export interface CommitRecord {
@@ -53,12 +47,10 @@ export interface HunkRecord {
   repo: string;
   path: string;
   state?: HunkDecision;
-  /** The commit the decision was made in, when it was made in a single-commit review. */
-  commit?: string;
+  /** The commits covered by the single-commit or aggregate comparison review. */
+  commits?: string[];
   oldStart: number;
   newStart: number;
-  /** The hunk's lines with their diff kinds; kept while the hunk still needs addressing. */
-  lines?: string[];
 }
 
 /** One note of a thread the reviewer started, anchored inside its hunk. */
@@ -157,22 +149,29 @@ export function parseReviewRecord(line: string): ReviewRecord {
       if (!isHunkIdentity(id)) {
         throw new Error(`review hunk record id ${JSON.stringify(id)} is not a hunk identity`);
       }
-      const state = optionalString(value, "state");
+      const storedState = optionalString(value, "state");
+      const state = storedState === "addressed" ? "fixed" : storedState;
       if (state !== undefined && !HUNK_DECISIONS.includes(state as HunkDecision)) {
         throw new Error(`review hunk record state ${JSON.stringify(state)} is not a decision`);
       }
-      const lines = optionalStringArray(value, "lines");
-      const commit = optionalString(value, "commit");
+      const legacyCommit = optionalString(value, "commit");
+      const storedCommits = optionalStringArray(value, "commits");
+      const commits = storedCommits ?? (legacyCommit === undefined ? undefined : [legacyCommit]);
+      if (
+        commits !== undefined &&
+        (commits.some((commit) => commit.length === 0) || new Set(commits).size !== commits.length)
+      ) {
+        throw new Error('review hunk record field "commits" must contain unique non-empty strings');
+      }
       return {
         kind: "hunk",
         id,
         repo: requireString(value, "repo"),
         path: requireString(value, "path"),
         ...(state !== undefined ? { state: state as HunkDecision } : {}),
-        ...(commit !== undefined ? { commit } : {}),
+        ...(commits !== undefined ? { commits } : {}),
         oldStart: requireInteger(value, "oldStart", 0),
         newStart: requireInteger(value, "newStart", 0),
-        ...(lines !== undefined ? { lines } : {}),
       };
     }
     case "note": {
@@ -247,14 +246,12 @@ export function parseReviewRecord(line: string): ReviewRecord {
 
 /** Drop undefined fields so serialized records carry only what is set. */
 function withoutUndefined<T extends object>(record: T): T {
-  return Object.fromEntries(
-    Object.entries(record).filter(([, value]) => value !== undefined),
-  ) as T;
+  return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)) as T;
 }
 
 const RECORD_KEY_ORDER: Record<ReviewRecord["kind"], readonly string[]> = {
   commit: ["kind", "repo", "hash", "hunkCount"],
-  hunk: ["kind", "id", "repo", "path", "state", "commit", "oldStart", "newStart", "lines"],
+  hunk: ["kind", "id", "repo", "path", "state", "commits", "oldStart", "newStart"],
   note: [
     "kind",
     "id",
@@ -322,13 +319,13 @@ export function serializeReviewRecords(records: readonly ReviewRecord[]): string
 export function commitStatuses(records: readonly ReviewRecord[]): Map<string, CommitStatus> {
   const decidedByCommit = new Map<string, { decided: number; rejected: number }>();
   for (const record of records) {
-    if (record.kind !== "hunk" || record.state === undefined || record.commit === undefined) {
-      continue;
+    if (record.kind !== "hunk" || record.state === undefined) continue;
+    for (const commit of record.commits ?? []) {
+      const entry = decidedByCommit.get(commit) ?? { decided: 0, rejected: 0 };
+      entry.decided += 1;
+      if (record.state === "rejected") entry.rejected += 1;
+      decidedByCommit.set(commit, entry);
     }
-    const entry = decidedByCommit.get(record.commit) ?? { decided: 0, rejected: 0 };
-    entry.decided += 1;
-    if (record.state === "rejected") entry.rejected += 1;
-    decidedByCommit.set(record.commit, entry);
   }
   const statuses = new Map<string, CommitStatus>();
   for (const record of records) {
@@ -336,7 +333,7 @@ export function commitStatuses(records: readonly ReviewRecord[]): Map<string, Co
     const entry = decidedByCommit.get(record.hash);
     const decided = entry?.decided ?? 0;
     if (decided < record.hunkCount) continue;
-    statuses.set(record.hash, (entry?.rejected ?? 0) > 0 ? "verified" : "addressed");
+    statuses.set(record.hash, (entry?.rejected ?? 0) > 0 ? "reviewed" : "approved");
   }
   return statuses;
 }
@@ -395,7 +392,7 @@ export function isUserRootedNote(
 
 export interface PersistableNotes {
   notes: NoteRecord[];
-  /** The hunks the notes hang from, with their text; decision fields are left to the store. */
+  /** The content-identified hunks the notes hang from; decision fields are left to the store. */
   hunks: HunkRecord[];
 }
 
@@ -403,12 +400,12 @@ export interface PersistableNotes {
  * Convert the user-rooted threads of one review into records.
  *
  * A note whose line lies outside its owner hunk (an expanded-gap note) has no offset inside
- * the hunk and is left unpersisted; the hunk's text is what identifies it after a reload.
+ * the hunk and is left unpersisted; the hunk's content identity finds it after a reload.
  */
 export function persistableNoteRecords(
   document: ReviewDocumentV1,
   notes: readonly ReviewStoredNote[],
-  context: { repo: string; commit?: string },
+  context: { repo: string; commits?: readonly string[] },
 ): PersistableNotes {
   const byId = new Map(notes.map((entry) => [entry.note.id, entry.note] as const));
   const fileByKey = new Map(document.files.map((file) => [file.key, file] as const));
@@ -436,10 +433,9 @@ export function persistableNoteRecords(
         id: identity,
         repo: context.repo,
         path: file.path,
-        ...(context.commit !== undefined ? { commit: context.commit } : {}),
+        ...(context.commits !== undefined ? { commits: [...context.commits] } : {}),
         oldStart: hunk.deletionStart,
         newStart: hunk.additionStart,
-        lines: reviewHunkLines(file, hunk),
       });
     }
     records.push(
@@ -473,7 +469,10 @@ export function persistableNoteRecords(
 
 /** Index every hunk of a document by its content identity. */
 export function indexReviewHunks(document: ReviewDocumentV1) {
-  const byIdentity = new Map<string, { file: ReviewFileV1; hunk: ReviewHunkV1; hunkIndex: number }>();
+  const byIdentity = new Map<
+    string,
+    { file: ReviewFileV1; hunk: ReviewHunkV1; hunkIndex: number }
+  >();
   for (const file of document.files) {
     file.hunks.forEach((hunk, hunkIndex) => {
       const identity = reviewHunkIdentity(file, hunk);

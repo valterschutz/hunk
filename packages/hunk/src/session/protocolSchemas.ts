@@ -139,11 +139,6 @@ export const cliInputSchema: z.ZodType<CliInput> = z.union([
     path: z.string().optional(),
     options: commonOptionsSchema,
   }),
-  z.strictObject({
-    kind: z.literal("address"),
-    repo: z.string().optional(),
-    options: commonOptionsSchema,
-  }),
 ]) satisfies z.ZodType<CliInput>;
 
 /** Require a comment to name either one parent or one complete root anchor. */
@@ -270,15 +265,7 @@ export const sessionDaemonRequestSchema = z.discriminatedUnion("action", [
 const nonnegative = z.int().nonnegative();
 const positive = z.int().positive();
 const lineRangeSchema = z.tuple([nonnegative, nonnegative]);
-const inputKindSchema = z.enum([
-  "vcs",
-  "show",
-  "stash-show",
-  "diff",
-  "patch",
-  "difftool",
-  "address",
-]);
+const inputKindSchema = z.enum(["vcs", "show", "stash-show", "diff", "patch", "difftool"]);
 const experimentalFeaturesSchema = z.array(z.enum(EXPERIMENTAL_FEATURES));
 const reviewDescriptorSchema = z.custom<ExtensionReviewDescriptor>(
   (value) => parseExtensionReviewDescriptor(value) !== null,

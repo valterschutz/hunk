@@ -20,7 +20,6 @@ import type {
   ExtensionCliInvocationInput,
   ExtensionManageCommandInput,
   HistoryCommandInput,
-  AddressListCommandInput,
   MarkupRenderCommandInput,
   ParsedCliInput,
   SelfUpdateCommandInput,
@@ -96,11 +95,6 @@ export type StartupPlan =
     }
   | {
       kind: "markup-guide";
-    }
-  | {
-      kind: "address-list";
-      input: AddressListCommandInput;
-      vcsCatalog: VcsCatalog;
     }
   | {
       kind: "extension-manage";
@@ -414,28 +408,6 @@ export async function prepareStartupPlan(
   if (parsedCliInput.kind === "markup-guide") {
     return await finishHeadlessPlan({
       kind: "markup-guide",
-    });
-  }
-
-  if (parsedCliInput.kind === "address-list") {
-    // The listing reads the same review file the review would, so it takes the config the
-    // equivalent `hunk address` review resolves, `review_file` included.
-    const vcsCatalog = await loadBaseVcsCatalog();
-    const listInput = parsedCliInput;
-    const configured = await whileStartupOwnsExtensions(() =>
-      resolveConfiguredCliInputImpl(
-        {
-          kind: "address",
-          ...(listInput.repo !== undefined ? { repo: listInput.repo } : {}),
-          options: listInput.options,
-        },
-        { cwd: startupCwd, env, vcsCatalog },
-      ),
-    );
-    return await finishHeadlessPlan({
-      kind: "address-list",
-      input: { ...listInput, options: configured.input.options },
-      vcsCatalog,
     });
   }
 

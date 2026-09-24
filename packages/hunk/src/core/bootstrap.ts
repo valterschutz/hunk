@@ -62,6 +62,8 @@ export interface AppBootstrap<ExtensionState = unknown> {
   startupNotices?: readonly StartupNotice[];
   /** Validated metadata describing the review source. */
   review?: ExtensionReviewDescriptor;
+  /** Every commit identity covered by a complete commit or comparison review. */
+  reviewCommitIds?: readonly string[];
   /** Internal provenance used to preserve caller context or recompute provider context on reload. */
   reviewSource?: "caller" | "provider";
   viewPreferencesConfigPath?: string;

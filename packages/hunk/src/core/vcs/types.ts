@@ -86,6 +86,8 @@ export interface VcsPatchResult {
   patchText: string;
   /** Validated provider-neutral context for a revision-backed review. */
   review?: ExtensionReviewDescriptor;
+  /** Validated identities of every commit covered by the review. */
+  reviewCommitIds?: readonly string[];
   /** Repo-root-relative untracked paths Hunk synthesizes into added-file diffs. */
   untrackedPaths?: string[];
   /** Exact old/new content lookups, built from the result's `readFileSource`. */

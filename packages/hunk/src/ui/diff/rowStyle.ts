@@ -74,10 +74,7 @@ export function cursorLineHighlightBg(baseBg: string, theme: AppTheme) {
 
     let strength = themeTuning(theme).cursorLineStrength;
     let candidate = blendHex(anchor, source, strength);
-    while (
-      strength > 0 &&
-      contrastRatio(theme.text, candidate) < MIN_CURSOR_LINE_TEXT_CONTRAST
-    ) {
+    while (strength > 0 && contrastRatio(theme.text, candidate) < MIN_CURSOR_LINE_TEXT_CONTRAST) {
       strength = Math.max(0, strength - CURSOR_LINE_BACKOFF_STEP);
       candidate = blendHex(anchor, source, strength);
     }
@@ -102,8 +99,8 @@ export function decisionRailColor(theme: AppTheme, decision: HunkDecision) {
       return theme.acceptedRailColor;
     case "rejected":
       return theme.rejectedRailColor;
-    case "addressed":
-      return theme.addressedRailColor;
+    case "fixed":
+      return theme.fixedRailColor;
   }
 }
 

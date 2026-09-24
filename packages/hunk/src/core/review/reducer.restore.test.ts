@@ -5,7 +5,12 @@ import { projectReviewDocument } from "./document";
 import { reduceReviewState } from "./reducer";
 import { createInitialReviewState, type ReviewStoredNote } from "./state";
 
-function note(id: string, source: "user" | "agent", fileKey: string, hunks: never[]): ReviewStoredNote {
+function note(
+  id: string,
+  source: "user" | "agent",
+  fileKey: string,
+  hunks: never[],
+): ReviewStoredNote {
   return {
     note: {
       id,

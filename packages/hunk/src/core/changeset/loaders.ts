@@ -8,22 +8,17 @@
  */
 import { parseDiffFromFile, type FileContents, type FileDiffMetadata } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
-import { existsSync, readFileSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import { findSidecarFileContext, loadSidecarContext } from "./sidecar";
 import { createSkippedBinaryMetadata, isProbablyBinaryFile } from "./binary";
 import { buildDiffFile, type BuildDiffFileOptions, type DiffFileSourceContext } from "./diffFile";
 import { createFileSourceFetcher, type FileSourceSpec } from "./fileSource";
 import { changesetFromPatch } from "./fromPatch";
-import { openRejections, synthesizeAddressPatch } from "../review/addressPatch";
-import { collapseHomePath, createReviewFileStore } from "../process/reviewFileStore";
-
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../run/tabWidth";
 import { resolveThemeTuning } from "../run/themeTuning";
 import { DEFAULT_WHEEL_SCROLL_LINES } from "../run/wheelScrollLines";
 import {
-  detectVcs,
   getConfiguredVcsAdapter,
   isVcsReviewInput,
   loadVcsReview,
@@ -35,7 +30,6 @@ import { computeWatchSignature } from "../watch/signature";
 import type { NamedCustomThemeConfig } from "../../extension-api/types";
 import type { AppBootstrap } from "../bootstrap";
 import type {
-  AddressCommandInput,
   CliInput,
   DiffToolCommandInput,
   FileCommandInput,
@@ -263,6 +257,7 @@ async function loadVcsChangeset(
     } satisfies Changeset,
     repoRoot: result.repoRoot,
     review: result.review,
+    reviewCommitIds: result.reviewCommitIds,
   };
 }
 
@@ -280,62 +275,6 @@ async function loadPatchChangeset(
 
   const label = input.file && input.file !== "-" ? input.file : "stdin patch";
   return changesetFromPatch(patchText, `Patch review: ${basename(label)}`, label, sidecar);
-}
-
-/** The repository root an address command works in: named, detected from the cwd, or the cwd. */
-export function resolveAddressRepoRoot(
-  input: { repo?: string },
-  cwd: string,
-  vcsCatalog: VcsCatalog | undefined,
-): string {
-  if (input.repo) return resolvePath(cwd, input.repo);
-  const detection = vcsCatalog ? detectVcs(cwd, vcsCatalog) : null;
-  return detection?.repoRoot ?? cwd;
-}
-
-/**
- * Rebuild a review of the repository's open rejections from the review file.
- *
- * Every rejected hunk becomes its own patch section, so its identity matches the record and
- * its decision and notes come back; expanding a gap reads the working tree as it is now.
- */
-async function loadAddressChangeset(
-  input: AddressCommandInput,
-  sidecar: SidecarContext | null,
-  cwd: string,
-  vcsCatalog: VcsCatalog | undefined,
-): Promise<{ changeset: Changeset; repoRoot: string }> {
-  const store = createReviewFileStore(input.options.reviewFile);
-  if (!store.enabled) {
-    throw new Error("Set review_file in your config before running `hunk address`.");
-  }
-  const repoRoot = resolveAddressRepoRoot(input, cwd, vcsCatalog);
-  const repo = collapseHomePath(repoRoot);
-  const rejections = openRejections(store.load().records, { repo });
-  if (rejections.length === 0) {
-    throw new Error(`Nothing to address in ${repo}: no rejected hunks are recorded.`);
-  }
-  const patch = synthesizeAddressPatch(
-    rejections.map((rejection) => rejection.hunk),
-    (path) => {
-      try {
-        return readFileSync(resolvePath(repoRoot, path), "utf8").split("\n");
-      } catch {
-        return undefined;
-      }
-    },
-  );
-  const sourceFetcherBuilder = createSourceFetcherBuilder((file) => {
-    const absolutePath = resolvePath(repoRoot, file.path);
-    return {
-      old: { kind: "none" },
-      new: existsSync(absolutePath) ? { kind: "fs", absolutePath } : { kind: "none" },
-    };
-  });
-  const changeset = changesetFromPatch(patch, `Address: ${repo}`, repoRoot, sidecar, {
-    sourceFetcherBuilder,
-  });
-  return { changeset, repoRoot };
 }
 
 /** Resolve CLI input into the fully loaded app bootstrap state. */
@@ -363,6 +302,7 @@ export async function loadAppBootstrap(
   let changeset: Changeset;
   let repoRoot: string | undefined;
   let review: AppBootstrap["review"];
+  let reviewCommitIds: AppBootstrap["reviewCommitIds"];
 
   switch (input.kind) {
     case "vcs":
@@ -376,6 +316,7 @@ export async function loadAppBootstrap(
         changeset = result.changeset;
         repoRoot = result.repoRoot;
         review = result.review;
+        reviewCommitIds = result.reviewCommitIds;
       }
       break;
     case "diff":
@@ -386,13 +327,6 @@ export async function loadAppBootstrap(
       break;
     case "difftool":
       changeset = await loadFileDiffChangeset(input, sidecar, cwd);
-      break;
-    case "address":
-      {
-        const result = await loadAddressChangeset(input, sidecar, cwd, vcsCatalog);
-        changeset = result.changeset;
-        repoRoot = result.repoRoot;
-      }
       break;
   }
 
@@ -407,6 +341,7 @@ export async function loadAppBootstrap(
     reloadContext: { cwd, repoRoot, initialWatchSignature, vcsCatalog },
     changeset,
     review,
+    reviewCommitIds,
     ...(review ? { reviewSource: "provider" as const } : {}),
     initialMode: input.options.mode ?? "auto",
     initialTheme: input.options.theme,

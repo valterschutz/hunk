@@ -268,14 +268,22 @@ describe("AppHost hunk decisions", () => {
     ).toBe(true);
   });
 
-  test("= refuses a hunk that is not rejected", async () => {
+  test("= marks a hunk fixed directly and toggles the fixed decision", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(<AppHost bootstrap={createBootstrap(reviewFile)} />, WIDE);
     await flush(setup);
 
     await pressKeys(setup, "=");
+    expect(hunkRecords(reviewFile)[0]?.state).toBe("fixed");
 
-    expect(setup.captureCharFrame()).toContain("Only a rejected hunk can be marked fixed");
+    await pressKeys(setup, "V[+");
+    expect(hunkRecords(reviewFile)[0]?.state).toBe("accepted");
+
+    await pressKeys(setup, "=");
+    expect(hunkRecords(reviewFile)[0]?.state).toBe("fixed");
+    expect(setup.captureCharFrame()).toContain("selected hunk fixed");
+
+    await pressKeys(setup, "=");
     expect(hunkRecords(reviewFile)).toEqual([]);
   });
 

@@ -549,7 +549,7 @@ const BUILTIN_COMMANDS = [
   },
   {
     id: "hunk.review.markSelectedHunkFixed",
-    title: "Mark the selected rejected hunk as fixed, or rejected again",
+    title: "Mark the selected hunk as fixed, or clear the fixed decision",
     category: "review",
     defaultKeys: ["="],
     locus: "host-only",

@@ -1381,15 +1381,10 @@ export function App({
     decideSelectedHunk((current) => (current === "rejected" ? undefined : "rejected"));
   }, [decideSelectedHunk]);
 
-  /** Mark the selected rejected hunk as fixed, or make a fixed hunk rejected again. */
+  /** Mark the selected hunk as fixed, or clear its fixed decision. */
   const markSelectedHunkFixed = useCallback(() => {
-    decideSelectedHunk((current) => {
-      if (current === "fixed") return "rejected";
-      if (current === "rejected") return "fixed";
-      showSessionNotice("Only a rejected hunk can be marked fixed");
-      return null;
-    });
-  }, [decideSelectedHunk, showSessionNotice]);
+    decideSelectedHunk((current) => (current === "fixed" ? undefined : "fixed"));
+  }, [decideSelectedHunk]);
 
   /** Show decided hunks in the stream again, or hide them. */
   const toggleDecidedHunks = useCallback(() => {

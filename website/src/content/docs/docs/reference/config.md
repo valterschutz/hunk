@@ -466,6 +466,7 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.acceptedRailColor`   | Override the acceptedRailColor semantic color.   |
 | `custom_theme.rejectedRailColor`   | Override the rejectedRailColor semantic color.   |
 | `custom_theme.fixedRailColor`      | Override the fixedRailColor semantic color.      |
+| `custom_theme.cursorLineBg`        | Override the cursorLineBg semantic color.        |
 | `custom_theme.selectedHunk`        | Override the selectedHunk semantic color.        |
 | `custom_theme.badgeAdded`          | Override the badgeAdded semantic color.          |
 | `custom_theme.badgeRemoved`        | Override the badgeRemoved semantic color.        |

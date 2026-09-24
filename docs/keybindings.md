@@ -129,7 +129,7 @@ Review and shared commands:
 | `hunk.review.halfPageUp`                       | Scroll up half a page                                        | `u`, `ctrl+u`                |
 | `hunk.review.jumpToBottom`                     | Jump to end                                                  | `G`, `end`                   |
 | `hunk.review.jumpToTop`                        | Jump to start                                                | `g`, `home`                  |
-| `hunk.review.markSelectedHunkFixed`            | Mark the selected rejected hunk as fixed, or rejected again  | `=`                          |
+| `hunk.review.markSelectedHunkFixed`            | Mark the selected hunk as fixed, or clear the fixed decision | `=`                          |
 | `hunk.review.nextAnnotatedFile`                | Next annotated file                                          | _(none)_                     |
 | `hunk.review.nextAnnotatedHunk`                | Next annotated hunk                                          | `}`                          |
 | `hunk.review.nextFile`                         | Next file                                                    | `.`                          |

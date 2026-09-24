@@ -218,7 +218,8 @@ ReviewIntent + caller facts -> planReviewIntent -> ReviewAction[] -> reducer -> 
 
 ## verification
 
-- Run every suite with `XDG_CONFIG_HOME=$(mktemp -d)`. `bun run test` mounts real sessions that
+- `test/preload/isolateConfigHome.ts` (registered in `bunfig.toml`) points every `bun test`
+  process at an empty `XDG_CONFIG_HOME`; keep it that way. `bun run test` mounts real sessions that
   resolve the same global config path a real run does: they read whatever the developer's
   `~/.config/hunk/config.toml` sets — which makes theme and reload cases fail against a
   hand-picked `theme` or `[custom_theme]` — and a session that saves view preferences overwrites

@@ -226,7 +226,8 @@ describe("Jujutsu source reading", () => {
     ]);
   });
 
-  test("logs unexpected source failures with revision and path context", async () => {
+  // Runs the real `jj` against a directory that is not a repository.
+  jjTest("logs unexpected source failures with revision and path context", async () => {
     const repoRoot = createTempDir("hunk-source-jj-not-repo-");
     const loggedErrors = await captureConsoleErrors(async () => {
       await expect(

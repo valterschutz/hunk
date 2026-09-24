@@ -133,7 +133,7 @@ Review and shared commands:
 | `hunk.review.nextAnnotatedFile`                | Next annotated file                                             | _(none)_                     |
 | `hunk.review.nextAnnotatedHunk`                | Next annotated hunk                                             | `}`                          |
 | `hunk.review.nextFile`                         | Next file                                                       | `.`                          |
-| `hunk.review.nextHunk`                         | Next hunk                                                       | `]`                          |
+| `hunk.review.nextHunk`                         | Next hunk in the selected file                                  | `]`                          |
 | `hunk.review.nextNote`                         | Next review note                                                | _(none)_                     |
 | `hunk.review.openActiveNoteInEditor`           | Open the active note's line in your editor                      | `o`                          |
 | `hunk.review.pageDown`                         | Scroll down one page                                            | `pagedown`, `space`, `f`     |
@@ -141,7 +141,7 @@ Review and shared commands:
 | `hunk.review.previousAnnotatedFile`            | Previous annotated file                                         | _(none)_                     |
 | `hunk.review.previousAnnotatedHunk`            | Previous annotated hunk                                         | `{`                          |
 | `hunk.review.previousFile`                     | Previous file                                                   | `,`                          |
-| `hunk.review.previousHunk`                     | Previous hunk                                                   | `[`                          |
+| `hunk.review.previousHunk`                     | Previous hunk in the selected file                              | `[`                          |
 | `hunk.review.previousNote`                     | Previous review note                                            | _(none)_                     |
 | `hunk.review.rejectSelectedHunk`               | Reject the selected hunk, or clear its decision                 | `-`                          |
 | `hunk.review.replyToActiveNote`                | Reply to active review note                                     | `R`                          |

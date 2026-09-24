@@ -576,7 +576,7 @@ const BUILTIN_COMMANDS = [
   },
   {
     id: "hunk.review.previousHunk",
-    title: "Previous hunk",
+    title: "Previous hunk in file",
     category: "review",
     defaultKeys: ["["],
     locus: "semantic",
@@ -587,7 +587,7 @@ const BUILTIN_COMMANDS = [
   },
   {
     id: "hunk.review.nextHunk",
-    title: "Next hunk",
+    title: "Next hunk in file",
     category: "review",
     defaultKeys: ["]"],
     locus: "semantic",

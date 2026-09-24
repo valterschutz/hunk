@@ -339,13 +339,13 @@ describe("PTY file views", () => {
       expect(refreshed).toMatch(generationTwo);
       expect(refreshed).not.toContain("GEN 001");
 
-      // Assert both hunk-navigation directions immediately from the exact current-file marker.
+      // Assert both file-navigation directions immediately from the exact current-file marker.
       await harness.ensureKeyboardIsLive(session);
       session.resize({ cols: 160, rows: 20 });
       await session.waitForText(/▌ M beta\.ts/, { timeout: 5_000 });
-      await session.press("[");
+      await session.press(",");
       await session.waitForText(/▌ M alpha\.ts/, { timeout: 10_000 });
-      await session.press("]");
+      await session.press(".");
       await session.waitForText(/▌ M beta\.ts/, { timeout: 10_000 });
 
       // Scroll explicitly only after navigation is proven, then load and paint the second file.

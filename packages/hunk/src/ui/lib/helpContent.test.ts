@@ -43,7 +43,7 @@ describe("buildHelpSections", () => {
       "View",
       "Review",
     ]);
-    expect(keysFor(sections, "previous / next hunk")).toBe("[ / ]");
+    expect(keysFor(sections, "previous / next hunk in file")).toBe("[ / ]");
     expect(keysFor(sections, "half page down / up")).toBe("d / u");
     expect(keysFor(sections, "move through lines and notes")).toBe("Up / Down");
     expect(keysFor(sections, "unified / split / auto")).toBe("1 / 2 / 0");
@@ -89,7 +89,7 @@ describe("buildHelpSections", () => {
       "hunk.app.quit": "ctrl+x",
     });
 
-    expect(keysFor(sections, "previous / next hunk")).toBe("[ / Ctrl+N");
+    expect(keysFor(sections, "previous / next hunk in file")).toBe("[ / Ctrl+N");
     expect(keysFor(sections, "quit")).toBe("Ctrl+X");
   });
 
@@ -100,7 +100,7 @@ describe("buildHelpSections", () => {
     });
 
     // The pair survives on the half that still has a key.
-    expect(keysFor(sections, "previous / next hunk")).toBe("]");
+    expect(keysFor(sections, "previous / next hunk in file")).toBe("]");
     // Nothing left to document, so the row is gone rather than blank.
     expect(keysFor(sections, "create review note")).toBeUndefined();
   });

@@ -880,7 +880,7 @@ describe("PTY extensions", () => {
 
       await harness.pressAndWaitForSnapshot(
         session,
-        "]",
+        ".",
         (text) => text.includes("second.ts") && !text.includes("Navigate to this exact note."),
         5_000,
       );

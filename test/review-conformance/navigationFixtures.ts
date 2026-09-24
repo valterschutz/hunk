@@ -95,7 +95,7 @@ export const REVIEW_NAVIGATION_FIXTURES: readonly ReviewNavigationFixture[] = [
     id: "scope-wrap-and-clamp",
     findings: ["B2", "B3"],
     description:
-      "The same edge, four scopes: hunk re-reveals, file declines to move at all, annotated-hunk clamps, annotated-file cycles.",
+      "The same edge, four scopes: hunk and file navigation stop, annotated-hunk clamps, and annotated-file cycles.",
     build: threeFileStream,
     // Only the outer files carry notes, so the ring has two stops with a gap between them.
     annotatedHunks: { 0: [0], 2: [0] },
@@ -116,13 +116,11 @@ export const REVIEW_NAVIGATION_FIXTURES: readonly ReviewNavigationFixture[] = [
     selections: [{ file: 2, hunkIndex: 1 }],
     expected: {
       moves: [
-        // Clamping re-selects the same hunk and asks to be shown it again.
-        { to: { file: 2, hunkIndex: 1 }, reveal: HUNK_REVEAL },
-        { to: { file: 0, hunkIndex: 0 }, reveal: HUNK_REVEAL },
-        // Crossing forward into another file puts that file's header on screen.
-        { to: { file: 1, hunkIndex: 0 }, reveal: FILE_TOP_REVEAL },
-        // Crossing backward reveals the hunk itself, near the previous file's end.
-        { to: { file: 0, hunkIndex: 1 }, reveal: HUNK_REVEAL },
+        // Hunk navigation treats every selected-file boundary as a hard stop.
+        { to: null },
+        { to: null },
+        { to: null },
+        { to: null },
         // File navigation at an end does nothing at all.
         { to: null },
         { to: null },
@@ -144,7 +142,7 @@ export const REVIEW_NAVIGATION_FIXTURES: readonly ReviewNavigationFixture[] = [
     build: () => [twoHunkFile("alpha"), twoHunkFile("beta")],
     filter: "beta",
     moves: [
-      // Navigation walks only what the filter shows, from wherever the selection resolves.
+      // Intent planning normalizes a vanished selection before moving within the fallback file.
       { scope: "hunk", delta: 1, from: { file: "vanished", hunkIndex: 0 } },
       { scope: "file", delta: 1, from: { file: 0, hunkIndex: 0 } },
     ],

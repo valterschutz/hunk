@@ -110,7 +110,7 @@ describe("PTY navigation", () => {
     return [...counts.entries()].sort(([, left], [, right]) => right - left)[0]?.[0];
   }
 
-  test("hunk focus repaints the hunks it leaves and lands on", async () => {
+  test("hunk navigation stays within the selected file", async () => {
     const fixture = harness.createTwoFileRepoFixture();
     const session = await harness.launchHunk({
       args: ["diff", "--mode", "unified"],
@@ -123,8 +123,6 @@ describe("PTY navigation", () => {
       await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
       await session.waitIdle({ timeout: 500 });
 
-      // Both files' only hunks are on screen at once, so one keypress swaps which of the two
-      // rows paints focused while the other fades.
       const addedRow = terminalRowIndex(session, "export const add = true;");
       const betaRow = terminalRowIndex(session, "export const betaValue = 1;");
       expect(addedRow).toBeGreaterThanOrEqual(0);
@@ -132,63 +130,22 @@ describe("PTY navigation", () => {
 
       const focusedTint = dominantBackground(rowCellBackgrounds(session, addedRow));
       const fadedTint = dominantBackground(rowCellBackgrounds(session, betaRow));
-
-      // Both rows are additions, so the same tint reads focused on one and faded on the other.
       expect(focusedTint).not.toBe(fadedTint);
 
-      // Both hunks stay on screen, so focus is the only thing the keypress moves.
       await session.press("]");
       await session.waitIdle({ timeout: 500 });
+      expect(dominantBackground(rowCellBackgrounds(session, addedRow))).toBe(focusedTint);
+      expect(dominantBackground(rowCellBackgrounds(session, betaRow))).toBe(fadedTint);
 
-      expect(dominantBackground(rowCellBackgrounds(session, betaRow))).toBe(focusedTint);
+      await session.press(".");
+      await session.waitIdle({ timeout: 500 });
       expect(dominantBackground(rowCellBackgrounds(session, addedRow))).toBe(fadedTint);
-    } finally {
-      session.close();
-    }
-  });
-
-  test("backward cross-file hunk navigation reveals the target hunk in a real PTY", async () => {
-    const fixture = harness.createCrossFileHunkNavigationRepoFixture();
-    const session = await harness.launchHunk({
-      args: ["diff", "--mode", "split"],
-      cwd: fixture.dir,
-      cols: 120,
-      rows: 16,
-    });
-
-    try {
-      await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, {
-        timeout: 15_000,
-      });
-
-      let reachedShortFileMidHunk = false;
-      for (let index = 0; index < 24; index += 1) {
-        await session.press("]");
-        const snapshot = await session.text({ immediate: true });
-        if (snapshot.includes("export const mid = 4;")) {
-          reachedShortFileMidHunk = true;
-          break;
-        }
-      }
-
-      if (!reachedShortFileMidHunk) {
-        await harness.waitForSnapshot(
-          session,
-          (text) => text.includes("export const mid = 4;"),
-          5_000,
-        );
-      }
+      expect(dominantBackground(rowCellBackgrounds(session, betaRow))).toBe(focusedTint);
 
       await session.press("[");
-      const backward = await harness.pressAndWaitForSnapshot(
-        session,
-        "[",
-        (text) => text.includes("line 341 changed") || text.includes("line 002 changed"),
-        5_000,
-      );
-
-      expect(backward).toContain("line 341 changed");
-      expect(backward).not.toContain("line 002 changed");
+      await session.waitIdle({ timeout: 500 });
+      expect(dominantBackground(rowCellBackgrounds(session, addedRow))).toBe(fadedTint);
+      expect(dominantBackground(rowCellBackgrounds(session, betaRow))).toBe(focusedTint);
     } finally {
       session.close();
     }

@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { act } from "react";
 import { createTestVcsAppBootstrap } from "../../../../test/helpers/app-bootstrap";
 import { createTestDiffFile, lines } from "../../../../test/helpers/diff-helpers";
+import { verifiedHunkIdentity } from "../core/changeset/verifiedHunks";
 import { capturedTestColorToHex } from "../../../../test/helpers/test-color-helpers";
 import { resolveTheme } from "./themes";
 
@@ -27,28 +28,38 @@ function createVerifiedHunksFile() {
   return join(dir, "verified-hunks");
 }
 
-/** Bootstrap a two-file review: `sample.ts` has two hunks and `other.ts` one. */
-function createBootstrap(verifiedHunksFile: string | undefined) {
+/** The two-file review under test: `sample.ts` has two hunks and `other.ts` one. */
+function createFiles() {
+  return [
+    createTestDiffFile({
+      after: AFTER,
+      before: BEFORE,
+      context: 2,
+      id: "sample",
+      path: "sample.ts",
+    }),
+    createTestDiffFile({
+      after: OTHER_AFTER,
+      before: OTHER_BEFORE,
+      context: 1,
+      id: "other",
+      path: "other.ts",
+    }),
+  ];
+}
+
+function createBootstrap(
+  verifiedHunksFile: string | undefined,
+  { showVerifiedHunks }: { showVerifiedHunks?: boolean } = {},
+) {
   return createTestVcsAppBootstrap({
     changesetId: "changeset:verified-hunks",
     initialMode: "unified",
-    files: [
-      createTestDiffFile({
-        after: AFTER,
-        before: BEFORE,
-        context: 2,
-        id: "sample",
-        path: "sample.ts",
-      }),
-      createTestDiffFile({
-        after: OTHER_AFTER,
-        before: OTHER_BEFORE,
-        context: 1,
-        id: "other",
-        path: "other.ts",
-      }),
-    ],
-    vcsOptions: verifiedHunksFile === undefined ? {} : { verifiedHunksFile },
+    files: createFiles(),
+    vcsOptions: {
+      ...(verifiedHunksFile === undefined ? {} : { verifiedHunksFile }),
+      ...(showVerifiedHunks === undefined ? {} : { showVerifiedHunks }),
+    },
   });
 }
 
@@ -152,6 +163,30 @@ describe("AppHost verified hunks", () => {
     expect(frame).toContain("other change");
     expect(frame).toContain("2 verified hunks hidden");
     expect(readFileSync(verifiedHunksFile, "utf8").trim().split("\n")).toHaveLength(2);
+  });
+
+  test("show_verified_hunks starts with verified hunks shown, and V still hides them", async () => {
+    const verifiedHunksFile = createVerifiedHunksFile();
+    const sample = createFiles()[0]!;
+    writeFileSync(
+      verifiedHunksFile,
+      `${verifiedHunkIdentity(sample, sample.metadata.hunks[0]!)}\n`,
+    );
+    setup = await testRender(
+      <AppHost bootstrap={createBootstrap(verifiedHunksFile, { showVerifiedHunks: true })} />,
+      WIDE,
+    );
+    await flush(setup);
+
+    let frame = setup.captureCharFrame();
+    expect(frame).toContain("first change");
+    expect(frame).toContain("selected hunk verified");
+
+    await pressKeys(setup, "V");
+
+    frame = setup.captureCharFrame();
+    expect(frame).not.toContain("first change");
+    expect(frame).toContain("1 verified hunk hidden");
   });
 
   test("without a configured file, ! explains how to enable verifying", async () => {

@@ -450,7 +450,7 @@ test("CodeRowView paints the rail of a verified hunk in the verified color", asy
       cell: {
         kind: "deletion",
         sign: "-",
-        lineNumber: 1,
+        oldLineNumber: 1,
         spans: [{ text: "verified" }],
       },
     },

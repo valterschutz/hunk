@@ -174,16 +174,15 @@ describe("AppHost hunk decisions", () => {
         repo: expect.any(String),
         path: "sample.ts",
         state: "accepted",
-        commits: [COMMIT],
         oldStart: 1,
         newStart: 1,
       },
     ]);
     expect(createReviewFileStore(reviewFile).load().records[0]).toEqual({
-      kind: "commit",
+      kind: "review",
       repo: expect.any(String),
-      hash: COMMIT,
-      hunkCount: 3,
+      commits: [COMMIT],
+      hunks: expect.any(Array),
     });
     // Two hunks are still undecided, so the commit has no status yet.
     expect(commitStatus(reviewFile)).toBe("");
@@ -261,11 +260,31 @@ describe("AppHost hunk decisions", () => {
         .map((commit) => `${commit} approved\n`)
         .join(""),
     );
-    expect(
-      hunkRecords(reviewFile).every((record) =>
-        RANGE_COMMITS.every((commit) => record.commits?.includes(commit)),
-      ),
-    ).toBe(true);
+  });
+
+  test("a range whose hunks were decided in other reviews is approved on opening", async () => {
+    const reviewFile = createReviewFile();
+    setup = await testRender(
+      <AppHost bootstrap={createBootstrap(reviewFile, { commit: false })} />,
+      WIDE,
+    );
+    await flush(setup);
+    // Decide every hunk while reviewing the uncommitted changes, before any commit exists.
+    await pressKeys(setup, "+++");
+    expect(commitStatus(reviewFile)).toBe("");
+    const working = setup;
+    await act(async () => {
+      working.renderer.destroy();
+    });
+
+    setup = await testRender(<AppHost bootstrap={createRangeBootstrap(reviewFile)} />, WIDE);
+    await flush(setup);
+
+    expect(commitStatus(reviewFile)).toBe(
+      RANGE_COMMITS.toSorted()
+        .map((commit) => `${commit} approved\n`)
+        .join(""),
+    );
   });
 
   test("= marks a hunk fixed directly and toggles the fixed decision", async () => {
@@ -318,7 +337,7 @@ describe("AppHost hunk decisions", () => {
     expect(frame).toContain("1 decided hunk hidden");
   });
 
-  test("a decision outside a single-commit review records no commit", async () => {
+  test("a review of uncommitted changes records no commit review", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(
       <AppHost bootstrap={createBootstrap(reviewFile, { commit: false })} />,
@@ -330,7 +349,6 @@ describe("AppHost hunk decisions", () => {
 
     const { records } = createReviewFileStore(reviewFile).load();
     expect(records.map((record) => record.kind)).toEqual(["hunk"]);
-    expect((records[0] as HunkRecord).commits).toBeUndefined();
   });
 
   test("without a configured file, + explains how to enable decisions", async () => {

@@ -4,8 +4,8 @@
  * The file is JSON Lines (`core/review/reviewFile.ts` defines the records) so any file syncing
  * tool carries it between machines; it is re-read before every write so entries added
  * elsewhere in the meantime survive, and written through a rename so a sync tool never sees
- * a half-written file. After every change the derived `commit-status` file beside it is
- * rewritten for lazygit. An unconfigured path disables the store: it then loads nothing and
+ * a half-written file. Legacy records are migrated as they are read. After every change the derived
+ * `commit-status` file beside it is rewritten for lazygit. An unconfigured path disables the store: it then loads nothing and
  * refuses to write.
  */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -13,11 +13,15 @@ import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import {
   commitStatuses,
+  migrateLegacyRecords,
   parseReviewRecord,
+  sameCommitReview,
   serializeCommitStatuses,
   serializeReviewRecords,
   type HunkDecision,
+  type CommitReviewRecord,
   type HunkRecord,
+  type ParsedReviewRecord,
   type PersistableNotes,
   type ReviewRecord,
 } from "../../core/review/reviewFile";
@@ -34,8 +38,6 @@ export interface HunkDecisionInput {
   hunk: Omit<HunkRecord, "kind" | "state">;
   /** Undefined clears the decision. */
   state: HunkDecision | undefined;
-  /** The commits covered by this review, so one aggregate range updates all of their statuses. */
-  commits?: readonly { hash: string; hunkCount: number }[];
 }
 
 export interface ReviewFileStore {
@@ -45,6 +47,8 @@ export interface ReviewFileStore {
   load(): ReviewFileLoad;
   /** Record, change, or clear the decision on one hunk and refresh the commit statuses. */
   setHunkDecision(input: HunkDecisionInput): void;
+  /** Remember which hunks a commit or range review shows and refresh the commit statuses. */
+  recordReview(review: Omit<CommitReviewRecord, "kind">): void;
   /** Replace the given note records and add their hunks when missing; true when the file changed. */
   upsertNotes(notes: PersistableNotes): boolean;
   /** Remove note records by id, dropping hunk records nothing references any more. */
@@ -84,19 +88,19 @@ function readFile(path: string): ParsedFile {
     }
     throw error;
   }
-  const records: ReviewRecord[] = [];
+  const parsed: ParsedReviewRecord[] = [];
   const warnings: string[] = [];
   const unparsed: string[] = [];
   text.split("\n").forEach((line, index) => {
     if (line.trim().length === 0) return;
     try {
-      records.push(parseReviewRecord(line));
+      parsed.push(...parseReviewRecord(line));
     } catch (error) {
       warnings.push(`${path}:${index + 1}: ${error instanceof Error ? error.message : error}`);
       unparsed.push(line);
     }
   });
-  return { records, warnings, unparsed, text };
+  return { records: migrateLegacyRecords(parsed), warnings, unparsed, text };
 }
 
 function writeAtomically(path: string, content: string) {
@@ -160,41 +164,40 @@ export function createReviewFileStore(configuredPath: string | undefined): Revie
       const { records, warnings } = readFile(path);
       return { records, warnings };
     },
-    setHunkDecision({ hunk, state, commits: reviewedCommits }) {
+    setHunkDecision({ hunk, state }) {
       const file = readFile(requirePath());
       const records = file.records.filter(
         (record) => !(record.kind === "hunk" && record.id === hunk.id),
       );
-      const existing = file.records.find(
-        (record): record is HunkRecord => record.kind === "hunk" && record.id === hunk.id,
-      );
       const referenced = noteReferences(records).has(hunk.id);
       if (state !== undefined || referenced) {
-        const commits = hunk.commits ?? existing?.commits;
         records.push({
           kind: "hunk",
           id: hunk.id,
           repo: hunk.repo,
           path: hunk.path,
           ...(state !== undefined ? { state } : {}),
-          ...(commits !== undefined ? { commits: [...commits] } : {}),
           oldStart: hunk.oldStart,
           newStart: hunk.newStart,
         });
       }
-      for (const reviewedCommit of reviewedCommits ?? []) {
-        const index = records.findIndex(
-          (record) => record.kind === "commit" && record.hash === reviewedCommit.hash,
-        );
-        const record = {
-          kind: "commit" as const,
-          repo: hunk.repo,
-          hash: reviewedCommit.hash,
-          hunkCount: reviewedCommit.hunkCount,
-        };
-        if (index >= 0) records[index] = record;
-        else records.push(record);
+      commit(file, records);
+    },
+    recordReview(review) {
+      if (review.commits.length === 0) {
+        throw new Error("A commit review must name at least one commit");
       }
+      const record: CommitReviewRecord = {
+        kind: "review",
+        repo: review.repo,
+        commits: [...new Set(review.commits)].toSorted(),
+        hunks: [...new Set(review.hunks)].toSorted(),
+      };
+      const file = readFile(requirePath());
+      const records = file.records.filter(
+        (existing) => !(existing.kind === "review" && sameCommitReview(existing, record)),
+      );
+      records.push(record);
       commit(file, records);
     },
     upsertNotes(notes) {

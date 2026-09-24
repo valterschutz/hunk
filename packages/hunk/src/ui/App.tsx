@@ -17,7 +17,11 @@ import {
 import type { PersistedViewPreferences } from "../core/run/config";
 import { HISTORY_COMMAND_NAMES } from "../core/run/historyCommandCatalog";
 import type { ExtensionReviewReloadResult } from "../extension-api/types";
-import { fileReviewStatus, hideDecidedHunks } from "../core/changeset/hunkDecisions";
+import {
+  diffHunkIdentity,
+  fileReviewStatus,
+  hideDecidedHunks,
+} from "../core/changeset/hunkDecisions";
 import {
   persistableNoteRecords,
   restoreNoteRecords,
@@ -256,18 +260,14 @@ export function App({
   );
   /** The commits covered completely by this review, all sharing its aggregate hunk status. */
   const reviewedCommits = useMemo(() => {
-    const hunkCount = bootstrap.changeset.files.reduce(
-      (count, file) => count + file.metadata.hunks.length,
-      0,
-    );
     if (
       (bootstrap.review?.kind === "commit" || bootstrap.review?.kind === "comparison") &&
       bootstrap.reviewCommitIds !== undefined
     ) {
-      return bootstrap.reviewCommitIds.map((hash) => ({ hash, hunkCount }));
+      return [...bootstrap.reviewCommitIds];
     }
     if (bootstrap.review?.kind === "commit") {
-      return [{ hash: bootstrap.review.revision, hunkCount }];
+      return [bootstrap.review.revision];
     }
     if (
       bootstrap.review?.kind === "comparison" &&
@@ -275,10 +275,18 @@ export function App({
       (bootstrap.review.commitCount ?? bootstrap.review.commits.length) ===
         bootstrap.review.commits.length
     ) {
-      return bootstrap.review.commits.map(({ revision }) => ({ hash: revision, hunkCount }));
+      return bootstrap.review.commits.map(({ revision }) => revision);
     }
     return undefined;
-  }, [bootstrap.changeset.files, bootstrap.review, bootstrap.reviewCommitIds]);
+  }, [bootstrap.review, bootstrap.reviewCommitIds]);
+  /** Content identity of every hunk this review shows, decided or not. */
+  const reviewHunkIdentities = useMemo(
+    () =>
+      experimentalFiles.flatMap((file) =>
+        file.metadata.hunks.map((hunk) => diffHunkIdentity(file, hunk)),
+      ),
+    [experimentalFiles],
+  );
   const [showDecidedHunks, setShowDecidedHunks] = useState(
     bootstrap.input.options.showDecidedHunks ?? false,
   );
@@ -1344,12 +1352,10 @@ export function App({
             id: selectedHunkIdentity,
             repo: reviewRepo,
             path: selectedFile.path,
-            ...(reviewedCommits ? { commits: reviewedCommits.map(({ hash }) => hash) } : {}),
             oldStart: hunk.deletionStart,
             newStart: hunk.additionStart,
           },
           state,
-          ...(reviewedCommits ? { commits: reviewedCommits } : {}),
         });
       } catch (error) {
         showSessionNotice(
@@ -1363,7 +1369,6 @@ export function App({
       hunkDecisions,
       reviewFileStore,
       reviewRepo,
-      reviewedCommits,
       selectedFile,
       selectedHunkIdentity,
       selectedHunkIndex,
@@ -1411,6 +1416,25 @@ export function App({
     }
   }, [reviewFileLoad, showSessionNotice]);
 
+  // Opening a commit or range records which hunks it shows, so its commits' statuses follow the
+  // decisions on those hunks, including ones made before this review (hunks already decided when
+  // it opens never need deciding again).
+  useEffect(() => {
+    if (!reviewFileStore.enabled || reviewedCommits === undefined) return;
+    if (reviewedCommits.length === 0 || reviewHunkIdentities.length === 0) return;
+    try {
+      reviewFileStore.recordReview({
+        repo: reviewRepo,
+        commits: reviewedCommits,
+        hunks: reviewHunkIdentities,
+      });
+    } catch (error) {
+      showSessionNotice(
+        `Could not update the review file: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }, [reviewFileStore, reviewHunkIdentities, reviewRepo, reviewedCommits, showSessionNotice]);
+
   // Every note of a thread the reviewer started is written back whenever it changes: a new
   // note, an edit, an agent's reply, or a reload that moved it. Removal is explicit and handled
   // where notes are removed, so a reload that drops a note never erases it from the file.
@@ -1421,10 +1445,7 @@ export function App({
     const persistable = persistableNoteRecords(
       snapshot.document,
       [...snapshot.liveNotes, ...snapshot.userNotes],
-      {
-        repo: reviewRepo,
-        ...(reviewedCommits ? { commits: reviewedCommits.map(({ hash }) => hash) } : {}),
-      },
+      { repo: reviewRepo },
     );
     const fingerprint = JSON.stringify(persistable);
     if (fingerprint === lastPersistedNotesRef.current) return;
@@ -1437,14 +1458,7 @@ export function App({
         `Could not update the review file: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  }, [
-    review.stateRevision,
-    review.store,
-    reviewFileStore,
-    reviewRepo,
-    reviewedCommits,
-    showSessionNotice,
-  ]);
+  }, [review.stateRevision, review.store, reviewFileStore, reviewRepo, showSessionNotice]);
 
   /** Close the agent skill setup overlay. */
   const closeAgentSkill = useCallback(() => {

@@ -2,4 +2,4 @@
 "hunkdiff": minor
 ---
 
-Add persisted per-hunk accept, reject, and fixed decisions, approve every commit in a completely reviewed comparison range, mark approved files in the sidebar, and derive lazygit's reviewed or approved commit status beside the configured review file.
+Add persisted per-hunk accept, reject, and fixed decisions, mark approved files in the sidebar, and derive lazygit's reviewed or approved status for every commit of a reviewed commit or range from the decisions on its hunks, wherever those decisions were made.

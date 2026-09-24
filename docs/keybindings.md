@@ -116,7 +116,7 @@ Review and shared commands:
 | `hunk.app.toggleHelp`                          | Toggle help                                                     | `?`                          |
 | `hunk.review.acceptSelectedHunk`               | Accept the selected hunk, or clear its decision                 | `+`                          |
 | `hunk.review.alignCurrentLineBottom`           | Align current line to viewport bottom                           | _(none)_                     |
-| `hunk.review.alignCurrentLineCenter`           | Center current line in viewport                                 | _(none)_                     |
+| `hunk.review.alignCurrentLineCenter`           | Center current line in viewport                                 | `Z`                          |
 | `hunk.review.alignCurrentLineTop`              | Align current line to viewport top                              | _(none)_                     |
 | `hunk.review.clearSelection`                   | Clear the active visual selection                               | _(none)_                     |
 | `hunk.review.copySelection`                    | Copy the active visual selection                                | `y`                          |

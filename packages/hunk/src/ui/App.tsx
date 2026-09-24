@@ -305,6 +305,7 @@ export function App({
     noteGeometry: noteGeometryRef,
     sourceLabel: bootstrap.changeset.sourceLabel,
     stmlEnabled,
+    wholeFileByDefault: bootstrap.input.options.wholeFile ?? false,
   });
   // The producer plans brokered actions against the store this controller owns, so a
   // remote action and a key press reach the same state through the same intent path.

@@ -162,6 +162,7 @@ function TerminalReviewHarness({
   publishLineCursors = true,
   reviewVerticalStops,
   stmlEnabled,
+  wholeFileByDefault,
   onController,
   onFirstController,
   onSetFiles,
@@ -172,6 +173,7 @@ function TerminalReviewHarness({
   publishLineCursors?: boolean;
   reviewVerticalStops?: ReviewVerticalStop[];
   stmlEnabled?: boolean;
+  wholeFileByDefault?: boolean;
   onController: (controller: TerminalReview) => void;
   /** Receive the first render's controller, before any cursors were published. */
   onFirstController?: (controller: TerminalReview) => void;
@@ -191,6 +193,7 @@ function TerminalReviewHarness({
     reviewVerticalStops: reviewVerticalStops ?? lineOnlyVerticalStops,
     noteGeometry,
     stmlEnabled,
+    wholeFileByDefault,
   });
   // Capture during render, as a memoized consumer's closure would: the effects
   // below have not yet published measured cursors on the first pass.
@@ -248,6 +251,7 @@ async function renderTerminalReview(
     publishLineCursors,
     reviewVerticalStops,
     stmlEnabled,
+    wholeFileByDefault,
     onFirstController,
   }: {
     strictMode?: boolean;
@@ -255,6 +259,7 @@ async function renderTerminalReview(
     publishLineCursors?: boolean;
     reviewVerticalStops?: ReviewVerticalStop[];
     stmlEnabled?: boolean;
+    wholeFileByDefault?: boolean;
     onFirstController?: (controller: TerminalReview) => void;
   } = {},
 ) {
@@ -267,6 +272,7 @@ async function renderTerminalReview(
       publishLineCursors={publishLineCursors}
       reviewVerticalStops={reviewVerticalStops}
       stmlEnabled={stmlEnabled}
+      wholeFileByDefault={wholeFileByDefault}
       onFirstController={onFirstController}
       onController={(nextController) => {
         controllerRef.current = nextController;
@@ -1616,6 +1622,94 @@ describe("useTerminalReview", () => {
       });
       await flush(setup);
       expect(expandedGaps()).toEqual([]);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("wholeFileByDefault opens the review whole with no manual toggle, and a hand fold sticks", async () => {
+    const sourceLines = Array.from({ length: 50 }, (_, index) => `line ${index + 1}`);
+    sourceLines[9] = "line 10 changed";
+    sourceLines[39] = "line 40 changed";
+    const sourceFetcher = createTestSourceFetcher(() => lines(...sourceLines));
+    const file = createTwoGapFile(sourceFetcher);
+    const gapIds = [...reviewGapIds(file.metadata)].sort();
+    const { controllerRef, setup } = await renderTerminalReview([file], {
+      wholeFileByDefault: true,
+    });
+
+    try {
+      await flush(setup);
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+      expect(expandedGaps("alpha")).toEqual(gapIds);
+      expect(sourceFetcher.calls).toEqual(["new"]);
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha")).toEqual([]);
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(false);
+
+      // Rendering again must not re-apply the default over a fold the reviewer just made.
+      await flush(setup);
+      expect(expandedGaps("alpha")).toEqual([]);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("wholeFileByDefault opens a file that appears later without re-expanding one folded by hand", async () => {
+    const alphaFetcher = createTestSourceFetcher(() => "first\n");
+    const { controllerRef, setFilesRef, setup } = await renderTerminalReview(
+      [createAlphaFile(alphaFetcher)],
+      { wholeFileByDefault: true },
+    );
+
+    try {
+      await flush(setup);
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+      expect(expandedGaps("alpha").length).toBeGreaterThan(0);
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha")).toEqual([]);
+
+      const betaLines = Array.from(
+        { length: 12 },
+        (_unused, index) => `export const beta${index + 1} = ${index + 1};`,
+      );
+      const betaAfterLines = [...betaLines];
+      betaAfterLines[7] = "export const beta8 = 800;";
+      const betaFetcher = createTestSourceFetcher(() => lines(...betaLines));
+      const beta = createDiffFile(
+        "beta",
+        "beta.ts",
+        lines(...betaLines),
+        lines(...betaAfterLines),
+        null,
+        betaFetcher,
+      );
+      const betaGapIds = [...reviewGapIds(beta.metadata)].sort();
+      expect(betaGapIds.length).toBeGreaterThan(0);
+
+      await act(async () => {
+        expectValue(setFilesRef.current)([createAlphaFile(alphaFetcher), beta]);
+      });
+      await flush(setup);
+
+      expect(expandedGaps("beta")).toEqual(betaGapIds);
+      // The fold the reviewer made before beta arrived must still hold.
+      expect(expandedGaps("alpha")).toEqual([]);
     } finally {
       await act(async () => {
         setup.renderer.destroy();

@@ -96,6 +96,10 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
       { commandIds: ["hunk.view.toggleAgentNotes"], description: "toggle AI notes" },
       { commandIds: ["hunk.review.toggleFileContext"], description: "show whole file" },
       {
+        commandIds: ["hunk.review.alignCurrentLineCenter"],
+        description: "center viewport on current line",
+      },
+      {
         commandIds: [
           "hunk.view.toggleLineNumbers",
           "hunk.view.toggleLineWrap",

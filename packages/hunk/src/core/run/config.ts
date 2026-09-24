@@ -545,6 +545,15 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
       "Show only the selected file in the review stream, so scrolling stays inside it and `,` and `.` are the way between files. The sidebar still lists every file.",
   },
   {
+    key: "whole_file",
+    property: "wholeFile",
+    type: "boolean",
+    accepted: "`true` or `false`",
+    runtimeDefault: false,
+    description:
+      "Open every file already expanded to its whole content, as if `z` (`hunk.review.toggleFileContext`) had been pressed for each one. Folding a file back by hand still works as usual.",
+  },
+  {
     key: VIEW_PREFERENCES_PROMPT_CONFIG_KEY,
     property: "promptSaveViewPreferences",
     type: "boolean",
@@ -1231,6 +1240,7 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     reviewFile: overrides.reviewFile ?? base.reviewFile,
     showDecidedHunks: overrides.showDecidedHunks ?? base.showDecidedHunks,
     oneFileAtATime: overrides.oneFileAtATime ?? base.oneFileAtATime,
+    wholeFile: overrides.wholeFile ?? base.wholeFile,
     cursorScroll: overrides.cursorScroll ?? base.cursorScroll,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,

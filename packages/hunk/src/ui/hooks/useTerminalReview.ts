@@ -324,6 +324,7 @@ export function useTerminalReview({
   noteGeometry,
   sourceLabel = "",
   stmlEnabled = false,
+  wholeFileByDefault = false,
 }: {
   files: DiffFile[];
   /** Note-layer visibility the launch configuration resolved for this review. */
@@ -335,6 +336,13 @@ export function useTerminalReview({
   lineCursors?: LineCursor[];
   /** Mixed rendered line and semantic-note stops used by vertical keyboard movement. */
   reviewVerticalStops?: ReviewVerticalStop[];
+  /**
+   * Open every file whole as it first appears, as if `hunk.review.toggleFileContext` had
+   * already run for it. Applied once per semantic file key, so a file the reviewer folds
+   * back by hand stays folded; a reload that mints a new key (content actually changed)
+   * opens whole again like any other new file.
+   */
+  wholeFileByDefault?: boolean;
   /**
    * Identity of the review's input as a whole.
    *
@@ -1065,11 +1073,52 @@ export function useTerminalReview({
   }, [applyGapToggle, fileByKey, lowerCommand]);
 
   /**
+   * Open one file whole, the same way the selected-file toggle does when the file is folded.
+   *
+   * Composed from the same per-gap toggles a click performs, so the reducer, the source load,
+   * and the line-cursor bookkeeping see ordinary gap toggles. A no-op once the file is already
+   * whole, so callers that re-request the same file key (the default-whole-file effect, most
+   * notably) never fight a reviewer who folded it back by hand.
+   */
+  const expandFileToWhole = useCallback(
+    (fileKey: string) => {
+      const snapshot = store.getSnapshot();
+      const file = fileByKey.get(fileKey);
+      const reviewFile = selectReviewFileByKey(snapshot, fileKey);
+      if (!file?.sourceFetcher || !reviewFile) {
+        return;
+      }
+
+      const gapIds = reviewGapIds(selectReviewGapSource(snapshot, reviewFile));
+      const expanded = selectExpandedGapIdsByFileKey(snapshot)[fileKey] ?? new Set<string>();
+      if (gapIds.length > 0 && gapIds.every((gapId) => expanded.has(gapId))) {
+        return;
+      }
+
+      setWholeFileKeys((current) => {
+        if (current.has(fileKey)) return current;
+        const next = new Set(current);
+        next.add(fileKey);
+        return next;
+      });
+      // The tail after the last hunk is only addressable once the source has loaded, so the
+      // load starts here even when the patch offers no gap yet.
+      pendingWholeFileKeysRef.current.add(fileKey);
+      startSourceLoad(file, fileKey, reviewExpansionSide(file.metadata.type));
+      for (const gapId of gapIds) {
+        if (!expanded.has(gapId)) {
+          applyGapToggle(file, { type: "expansion/toggle", fileKey, gapId });
+        }
+      }
+    },
+    [applyGapToggle, fileByKey, startSourceLoad, store],
+  );
+
+  /**
    * Expand every gap of the selected file, or collapse them all once the file is whole.
    *
-   * Composed from the same per-gap toggles a click performs, so the reducer, the source
-   * load, and the line-cursor bookkeeping see ordinary gap toggles. A file that is partly
-   * open counts as folded: the next press opens the rest rather than closing what is open.
+   * A file that is partly open counts as folded: the next press opens the rest rather than
+   * closing what is open.
    */
   const toggleSelectedFileContext = useCallback(() => {
     const snapshot = store.getSnapshot();
@@ -1083,26 +1132,40 @@ export function useTerminalReview({
     const gapIds = reviewGapIds(selectReviewGapSource(snapshot, reviewFile));
     const expanded = selectExpandedGapIdsByFileKey(snapshot)[fileKey] ?? new Set<string>();
     const whole = gapIds.length > 0 && gapIds.every((gapId) => expanded.has(gapId));
+    if (!whole) {
+      expandFileToWhole(fileKey);
+      return;
+    }
+
     setWholeFileKeys((current) => {
       const next = new Set(current);
-      if (whole) next.delete(fileKey);
-      else next.add(fileKey);
+      next.delete(fileKey);
       return next;
     });
-    if (whole) {
-      pendingWholeFileKeysRef.current.delete(fileKey);
-    } else {
-      // The tail after the last hunk is only addressable once the source has loaded, so the
-      // load starts here even when the patch offers no gap yet.
-      pendingWholeFileKeysRef.current.add(fileKey);
-      startSourceLoad(file, fileKey, reviewExpansionSide(file.metadata.type));
-    }
+    pendingWholeFileKeysRef.current.delete(fileKey);
     for (const gapId of gapIds) {
-      if (expanded.has(gapId) === whole) {
+      if (expanded.has(gapId)) {
         applyGapToggle(file, { type: "expansion/toggle", fileKey, gapId });
       }
     }
-  }, [applyGapToggle, fileByKey, startSourceLoad, store]);
+  }, [applyGapToggle, expandFileToWhole, fileByKey, store]);
+
+  // Files `wholeFileByDefault` has already opened whole, so a reviewer who folds one back
+  // by hand is never fought on the next render. Keyed by semantic file key: content that
+  // actually changes mints a new key and is treated as a new file.
+  const wholeFileDefaultAppliedRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!wholeFileByDefault) {
+      return;
+    }
+    for (const semanticFile of document.files) {
+      if (wholeFileDefaultAppliedRef.current.has(semanticFile.key)) {
+        continue;
+      }
+      wholeFileDefaultAppliedRef.current.add(semanticFile.key);
+      expandFileToWhole(semanticFile.key);
+    }
+  }, [document, expandFileToWhole, wholeFileByDefault]);
 
   // Finish a whole-file request once its source arrives: the gaps the load made addressable
   // open now. A failed load drops the request rather than retrying it.

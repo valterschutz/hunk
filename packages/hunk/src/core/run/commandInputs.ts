@@ -74,6 +74,8 @@ export interface CommonOptions extends ThemeTuningPercents {
   showDecidedHunks?: boolean;
   /** Show only the selected file in the review stream, so `,` and `.` are the way between files. */
   oneFileAtATime?: boolean;
+  /** Open every file whole, as if `z` (`hunk.review.toggleFileContext`) had already run on it. */
+  wholeFile?: boolean;
   /** Keep the current line centered while stepping, so `j`/`k` scroll the stream around it. */
   cursorScroll?: CursorScroll;
   /** False only when `--no-extensions` disables user extension loading for this run. */

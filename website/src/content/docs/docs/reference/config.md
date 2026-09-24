@@ -242,6 +242,16 @@ Show only the selected file in the review stream, so scrolling stays inside it a
 
 ---
 
+**`whole_file`**
+
+Open every file already expanded to its whole content, as if `z` (`hunk.review.toggleFileContext`) had been pressed for each one. Folding a file back by hand still works as usual.
+
+- **Type:** boolean
+- **Accepted:** `true` or `false`
+- **Built-in default:** `false`
+
+---
+
 **`prompt_save_view_preferences`**
 
 Ask before discarding view changes that can be persisted.

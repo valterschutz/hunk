@@ -1880,9 +1880,9 @@ Only explicitly public built-in `hunk.*` commands can be invoked. Unknown, disab
 extension-owned, or stale-session commands return `false`; an extension cannot recursively invoke
 itself or another extension. `isEnabled` also returns `false` for malformed ids, while malformed
 `execute` ids, options, and counts throw as extension programming errors. The public ids are the built-ins listed in
-[keybindings](keybindings.md), including the unbound
-`hunk.review.alignCurrentLineTop`, `hunk.review.alignCurrentLineCenter`, and
-`hunk.review.alignCurrentLineBottom` commands.
+[keybindings](keybindings.md), including `hunk.review.alignCurrentLineTop` and
+`hunk.review.alignCurrentLineBottom`, which ship unbound, and `hunk.review.alignCurrentLineCenter`,
+bound to `Z` by default.
 
 `count` defaults to `1` and must be a positive safe integer no greater than `10,000`. Relative
 line, viewport, horizontal, file, hunk, and annotated navigation applies the count atomically in

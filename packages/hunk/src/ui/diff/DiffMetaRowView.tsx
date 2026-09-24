@@ -5,7 +5,7 @@ import type { AppTheme } from "../themes";
 import { CODE_ROW_ADD_NOTE_BADGE_TEXT } from "./codeRowAffordance";
 import type { PlannedDiffMetaReviewRow } from "./reviewRenderPlan";
 import { fitText } from "./plannedRowText";
-import { diffRailMarker, dimRailColor, neutralRailColor, unfocusedHunkTheme } from "./rowStyle";
+import { diffRailMarker, metaRailColor, unfocusedHunkTheme } from "./rowStyle";
 import { markNestedRowMouseAction } from "./rowMouseActions";
 
 export interface DiffMetaRowViewProps {
@@ -13,6 +13,8 @@ export interface DiffMetaRowViewProps {
   width: number;
   theme: AppTheme;
   selected: boolean;
+  /** The row belongs to a hunk the reviewer marked verified. */
+  verified?: boolean;
   showHunkHeaders: boolean;
   showAddNoteBadge?: boolean;
   onHoverRow?: (rowKey: string) => void;
@@ -37,6 +39,7 @@ export function DiffMetaRowView({
   width,
   theme,
   selected,
+  verified = false,
   showHunkHeaders,
   showAddNoteBadge = false,
   onHoverRow,
@@ -83,10 +86,7 @@ export function DiffMetaRowView({
         onMouseUp={handleCollapsedClick}
       >
         <text>
-          <span
-            fg={selected ? neutralRailColor(theme) : dimRailColor(neutralRailColor(theme), theme)}
-            bg={rowTheme.panelAlt}
-          >
+          <span fg={metaRailColor(theme, selected, verified)} bg={rowTheme.panelAlt}>
             {diffRailMarker()}
           </span>
           <span
@@ -117,10 +117,7 @@ export function DiffMetaRowView({
         onMouseUp={handleCollapsedClick}
       >
         <text>
-          <span
-            fg={selected ? neutralRailColor(theme) : dimRailColor(neutralRailColor(theme), theme)}
-            bg={rowTheme.panelAlt}
-          >
+          <span fg={metaRailColor(theme, selected, verified)} bg={rowTheme.panelAlt}>
             {diffRailMarker()}
           </span>
           <span

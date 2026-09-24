@@ -82,6 +82,7 @@ export function DiffSectionBody({
   hoverClearSignal = 0,
   width,
   selectedHunkIndex,
+  verifiedHunkIndices,
   sectionGeometry,
   shouldLoadHighlight = true,
   offloadLargeDiff = false,
@@ -115,6 +116,8 @@ export function DiffSectionBody({
   hoverClearSignal?: number;
   width: number;
   selectedHunkIndex: number;
+  /** Hunks of this file the reviewer marked verified, when verified hunks are shown. */
+  verifiedHunkIndices?: ReadonlySet<number>;
   sectionGeometry?: DiffSectionGeometry;
   shouldLoadHighlight?: boolean;
   offloadLargeDiff?: boolean;
@@ -442,6 +445,7 @@ export function DiffSectionBody({
               codeHorizontalOffset={codeHorizontalOffset}
               theme={theme}
               selected={plannedRow.row.hunkIndex === selectedHunkIndex}
+              verified={verifiedHunkIndices?.has(plannedRow.row.hunkIndex) ?? false}
               copySelectedRowRange={copySelectedRowRanges?.get(plannedRow.key)}
               copySelectedSide={copySelectedSide}
               cursorHighlight={isCursorRow ? cursorHighlight : undefined}

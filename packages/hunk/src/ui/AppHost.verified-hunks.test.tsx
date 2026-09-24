@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { act } from "react";
 import { createTestVcsAppBootstrap } from "../../../../test/helpers/app-bootstrap";
 import { createTestDiffFile, lines } from "../../../../test/helpers/diff-helpers";
+import { capturedTestColorToHex } from "../../../../test/helpers/test-color-helpers";
+import { resolveTheme } from "./themes";
 
 const { TestAppHost: AppHost } = await import("../../../../test/helpers/app-host");
 
@@ -48,6 +50,15 @@ function createBootstrap(verifiedHunksFile: string | undefined) {
     ],
     vcsOptions: verifiedHunksFile === undefined ? {} : { verifiedHunksFile },
   });
+}
+
+/** Return the rail marker's foreground on the rendered line that carries `text`. */
+function railColorOfLine(target: Awaited<ReturnType<typeof testRender>>, text: string) {
+  const line = target
+    .captureSpans()
+    .lines.find((candidate) => candidate.spans.some((span) => span.text.includes(text)));
+  const rail = line?.spans.find((span) => span.text.includes("▌"));
+  return capturedTestColorToHex(rail?.fg)?.toLowerCase();
 }
 
 async function flush(target: Awaited<ReturnType<typeof testRender>>) {
@@ -111,6 +122,12 @@ describe("AppHost verified hunks", () => {
     // the verified one, which the status line then names, and ! unmarks it.
     await pressKeys(setup, "[");
     expect(setup.captureCharFrame()).toContain("selected hunk verified");
+    expect(railColorOfLine(setup, "first change")).toBe(
+      resolveTheme("github-dark-default", null).verifiedRailColor.toLowerCase(),
+    );
+    expect(railColorOfLine(setup, "second change")).not.toBe(
+      railColorOfLine(setup, "first change"),
+    );
 
     await pressKeys(setup, "!");
 

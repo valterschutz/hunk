@@ -33,6 +33,8 @@ export interface AppTheme {
   removedRailColor: string;
   /** Rail marker beside context lines and hunk headers of the active hunk. */
   contextRailColor: string;
+  /** Rail marker beside every row of a hunk the reviewer marked verified, when those are shown. */
+  verifiedRailColor: string;
   selectedHunk: string;
   badgeAdded: string;
   badgeRemoved: string;

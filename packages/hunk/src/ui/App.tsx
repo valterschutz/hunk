@@ -239,6 +239,19 @@ export function App({
     [experimentalFiles, showVerifiedHunks, verifiedHunks],
   );
   const reviewFiles = verifiedHunksProjection.files;
+  // While verified hunks are shown, the rail marks them so the reviewer can tell them apart.
+  const verifiedHunkIndicesByFileId = useMemo(() => {
+    if (!showVerifiedHunks || verifiedHunks.size === 0) return undefined;
+    const byFileId = new Map<string, ReadonlySet<number>>();
+    for (const [fileId, identities] of verifiedHunksProjection.hunkIdentitiesByFileId) {
+      const indices = new Set<number>();
+      identities.forEach((identity, index) => {
+        if (verifiedHunks.has(identity)) indices.add(index);
+      });
+      if (indices.size > 0) byFileId.set(fileId, indices);
+    }
+    return byFileId;
+  }, [showVerifiedHunks, verifiedHunks, verifiedHunksProjection]);
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
   const noteGeometryRef = useRef<AgentNoteGeometrySnapshot | null>(null);
@@ -1753,6 +1766,7 @@ export function App({
             scrollRef={diffScrollRef}
             selectedFileId={selectedFile?.id}
             selectedHunkIndex={selectedHunkIndex}
+            verifiedHunkIndicesByFileId={verifiedHunkIndicesByFileId}
             activeNoteId={activeNoteId}
             noteActionKeyLabels={noteActionKeyLabels}
             scrollToNote={review.scrollToNote}

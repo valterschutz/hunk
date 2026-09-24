@@ -4,11 +4,16 @@ import { THEMES, TRANSPARENT_BACKGROUND, withTransparentSurfaces } from "../them
 import type { DiffRow } from "./diffRowModel";
 import {
   cursorLineHighlightBg,
+  dimRailColor,
   lineHighlightToneStyle,
+  metaRailColor,
   splitCellPalette,
+  splitLeftRailColor,
+  splitRightRailColor,
   unfocusedHunkRow,
   unfocusedHunkTheme,
   unifiedCellPalette,
+  unifiedRailColor,
 } from "./rowStyle";
 
 const DARK = THEMES.find((theme) => theme.id === "github-dark-dimmed")!;
@@ -314,5 +319,29 @@ describe("unfocusedHunkRow", () => {
     };
 
     expect(unfocusedHunkRow(header, theme)).toBe(header);
+  });
+});
+
+describe("verified hunk rails", () => {
+  test("paint every row of a verified hunk in the verified color, dimmed outside the selection", () => {
+    for (const theme of THEMES) {
+      const verified = theme.verifiedRailColor;
+      expect(unifiedRailColor("addition", theme, true, true)).toBe(verified);
+      expect(unifiedRailColor("deletion", theme, true, true)).toBe(verified);
+      expect(unifiedRailColor("context", theme, true, true)).toBe(verified);
+      expect(splitLeftRailColor("deletion", theme, true, true)).toBe(verified);
+      expect(splitRightRailColor("context", theme, true, true)).toBe(verified);
+      expect(metaRailColor(theme, true, true)).toBe(verified);
+
+      const dimmed = dimRailColor(verified, theme);
+      expect(unifiedRailColor("addition", theme, false, true)).toBe(dimmed);
+      expect(metaRailColor(theme, false, true)).toBe(dimmed);
+    }
+  });
+
+  test("leave unverified hunks on their own rail colors", () => {
+    expect(unifiedRailColor("addition", DARK, true)).toBe(DARK.addedRailColor);
+    expect(unifiedRailColor("deletion", DARK, true, false)).toBe(DARK.removedRailColor);
+    expect(metaRailColor(DARK, true)).toBe(DARK.contextRailColor);
   });
 });

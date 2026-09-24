@@ -411,6 +411,7 @@ describe("themes", () => {
     expect(mocha.addedRailColor).toBe(mocha.addedSignColor);
     expect(mocha.removedRailColor).toBe(mocha.removedSignColor);
     expect(mocha.contextRailColor).toBe(mocha.lineNumberFg);
+    expect(mocha.verifiedRailColor).toBe(mocha.addedSignColor);
 
     const railOnly = resolveTheme(
       "custom",
@@ -425,6 +426,16 @@ describe("themes", () => {
     expect(railOnly.addedRailColor).toBe("#cba6f7");
     expect(railOnly.removedRailColor).toBe("#cba6f7");
     expect(railOnly.contextRailColor).toBe("#cba6f7");
+    // The verified rail follows the added rail until it is given its own color.
+    expect(railOnly.verifiedRailColor).toBe("#cba6f7");
+
+    const verifiedOnly = resolveTheme(
+      "custom",
+      null,
+      createTestCustomThemes({ base: "catppuccin-mocha", verifiedRailColor: "#a6e3a1" }),
+    );
+    expect(verifiedOnly.verifiedRailColor).toBe("#a6e3a1");
+    expect(verifiedOnly.addedRailColor).toBe(mocha.addedRailColor);
     expect(railOnly.addedSignColor).toBe(mocha.addedSignColor);
     expect(railOnly.removedSignColor).toBe(mocha.removedSignColor);
     expect(railOnly.lineNumberFg).toBe(mocha.lineNumberFg);

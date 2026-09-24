@@ -166,6 +166,7 @@ Review and shared commands:
 | `hunk.view.toggleAgentNotes`                   | Toggle agent notes                                           | `a`                          |
 | `hunk.view.toggleCopyDecorations`              | Toggle copy decorations                                      | _(none)_                     |
 | `hunk.view.toggleDecidedHunks`                 | Show every hunk state, or only undecided hunks               | `V`                          |
+| `hunk.view.toggleAllHunkStates`                | Show every hunk state, or hide them all                      | _(none)_                     |
 | `hunk.view.toggleUndecidedHunks`               | Show or hide undecided hunks                                 | _(none)_                     |
 | `hunk.view.toggleAcceptedHunks`                | Show or hide accepted hunks                                  | _(none)_                     |
 | `hunk.view.toggleRejectedHunks`                | Show or hide rejected hunks                                  | _(none)_                     |

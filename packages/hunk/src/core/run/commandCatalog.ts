@@ -566,6 +566,16 @@ const BUILTIN_COMMANDS = [
     closesMenu: true,
   },
   {
+    id: "hunk.view.toggleAllHunkStates",
+    title: "Show every hunk state, or hide them all",
+    category: "view",
+    // Ships unbound: pair it with the per-state toggles to clear the filter and pick one state.
+    defaultKeys: [],
+    locus: "client-local",
+    publicToExtensions: true,
+    closesMenu: false,
+  },
+  {
     id: "hunk.view.toggleUndecidedHunks",
     title: "Show or hide undecided hunks",
     category: "view",

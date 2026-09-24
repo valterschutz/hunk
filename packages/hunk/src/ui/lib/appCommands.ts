@@ -163,6 +163,7 @@ export interface BuildAppCommandsOptions {
   rejectSelectedHunk: () => void;
   markSelectedHunkFixed: () => void;
   toggleDecidedHunks: () => void;
+  toggleAllHunkStates: () => void;
   toggleHunkState: (state: HunkState) => void;
 }
 
@@ -291,6 +292,7 @@ function builtinCommandHandlers(
     "hunk.review.rejectSelectedHunk": { run: () => options.rejectSelectedHunk() },
     "hunk.review.markSelectedHunkFixed": { run: () => options.markSelectedHunkFixed() },
     "hunk.view.toggleDecidedHunks": { run: () => options.toggleDecidedHunks() },
+    "hunk.view.toggleAllHunkStates": { run: () => options.toggleAllHunkStates() },
     "hunk.view.toggleUndecidedHunks": { run: () => options.toggleHunkState("undecided") },
     "hunk.view.toggleAcceptedHunks": { run: () => options.toggleHunkState("accepted") },
     "hunk.view.toggleRejectedHunks": { run: () => options.toggleHunkState("rejected") },
@@ -410,6 +412,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
+    toggleAllHunkStates: noop,
     toggleHunkState: noop,
   };
 })();

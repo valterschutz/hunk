@@ -660,6 +660,8 @@ export interface CustomThemeConfig {
   rejectedRailColor?: string;
   /** Rail marker beside every row of an fixed hunk; defaults to contextRailColor. */
   fixedRailColor?: string;
+  /** Fixed color the current line lifts toward; unset keeps the computed white/black tint. */
+  cursorLineBg?: string;
   selectedHunk?: string;
   badgeAdded?: string;
   badgeRemoved?: string;

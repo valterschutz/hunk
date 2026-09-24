@@ -466,6 +466,28 @@ describe("themes", () => {
     expect(legacy.contextRailColor).toBe("#123456");
   });
 
+  test("leaves cursorLineBg unset on bundled themes and lets a custom theme name it", () => {
+    const mocha = resolveTheme("catppuccin-mocha", null);
+    expect(mocha.cursorLineBg).toBeUndefined();
+
+    const withSurface = resolveTheme(
+      "custom",
+      null,
+      createTestCustomThemes({
+        base: "catppuccin-mocha",
+        cursorLineBg: "#313244",
+      }),
+    );
+    expect(withSurface.cursorLineBg).toBe("#313244");
+
+    const withoutOverride = resolveTheme(
+      "custom",
+      null,
+      createTestCustomThemes({ base: "catppuccin-mocha" }),
+    );
+    expect(withoutOverride.cursorLineBg).toBeUndefined();
+  });
+
   test("lists custom themes after the bundled themes in declaration order", () => {
     const customThemes = [
       { id: "custom", base: "nord" },

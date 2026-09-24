@@ -329,6 +329,7 @@ export function DiffPane({
   scrollRef,
   selectedFileId,
   selectedHunkIndex,
+  verifiedHunkIndicesByFileId,
   activeNoteId,
   noteActionKeyLabels,
   cursorLine = "off",
@@ -409,6 +410,8 @@ export function DiffPane({
   scrollRef: RefObject<ScrollBoxRenderable | null>;
   selectedFileId?: string;
   selectedHunkIndex: number;
+  /** Verified hunk indices by file id, present only while verified hunks are shown. */
+  verifiedHunkIndicesByFileId?: ReadonlyMap<string, ReadonlySet<number>>;
   activeNoteId?: string;
   noteActionKeyLabels?: { delete: string; edit: string; reply: string };
   cursorLine?: CursorLine;
@@ -2611,6 +2614,7 @@ export function DiffPane({
                         headerStatsWidth={headerStatsWidth}
                         layout={layout}
                         selectedHunkIndex={file.id === selectedFileId ? selectedHunkIndex : -1}
+                        verifiedHunkIndices={verifiedHunkIndicesByFileId?.get(file.id)}
                         copySelectedRowRanges={copySelectedRowKeysByFile.get(file.id)}
                         copySelectedSide={copySelectionSide}
                         cursorHighlight={

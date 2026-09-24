@@ -25,6 +25,8 @@ export interface DiffRowViewProps {
   codeHorizontalOffset: number;
   theme: AppTheme;
   selected: boolean;
+  /** The row belongs to a hunk the reviewer marked verified. */
+  verified?: boolean;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -58,6 +60,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
   codeHorizontalOffset,
   theme,
   selected,
+  verified = false,
   copySelectedRowRange,
   copySelectedSide,
   cursorHighlight,
@@ -74,6 +77,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
         width={width}
         theme={theme}
         selected={selected || copySelectedRowRange !== undefined}
+        verified={verified}
         showHunkHeaders={showHunkHeaders}
         showAddNoteBadge={showAddNoteBadge}
         onHoverRow={onHoverRow}
@@ -94,6 +98,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
         codeHorizontalOffset={codeHorizontalOffset}
         theme={theme}
         selected={selected}
+        verified={verified}
         copySelectedRowRange={copySelectedRowRange}
         copySelectedSide={copySelectedSide}
         cursorHighlight={cursorHighlight}

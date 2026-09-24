@@ -33,6 +33,8 @@ export interface CodeRowViewProps {
   codeHorizontalOffset: number;
   theme: AppTheme;
   selected: boolean;
+  /** The row belongs to a hunk the reviewer marked verified. */
+  verified?: boolean;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -118,6 +120,7 @@ export function CodeRowView({
   codeHorizontalOffset,
   theme,
   selected,
+  verified = false,
   copySelectedRowRange,
   copySelectedSide,
   cursorHighlight,
@@ -214,12 +217,12 @@ export function CodeRowView({
     const addBadgeWidth = splitLayout.addNoteBadgeWidth;
     const leftPrefix = {
       text: diffRailMarker(),
-      fg: splitLeftRailColor(row.left.kind, theme, selected),
+      fg: splitLeftRailColor(row.left.kind, theme, selected, verified),
       bg: theme.panel,
     };
     const rightPrefix = {
       text: "▌",
-      fg: splitRightRailColor(row.right.kind, theme, selected),
+      fg: splitRightRailColor(row.right.kind, theme, selected, verified),
       bg: theme.panel,
     };
 
@@ -341,7 +344,7 @@ export function CodeRowView({
   const addBadgeWidth = unifiedLayout.addNoteBadgeWidth;
   const prefix = {
     text: diffRailMarker(),
-    fg: unifiedRailColor(row.cell.kind, theme, selected),
+    fg: unifiedRailColor(row.cell.kind, theme, selected, verified),
     bg: theme.panel,
   };
 

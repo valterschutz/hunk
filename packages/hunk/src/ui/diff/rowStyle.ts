@@ -78,6 +78,20 @@ export function dimRailColor(color: string, theme: AppTheme) {
   return blendHex(color, theme.panel, INACTIVE_RAIL_BLEND);
 }
 
+/**
+ * Finish one rail color: a verified hunk paints every row in the verified color so the mark
+ * reads along the whole hunk, and any hunk outside the selection recedes.
+ */
+function finishRailColor(color: string, theme: AppTheme, selected: boolean, verified: boolean) {
+  const resolved = verified ? theme.verifiedRailColor : color;
+  return selected ? resolved : dimRailColor(resolved, theme);
+}
+
+/** Pick the rail color for a hunk header or collapsed-gap row. */
+export function metaRailColor(theme: AppTheme, selected: boolean, verified = false) {
+  return finishRailColor(neutralRailColor(theme), theme, selected, verified);
+}
+
 // An unfocused hunk recedes instead of disappearing: every color it paints contracts toward the
 // surface by a fixed fraction, backgrounds harder than text. Contracting both ends together keeps
 // the row's own relationships — word-diff emphasis against its line, code against its background —
@@ -252,6 +266,7 @@ export function unifiedRailColor(
   kind: UnifiedLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
+  verified = false,
 ) {
   let color: string;
 
@@ -263,7 +278,7 @@ export function unifiedRailColor(
     color = neutralRailColor(theme);
   }
 
-  return selected ? color : dimRailColor(color, theme);
+  return finishRailColor(color, theme, selected, verified);
 }
 
 /** Pick the left split-view rail color from the old-side cell state. */
@@ -271,9 +286,10 @@ export function splitLeftRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
+  verified = false,
 ) {
   const color = kind === "deletion" ? theme.removedRailColor : neutralRailColor(theme);
-  return selected ? color : dimRailColor(color, theme);
+  return finishRailColor(color, theme, selected, verified);
 }
 
 /** Pick the right split-view rail color from the new-side cell state. */
@@ -281,9 +297,10 @@ export function splitRightRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
+  verified = false,
 ) {
   const color = kind === "addition" ? theme.addedRailColor : neutralRailColor(theme);
-  return selected ? color : dimRailColor(color, theme);
+  return finishRailColor(color, theme, selected, verified);
 }
 
 /** Pick split-view colors from the semantic diff cell kind. */

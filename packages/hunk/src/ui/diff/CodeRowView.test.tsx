@@ -433,3 +433,56 @@ test("CodeRowView overlays the nowrap add-note badge instead of shifting the not
     });
   }
 });
+
+test("CodeRowView paints the rail of a verified hunk in the verified color", async () => {
+  const theme = resolveTheme("catppuccin-mocha", null);
+  const plannedRow: PlannedCodeReviewRow = {
+    kind: "diff-row",
+    key: "diff-row:verified",
+    stableKey: "line:0:new:1",
+    fileId: "paint",
+    hunkIndex: 0,
+    row: {
+      type: "unified-line",
+      key: "verified",
+      fileId: "paint",
+      hunkIndex: 0,
+      cell: {
+        kind: "deletion",
+        sign: "-",
+        lineNumber: 1,
+        spans: [{ text: "verified" }],
+      },
+    },
+  };
+  const setup = await testRender(
+    <CodeRowView
+      plannedRow={plannedRow}
+      width={16}
+      lineNumberDigits={1}
+      showLineNumbers={false}
+      wrapLines={false}
+      codeHorizontalOffset={0}
+      theme={theme}
+      selected={true}
+      verified={true}
+    />,
+    { width: 16, height: 1 },
+  );
+
+  try {
+    await act(async () => {
+      await setup.renderOnce();
+    });
+    const spans = setup.captureSpans();
+
+    expect(foregroundForText(spans, "▌")).toBe(theme.verifiedRailColor.toLowerCase());
+    expect(foregroundForText(spans, "▌")).not.toBe(
+      unifiedRailColor("deletion", theme, true).toLowerCase(),
+    );
+  } finally {
+    await act(async () => {
+      setup.renderer.destroy();
+    });
+  }
+});

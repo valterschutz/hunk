@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { contrastRatio, hexColorDistance } from "../lib/color";
 import { THEMES, TRANSPARENT_BACKGROUND, withTransparentSurfaces } from "../themes";
-import { cursorLineHighlightBg, lineHighlightToneStyle, unifiedCellPalette } from "./rowStyle";
+import type { DiffRow } from "./diffRowModel";
+import {
+  cursorLineHighlightBg,
+  lineHighlightToneStyle,
+  splitCellPalette,
+  unfocusedHunkRow,
+  unfocusedHunkTheme,
+  unifiedCellPalette,
+} from "./rowStyle";
 
 const DARK = THEMES.find((theme) => theme.id === "github-dark-dimmed")!;
 const LIGHT = THEMES.find((theme) => theme.id === "github-light-default")!;
@@ -164,5 +172,147 @@ describe("lineHighlightToneStyle", () => {
         hexColorDistance(syntaxFg, assumedBg),
       );
     }
+  });
+});
+
+/** Return the color an unfocused row's colors contract toward, as the module resolves it. */
+function surfaceOf(theme: (typeof THEMES)[number]) {
+  return theme.background === TRANSPARENT_BACKGROUND
+    ? theme.appearance === "dark"
+      ? "#000000"
+      : "#ffffff"
+    : theme.background;
+}
+
+describe("unfocusedHunkTheme", () => {
+  test("moves every diff surface toward the theme's own background", () => {
+    for (const theme of THEMES) {
+      const unfocused = unfocusedHunkTheme(theme);
+      const surface = surfaceOf(theme);
+
+      for (const key of [
+        "addedBg",
+        "removedBg",
+        "contextBg",
+        "lineNumberBg",
+        "panelAlt",
+      ] as const) {
+        expect(hexColorDistance(unfocused[key], surface)).toBeLessThan(
+          hexColorDistance(theme[key], surface) + 1,
+        );
+      }
+
+      // The tints carry the hunk's loudest signal, so they have to actually recede.
+      expect(hexColorDistance(unfocused.addedBg, surface)).toBeLessThan(
+        hexColorDistance(theme.addedBg, surface),
+      );
+      expect(hexColorDistance(unfocused.removedBg, surface)).toBeLessThan(
+        hexColorDistance(theme.removedBg, surface),
+      );
+    }
+  });
+
+  test("keeps signs, line numbers, and headers readable where they land", () => {
+    for (const theme of THEMES) {
+      const unfocused = unfocusedHunkTheme(theme);
+
+      expect(contrastRatio(unfocused.addedSignColor, unfocused.addedBg)).toBeGreaterThanOrEqual(2);
+      expect(contrastRatio(unfocused.removedSignColor, unfocused.removedBg)).toBeGreaterThanOrEqual(
+        2,
+      );
+      expect(contrastRatio(unfocused.lineNumberFg, unfocused.lineNumberBg)).toBeGreaterThanOrEqual(
+        2,
+      );
+      expect(contrastRatio(unfocused.badgeNeutral, unfocused.panelAlt)).toBeGreaterThanOrEqual(2);
+      expect(
+        contrastRatio(unfocused.syntaxColors.default, unfocused.contextBg),
+      ).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test("fades the sign and syntax colors it can fade", () => {
+    for (const theme of THEMES) {
+      const unfocused = unfocusedHunkTheme(theme);
+
+      expect(unfocused.addedSignColor).not.toBe(theme.addedSignColor);
+      expect(unfocused.removedSignColor).not.toBe(theme.removedSignColor);
+      expect(unfocused.syntaxColors.default).not.toBe(theme.syntaxColors.default);
+    }
+  });
+
+  test("leaves a transparent surface showing the terminal's own background", () => {
+    for (const base of THEMES) {
+      const theme = withTransparentSurfaces(base);
+      const unfocused = unfocusedHunkTheme(theme);
+
+      expect(unfocused.contextBg).toBe(TRANSPARENT_BACKGROUND);
+      expect(unfocused.lineNumberBg).toBe(TRANSPARENT_BACKGROUND);
+      expect(unfocused.panelAlt).toBe(TRANSPARENT_BACKGROUND);
+      expect(contrastRatio(unfocused.syntaxColors.default, "#000000")).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test("derives one stable theme per source theme", () => {
+    const theme = THEMES[0]!;
+    expect(unfocusedHunkTheme(theme)).toBe(unfocusedHunkTheme(theme));
+  });
+});
+
+describe("unfocusedHunkRow", () => {
+  const theme = THEMES.find((candidate) => candidate.id === "github-dark-default")!;
+  const emphasisBg = "#1b4721";
+
+  const splitRow: DiffRow = {
+    type: "split-line",
+    key: "row",
+    fileId: "file",
+    hunkIndex: 1,
+    left: { kind: "empty", sign: " ", spans: [] },
+    right: {
+      kind: "addition",
+      sign: "+",
+      lineNumber: 4,
+      spans: [
+        { text: "const " },
+        { text: "value", fg: "#79c0ff", bg: emphasisBg },
+        { text: " = 1;", fg: "#ff7b72" },
+      ],
+    },
+  };
+
+  test("fades word-diff emphasis and syntax color without touching the text", () => {
+    const faded = unfocusedHunkRow(splitRow, theme) as Extract<DiffRow, { type: "split-line" }>;
+    const surface = surfaceOf(theme);
+    const [plain, emphasized, trailing] = faded.right.spans;
+
+    expect(faded.right.spans.map((span) => span.text)).toEqual(["const ", "value", " = 1;"]);
+    // An uncolored span keeps inheriting the theme's syntax default, which fades with the theme.
+    expect(plain!.fg).toBeUndefined();
+    expect(plain!.bg).toBeUndefined();
+    expect(hexColorDistance(emphasized!.bg!, surface)).toBeLessThan(
+      hexColorDistance(emphasisBg, surface),
+    );
+    expect(hexColorDistance(emphasized!.fg!, surface)).toBeLessThan(
+      hexColorDistance("#79c0ff", surface),
+    );
+    expect(contrastRatio(emphasized!.fg!, emphasized!.bg!)).toBeGreaterThanOrEqual(2);
+    expect(
+      contrastRatio(
+        trailing!.fg!,
+        splitCellPalette("addition", unfocusedHunkTheme(theme)).contentBg,
+      ),
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  test("leaves rows that carry no spans alone", () => {
+    const header: DiffRow = {
+      type: "hunk-header",
+      key: "header",
+      fileId: "file",
+      hunkIndex: 1,
+      text: "@@ -1 +1 @@",
+    };
+
+    expect(unfocusedHunkRow(header, theme)).toBe(header);
   });
 });

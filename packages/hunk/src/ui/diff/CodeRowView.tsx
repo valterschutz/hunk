@@ -18,6 +18,8 @@ import {
   selectionHighlightBg,
   splitLeftRailColor,
   splitRightRailColor,
+  unfocusedHunkRow,
+  unfocusedHunkTheme,
   unifiedRailColor,
 } from "./rowStyle";
 import { markNestedRowMouseAction } from "./rowMouseActions";
@@ -124,11 +126,16 @@ export function CodeRowView({
   onHoverRow,
   onStartUserNoteAtHunk,
 }: CodeRowViewProps) {
+  // Rows outside the focused hunk paint with faded colors so the focused hunk reads as the
+  // foreground layer. Fading runs before extension marks, which then resolve against the
+  // backgrounds actually painted and keep their full strength on top of them.
+  const rowTheme = selected ? theme : unfocusedHunkTheme(theme);
+  const focusAdjustedRow = selected ? plannedRow.row : unfocusedHunkRow(plannedRow.row, theme);
   // Extension marks repaint span backgrounds only; geometry inputs keep using the source row.
   const row = codeCellView.applyLineHighlights(
-    plannedRow.row,
+    focusAdjustedRow,
     lineHighlights,
-    theme,
+    rowTheme,
   ) as CodeDiffRow;
   const { anchorId } = plannedRow;
   const handleMouseMove = () => onHoverRow?.(row.key);
@@ -235,7 +242,7 @@ export function CodeRowView({
               layout: splitLayout,
               lineNumberDigits,
               showLineNumbers,
-              theme,
+              theme: rowTheme,
               horizontalOffset: codeHorizontalOffset,
               leftPrefix,
               rightPrefix,
@@ -264,7 +271,7 @@ export function CodeRowView({
       layout: splitLayout,
       lineNumberDigits,
       showLineNumbers,
-      theme,
+      theme: rowTheme,
       leftPrefix,
       rightPrefix,
       leftHighlight,
@@ -357,7 +364,7 @@ export function CodeRowView({
             layout: unifiedLayout,
             lineNumberDigits,
             showLineNumbers,
-            theme,
+            theme: rowTheme,
             horizontalOffset: codeHorizontalOffset,
             prefix,
             highlight: cellHighlight,
@@ -384,7 +391,7 @@ export function CodeRowView({
     layout: unifiedLayout,
     lineNumberDigits,
     showLineNumbers,
-    theme,
+    theme: rowTheme,
     prefix,
     highlight: cellHighlight,
     guideOnNewSide: false,

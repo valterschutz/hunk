@@ -265,6 +265,23 @@ describe("AppHost hunk decisions", () => {
     expect(hunkRecords(reviewFile)).toEqual([]);
   });
 
+  test("the file checkmark updates as soon as its final hunk is accepted", async () => {
+    const reviewFile = createReviewFile();
+    setup = await testRender(
+      <AppHost bootstrap={createBootstrap(reviewFile, { shownHunks: [...HUNK_STATES] })} />,
+      WIDE,
+    );
+    await flush(setup);
+
+    await pressKeys(setup, "+]+");
+
+    const sampleRow = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes("sample.ts"));
+    expect(sampleRow).toContain("✓ M sample.ts");
+  });
+
   test("deciding every hunk derives the commit status, and = moves a rejection to fixed", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(<AppHost bootstrap={createBootstrap(reviewFile)} />, WIDE);

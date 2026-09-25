@@ -1,76 +1,61 @@
 import type { FileDiffMetadata } from "@pierre/diffs";
 import { formatHunkHeader } from "./hunkHeader";
-import type { DiffHunk, DiffHunkBlock } from "./hunkLayout";
+import type { DiffHunk } from "./hunkLayout";
 
-const NO_NEWLINE_MARKER = "\\ No newline at end of file";
+const NO_FINAL_NEWLINE_MARKER = "\\ No newline at end of file\n";
 
-/** Remove the line ending Pierre retains on every parsed source line. */
-function lineText(line: string | undefined) {
-  if (line === undefined) {
-    throw new Error("Cannot render a patch hunk whose source line is missing");
-  }
-  return line.replace(/\r?\n$/, "");
+/** Render one parsed source line as a unified-patch row. */
+function patchLine(prefix: " " | "+" | "-", line: string) {
+  return line.endsWith("\n") ? `${prefix}${line}` : `${prefix}${line}\n${NO_FINAL_NEWLINE_MARKER}`;
 }
 
-/** Render one unchanged block from the addition-side source shared by both sides. */
-function renderContextBlock(
-  metadata: FileDiffMetadata,
-  hunk: DiffHunk,
-  block: Extract<DiffHunkBlock, { type: "context" }>,
-  isLastBlock: boolean,
-) {
-  const lines = Array.from(
-    { length: block.lines },
-    (_, offset) => ` ${lineText(metadata.additionLines[block.additionLineIndex + offset])}`,
-  );
-  if (isLastBlock && (hunk.noEOFCRAdditions || hunk.noEOFCRDeletions)) {
-    lines.push(NO_NEWLINE_MARKER);
+/** Read a bounded run of parsed lines or fail when hunk metadata is inconsistent. */
+function sourceLines(lines: readonly string[], start: number, count: number, label: string) {
+  const selected = lines.slice(start, start + count);
+  if (selected.length !== count) {
+    throw new Error(`The hunk references ${label} lines outside the parsed patch.`);
   }
-  return lines;
+  return selected;
 }
 
-/** Render one changed block in unified-diff order: deletions, then additions. */
-function renderChangeBlock(
-  metadata: FileDiffMetadata,
-  hunk: DiffHunk,
-  block: Extract<DiffHunkBlock, { type: "change" }>,
-  isLastBlock: boolean,
-) {
-  const lines: string[] = [];
-  for (let offset = 0; offset < block.deletions; offset += 1) {
-    lines.push(`-${lineText(metadata.deletionLines[block.deletionLineIndex + offset])}`);
-    if (isLastBlock && offset === block.deletions - 1 && hunk.noEOFCRDeletions) {
-      lines.push(NO_NEWLINE_MARKER);
+/** Render one parsed hunk as applicable unified-patch text. */
+export function renderMetadataHunk(metadata: FileDiffMetadata, hunk: DiffHunk) {
+  const rows: string[] = [`${formatHunkHeader(hunk)}\n`];
+
+  for (const block of hunk.hunkContent) {
+    if (block.type === "context") {
+      rows.push(
+        ...sourceLines(metadata.additionLines, block.additionLineIndex, block.lines, "context").map(
+          (line) => patchLine(" ", line),
+        ),
+      );
+      continue;
     }
+
+    rows.push(
+      ...sourceLines(
+        metadata.deletionLines,
+        block.deletionLineIndex,
+        block.deletions,
+        "deleted",
+      ).map((line) => patchLine("-", line)),
+      ...sourceLines(metadata.additionLines, block.additionLineIndex, block.additions, "added").map(
+        (line) => patchLine("+", line),
+      ),
+    );
   }
-  for (let offset = 0; offset < block.additions; offset += 1) {
-    lines.push(`+${lineText(metadata.additionLines[block.additionLineIndex + offset])}`);
-    if (isLastBlock && offset === block.additions - 1 && hunk.noEOFCRAdditions) {
-      lines.push(NO_NEWLINE_MARKER);
-    }
-  }
-  return lines;
+
+  return rows.join("");
 }
 
 /** Render the parsed hunks while preserving the producer's file-level patch headers. */
 export function patchWithMetadataHunks(patch: string, metadata: FileDiffMetadata) {
-  const patchLines = patch.split("\n");
-  const firstHunkIndex = patchLines.findIndex((line) => line.startsWith("@@ "));
+  const firstHunkIndex = patch.search(/^@@ /m);
   if (firstHunkIndex < 0) {
     return patch;
   }
 
-  const lines = patchLines.slice(0, firstHunkIndex);
-  for (const hunk of metadata.hunks) {
-    lines.push(formatHunkHeader(hunk));
-    hunk.hunkContent.forEach((block, index) => {
-      const isLastBlock = index === hunk.hunkContent.length - 1;
-      lines.push(
-        ...(block.type === "context"
-          ? renderContextBlock(metadata, hunk, block, isLastBlock)
-          : renderChangeBlock(metadata, hunk, block, isLastBlock)),
-      );
-    });
-  }
-  return `${lines.join("\n")}\n`;
+  return `${patch.slice(0, firstHunkIndex)}${metadata.hunks
+    .map((hunk) => renderMetadataHunk(metadata, hunk))
+    .join("")}`;
 }

@@ -44,7 +44,7 @@ describe("buildHelpSections", () => {
       "Review",
     ]);
     expect(keysFor(sections, "previous / next hunk in file")).toBe("[ / ]");
-    expect(keysFor(sections, "half page down / up")).toBe("d / u");
+    expect(keysFor(sections, "half page down / up")).toBe("Ctrl+D / u");
     expect(keysFor(sections, "move through lines and notes")).toBe("Up / Down");
     expect(keysFor(sections, "unified / split / auto")).toBe("1 / 2 / 0");
     expect(keysFor(sections, "lines / wrap / metadata / menu")).toBe("l / w / m / M");
@@ -106,12 +106,18 @@ describe("buildHelpSections", () => {
   });
 
   test("a disabled command is documented only while it can run", () => {
-    const enabled = builtinCommandMatchProbes();
+    const defaults = builtinCommandMatchProbes();
+    const enabled: AppCommand[] = defaults.map((command) =>
+      command.id === "hunk.review.discardSelectedHunk"
+        ? { ...command, isEnabled: () => true }
+        : command,
+    );
     const disabled: AppCommand[] = enabled.map((command) =>
       command.id === "hunk.app.refresh" ? { ...command, isEnabled: () => false } : command,
     );
 
     expect(keysFor(buildHelpSections(enabled), "reload the review")).toBe("r");
+    expect(keysFor(buildHelpSections(enabled), "discard selected hunk")).toBe("d");
     expect(keysFor(buildHelpSections(disabled), "reload the review")).toBeUndefined();
   });
 });

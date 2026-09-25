@@ -21,7 +21,7 @@
  * Extensions can branch on `hunk.apiVersion` so a newer Hunk can keep loading
  * older extensions without guessing at their expectations.
  */
-export const HUNK_EXTENSION_API_VERSION = 29;
+export const HUNK_EXTENSION_API_VERSION = 30;
 export type HunkExtensionApiVersion = typeof HUNK_EXTENSION_API_VERSION;
 
 export type ExtensionNotifyType = "info" | "warning" | "error";
@@ -1141,6 +1141,13 @@ export interface ExtensionVcsWatchPlan {
 }
 
 /** One review operation an adapter implements. */
+export interface ExtensionVcsDiscardHunkRequest {
+  /** The current-changes review whose new-side state will be changed. */
+  input: ExtensionVcsDiffInput;
+  /** A one-file unified patch containing exactly the selected displayed hunk. */
+  patchText: string;
+}
+
 export interface ExtensionVcsOperation<Input> {
   load(input: Input, context: ExtensionVcsLoadContext): Promise<ExtensionVcsPatchResult>;
   /**
@@ -1163,8 +1170,22 @@ export interface ExtensionVcsOperation<Input> {
  * Every entry is optional: an operation an adapter leaves out produces a clear
  * "not supported" error for that command instead of a crash.
  */
+export interface ExtensionVcsWorkingTreeOperation extends ExtensionVcsOperation<ExtensionVcsDiffInput> {
+  /**
+   * Remove one selected hunk from the reviewed destination.
+   *
+   * For an unstaged review this reverts the working tree. For a staged review this removes the
+   * hunk from the index while leaving the working tree intact. Providers should refuse stale
+   * patches rather than applying them with fuzz.
+   */
+  discardHunk?(
+    request: ExtensionVcsDiscardHunkRequest,
+    context: ExtensionVcsLoadContext,
+  ): Promise<void>;
+}
+
 export interface ExtensionVcsOperations {
-  "working-tree-diff"?: ExtensionVcsOperation<ExtensionVcsDiffInput>;
+  "working-tree-diff"?: ExtensionVcsWorkingTreeOperation;
   "revision-show"?: ExtensionVcsOperation<ExtensionVcsShowInput>;
   "stash-show"?: ExtensionVcsOperation<ExtensionVcsStashShowInput>;
 }

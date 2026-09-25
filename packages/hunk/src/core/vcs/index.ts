@@ -9,7 +9,7 @@ import type {
   ExtensionVcsHistoryReviewAction,
   ExtensionVcsHistoryReviewOptions,
 } from "../../extension-api/types";
-import type { CliInput } from "../run/commandInputs";
+import type { CliInput, VcsDiffCommandInput } from "../run/commandInputs";
 import type {
   VcsAdapter,
   VcsCatalog,
@@ -145,6 +145,31 @@ export function getVcsOperation(
   operation: VcsReviewOperation,
 ): VcsOperation<VcsReviewInput> | undefined {
   return adapter.operations?.[operation.kind] as VcsOperation<VcsReviewInput> | undefined;
+}
+
+/** Return whether the selected provider can discard hunks from this current-changes review. */
+export function canDiscardVcsHunk(input: VcsDiffCommandInput, catalog: VcsCatalog) {
+  if (input.range !== undefined || input.rangeEndpoints !== undefined) return false;
+  const adapter = getConfiguredVcsAdapter(input.options.vcs, catalog);
+  return typeof adapter.operations["working-tree-diff"]?.discardHunk === "function";
+}
+
+/** Ask the selected provider to reverse one hunk in the reviewed working-tree destination. */
+export async function discardVcsHunk(
+  input: VcsDiffCommandInput,
+  patchText: string,
+  context: VcsLoadContext,
+  catalog: VcsCatalog,
+): Promise<void> {
+  const operation = getConfiguredVcsAdapter(input.options.vcs, catalog).operations[
+    "working-tree-diff"
+  ];
+  if (!canDiscardVcsHunk(input, catalog) || !operation?.discardHunk) {
+    throw new HunkUserError("This review cannot discard hunks.", [
+      "Open current staged or unstaged changes with a VCS backend that supports discarding.",
+    ]);
+  }
+  await operation.discardHunk({ input, patchText }, context);
 }
 
 /** Load a review through a provider-neutral adapter operation. */

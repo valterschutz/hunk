@@ -157,6 +157,7 @@ export function buildAppMenus({
         commandId: "hunk.review.editSelectedFileSplit",
         label: "Open file in editor (Herdr split pane)",
       },
+      { commandId: "hunk.review.discardSelectedHunk", label: "Discard selected hunk…" },
       { commandId: "hunk.review.acceptSelectedHunk", label: "Accept selected hunk" },
       { commandId: "hunk.review.rejectSelectedHunk", label: "Reject selected hunk" },
       { commandId: "hunk.review.markSelectedHunkFixed", label: "Mark selected hunk fixed" },

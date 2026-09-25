@@ -47,9 +47,11 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
   const options: BuildAppCommandsOptions = {
     canAlignCurrentLine: true,
     canApplyFilePresentationToAllMatching: false,
+    canDiscardSelectedHunk: true,
     canRefreshCurrentInput: true,
     alignCurrentLine: record("alignCurrentLine"),
     applyFilePresentationToAllMatching: record("applyFilePresentationToAllMatching"),
+    discardSelectedHunk: record("discardSelectedHunk"),
     focusFilter: record("focusFilter"),
     jumpLineCursorToFileEdge: record("jumpLineCursorToFileEdge"),
     moveSelection: record("moveSelection"),
@@ -106,7 +108,7 @@ describe("built-in command chords", () => {
     expect(press({ name: "j", sequence: "j" })).toBe("hunk.review.stepDown");
     expect(press({ name: "up" })).toBe("hunk.review.stepUp");
     expect(press({ name: "k", sequence: "k" })).toBe("hunk.review.stepUp");
-    expect(press({ name: "d", sequence: "d" })).toBe("hunk.review.halfPageDown");
+    expect(press({ name: "d", sequence: "d" })).toBe("hunk.review.discardSelectedHunk");
     expect(press({ name: "d", ctrl: true })).toBe("hunk.review.halfPageDown");
     expect(press({ name: "u", sequence: "u" })).toBe("hunk.review.halfPageUp");
     expect(press({ name: "u", ctrl: true })).toBe("hunk.review.halfPageUp");
@@ -121,7 +123,7 @@ describe("built-in command chords", () => {
       "stepDiffLine:1",
       "stepDiffLine:-1",
       "stepDiffLine:-1",
-      "scrollDiff:1,half",
+      "discardSelectedHunk",
       "scrollDiff:1,half",
       "scrollDiff:-1,half",
       "scrollDiff:-1,half",
@@ -293,8 +295,10 @@ describe("builtinCommandKeyDefaults", () => {
       "space",
       "f",
     ]);
+    expect(
+      defaults.find((entry) => entry.id === "hunk.review.discardSelectedHunk")?.defaultKeys,
+    ).toEqual(["d"]);
     expect(defaults.find((entry) => entry.id === "hunk.review.halfPageDown")?.defaultKeys).toEqual([
-      "d",
       "ctrl+d",
     ]);
     expect(defaults.find((entry) => entry.id === "hunk.review.halfPageUp")?.defaultKeys).toEqual([

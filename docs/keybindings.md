@@ -121,11 +121,12 @@ Review and shared commands:
 | `hunk.review.clearSelection`                   | Clear the active visual selection                            | _(none)_                     |
 | `hunk.review.copySelection`                    | Copy the active visual selection                             | `y`                          |
 | `hunk.review.deleteActiveNote`                 | Delete active review note                                    | `D`                          |
+| `hunk.review.discardSelectedHunk`              | Discard the selected current-change hunk                     | `d`                          |
 | `hunk.review.editActiveNote`                   | Edit active review note                                      | `E`                          |
 | `hunk.review.editSelectedFileSplit`            | Open the selected file in your editor, in a split Herdr pane | `ctrl+e`                     |
 | `hunk.review.editSelectedFile`                 | Open the selected file in your editor                        | `e`                          |
 | `hunk.review.focusFilter`                      | Focus the file filter                                        | _(none)_                     |
-| `hunk.review.halfPageDown`                     | Scroll down half a page                                      | `d`, `ctrl+d`                |
+| `hunk.review.halfPageDown`                     | Scroll down half a page                                      | `ctrl+d`                     |
 | `hunk.review.halfPageUp`                       | Scroll up half a page                                        | `u`, `ctrl+u`                |
 | `hunk.review.jumpToBottom`                     | Jump to end                                                  | `G`, `end`                   |
 | `hunk.review.jumpToTop`                        | Jump to start                                                | `g`, `home`                  |

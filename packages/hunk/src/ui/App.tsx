@@ -73,6 +73,7 @@ import {
 import { useAppKeyboardShortcuts } from "./hooks/useAppKeyboardShortcuts";
 import { useIntermediateRenderAfterMount } from "./hooks/useIntermediateRenderAfterMount";
 import { useCurrentReviewRefreshController } from "./hooks/useCurrentReviewRefreshController";
+import { useDiscardSelectedHunk } from "./hooks/useDiscardSelectedHunk";
 import { useExtensionCommandRunner } from "./hooks/useExtensionCommandRunner";
 import { useExtensionDialogController } from "./hooks/useExtensionDialogController";
 import { useExtensionEventContextProvider } from "./hooks/useExtensionEventContextProvider";
@@ -774,6 +775,10 @@ export function App({
     selectedIndex: extensionDialogSelectedIndex,
     updateInput: setExtensionDialogInputValue,
   } = useExtensionDialogController({ reviewGeneration: bootstrap });
+  const hunkDialogs = useMemo(
+    () => createQueuedExtensionDialogs("hunk", { showAttribution: false }),
+    [createQueuedExtensionDialogs],
+  );
 
   /** Report whether an extension id names Hunk's own bundled tier, which needs no attribution. */
   const isBundledExtension = useCallback(
@@ -1281,6 +1286,17 @@ export function App({
       watchRuntime,
     });
 
+  const { canDiscardSelectedHunk, discardSelectedHunk } = useDiscardSelectedHunk({
+    catalog: bootstrap.reloadContext.vcsCatalog,
+    cwd: bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd,
+    dialogs: hunkDialogs,
+    file: selectedFile,
+    hunk: review.selectedHunk,
+    input: bootstrap.input,
+    refresh: () => refreshCurrentInput({ reason: "manual" }),
+    showNotice: showSessionNotice,
+  });
+
   const {
     closeExtensionTrustPrompt,
     denyRepoExtensions,
@@ -1639,6 +1655,7 @@ export function App({
         canAlignCurrentLine: cursorLine !== "off" && review.lineCursor !== null,
         canApplyFilePresentationToAllMatching: selectedFileViewBulkTarget !== null,
         canDeleteActiveNote: activeRemovableNote !== undefined && review.draftNote === null,
+        canDiscardSelectedHunk,
         canEditActiveNote: activeEditableNoteId !== undefined && review.draftNote === null,
         canReplyToActiveNote: activeReplyableNoteId !== undefined && review.draftNote === null,
         canRefreshCurrentInput,
@@ -1656,6 +1673,7 @@ export function App({
             }
           });
         },
+        discardSelectedHunk,
         editActiveNote: () => {
           if (activeEditableNoteId) startUserNoteEdit(activeEditableNoteId);
         },

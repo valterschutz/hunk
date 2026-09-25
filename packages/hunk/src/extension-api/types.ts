@@ -631,6 +631,7 @@ export interface CustomThemeConfig {
   border?: string;
   accent?: string;
   accentMuted?: string;
+  copyAction?: string;
   text?: string;
   muted?: string;
   addedBg?: string;

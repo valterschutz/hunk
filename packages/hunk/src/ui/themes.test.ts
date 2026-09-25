@@ -393,6 +393,7 @@ describe("themes", () => {
         base: "catppuccin-mocha",
         label: "My Theme",
         text: "#ffffff",
+        copyAction: "#89b4fa",
         syntaxScopes: { "keyword.control": "#ff00ff" },
       }),
     );
@@ -401,6 +402,7 @@ describe("themes", () => {
     expect(custom.label).toBe("My Theme");
     expect(custom.background).toBe(resolveTheme("catppuccin-mocha", null).background);
     expect(custom.text).toBe("#ffffff");
+    expect(custom.copyAction).toBe("#89b4fa");
     expect(custom.syntaxTheme).toBe("catppuccin-mocha");
     expect(custom.syntaxScopeOverrides).toEqual({ "keyword.control": "#ff00ff" });
     expect(custom.syntaxColors).toBe(resolveTheme("catppuccin-mocha", null).syntaxColors);

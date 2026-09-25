@@ -1191,7 +1191,10 @@ export function useTerminalReview({
 
       const gapIds = reviewGapIds(selectReviewGapSource(snapshot, reviewFile));
       const expanded = selectExpandedGapIdsByFileKey(snapshot)[fileKey] ?? new Set<string>();
-      if (gapIds.length > 0 && gapIds.every((gapId) => expanded.has(gapId))) {
+      const allKnownGapsExpanded =
+        gapIds.length > 0 && gapIds.every((gapId) => expanded.has(gapId));
+      const sourceLoaded = snapshot.sourceStatusByFileKey[fileKey]?.kind === "loaded";
+      if (allKnownGapsExpanded && (!reviewFile.flags.partial || sourceLoaded)) {
         return;
       }
 
@@ -1289,6 +1292,11 @@ export function useTerminalReview({
   // Finish a whole-file request once its source arrives: the gaps the load made addressable
   // open now. A failed load drops the request rather than retrying it.
   useEffect(() => {
+    // Replacement files render before the external store publishes its reconciliation.
+    // Do not consume a pending request using source status from the previous document.
+    if (state.document !== document) {
+      return;
+    }
     for (const fileKey of pendingWholeFileKeysRef.current) {
       const status = state.sourceStatusByFileKey[fileKey];
       if (!status || status.kind === "loading") {
@@ -1307,7 +1315,7 @@ export function useTerminalReview({
         }
       }
     }
-  }, [applyGapToggle, fileByKey, state]);
+  }, [applyGapToggle, document, fileByKey, state]);
 
   /**
    * Resolve one session-daemon navigation request against the current review and select it.

@@ -1209,7 +1209,26 @@ export function useTerminalReview({
   // by hand is never fought on the next render. Keyed by semantic file key: content that
   // actually changes mints a new key and is treated as a new file.
   const wholeFileDefaultAppliedRef = useRef(new Set<string>());
+  const wholeFileKeysRef = useRef(wholeFileKeys);
+  wholeFileKeysRef.current = wholeFileKeys;
+  const wholeFileDocumentRef = useRef(document);
   useEffect(() => {
+    // Reading a file whole is the reviewer's view mode, so it outlives the gaps that carry it:
+    // a reload or hunk filter that retires a whole file's expansion, or drops the file and
+    // brings it back, opens it whole again.
+    const previous = wholeFileDocumentRef.current;
+    wholeFileDocumentRef.current = document;
+    if (previous !== document) {
+      const previousKeys = new Set(previous.files.map((file) => file.key));
+      const retired = reviewFileKeysWithRetiredContent(previous, document);
+      for (const semanticFile of document.files) {
+        const returned = retired.has(semanticFile.key) || !previousKeys.has(semanticFile.key);
+        if (returned && wholeFileKeysRef.current.has(semanticFile.key)) {
+          expandFileToWhole(semanticFile.key);
+        }
+      }
+    }
+
     if (!wholeFileByDefault) {
       return;
     }

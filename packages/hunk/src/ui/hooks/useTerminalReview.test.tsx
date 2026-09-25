@@ -1717,6 +1717,90 @@ describe("useTerminalReview", () => {
     }
   });
 
+  test("a file read whole stays whole when a reload changes its content", async () => {
+    const alphaFetcher = createTestSourceFetcher(() => "first\n");
+    const { controllerRef, setFilesRef, setup } = await renderTerminalReview([
+      createAlphaFile(alphaFetcher),
+    ]);
+
+    try {
+      await flush(setup);
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha").length).toBeGreaterThan(0);
+
+      const reloaded = createReloadedAlphaFile(alphaFetcher);
+      await act(async () => {
+        expectValue(setFilesRef.current)([reloaded]);
+      });
+      await flush(setup);
+
+      expect(expandedGaps("alpha")).toEqual([...reviewGapIds(reloaded.metadata)].sort());
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("a file read whole reopens whole when it leaves the review and comes back", async () => {
+    const alphaFetcher = createTestSourceFetcher(() => "first\n");
+    const betaLines = Array.from(
+      { length: 12 },
+      (_unused, index) => `export const beta${index + 1} = ${index + 1};`,
+    );
+    const betaAfterLines = [...betaLines];
+    betaAfterLines[7] = "export const beta8 = 800;";
+    const beta = createDiffFile(
+      "beta",
+      "beta.ts",
+      lines(...betaLines),
+      lines(...betaAfterLines),
+      null,
+      createTestSourceFetcher(() => lines(...betaLines)),
+    );
+    const { controllerRef, setFilesRef, setup } = await renderTerminalReview([
+      createAlphaFile(alphaFetcher),
+      beta,
+    ]);
+
+    try {
+      await flush(setup);
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha").length).toBeGreaterThan(0);
+
+      await act(async () => {
+        expectValue(setFilesRef.current)([beta]);
+      });
+      await flush(setup);
+
+      const alpha = createAlphaFile(alphaFetcher);
+      await act(async () => {
+        expectValue(setFilesRef.current)([alpha, beta]);
+      });
+      await flush(setup);
+
+      expect(expandedGaps("alpha")).toEqual([...reviewGapIds(alpha.metadata)].sort());
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
   test("toggleGap surfaces an error status when the fetcher resolves null", async () => {
     const failingFetcher = createTestSourceFetcher(() => null);
 

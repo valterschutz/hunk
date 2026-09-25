@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { act } from "react";
 import { createTestVcsAppBootstrap } from "../../../../test/helpers/app-bootstrap";
-import { createTestDiffFile, lines } from "../../../../test/helpers/diff-helpers";
+import {
+  createTestDiffFile,
+  createTestSourceFetcher,
+  lines,
+} from "../../../../test/helpers/diff-helpers";
 import { capturedTestColorToHex } from "../../../../test/helpers/test-color-helpers";
 import { diffHunkIdentity } from "../core/changeset/hunkDecisions";
 import { COMMIT_STATUS_FILE_NAME, createReviewFileStore } from "../core/process/reviewFileStore";
@@ -420,6 +424,36 @@ describe("AppHost hunk decisions", () => {
 
     await pressKeys(setup, "T");
     expect(setup.captureCharFrame()).toContain("● ● ● ●");
+  });
+
+  test("a file read whole stays whole when a decision hides one of its hunks", async () => {
+    const reviewFile = createReviewFile();
+    const bootstrap = createBootstrap(reviewFile);
+    const [sample, other] = bootstrap.changeset.files;
+    const wholeSample = {
+      ...sample!,
+      sourceFetcher: createTestSourceFetcher((side) => (side === "old" ? BEFORE : AFTER)),
+    };
+    setup = await testRender(
+      <AppHost
+        bootstrap={{
+          ...bootstrap,
+          changeset: { ...bootstrap.changeset, files: [wholeSample, other!] },
+        }}
+      />,
+      WIDE,
+    );
+    await flush(setup);
+    expect(setup.captureCharFrame()).not.toContain("line 9");
+
+    await pressKeys(setup, "z");
+    expect(setup.captureCharFrame()).toContain("line 9");
+
+    await pressKeys(setup, "+");
+
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("1 hidden");
+    expect(frame).toContain("line 9");
   });
 
   test("a review of uncommitted changes records no commit review", async () => {

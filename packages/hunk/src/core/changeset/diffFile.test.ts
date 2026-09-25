@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { parseDiffFromFile, type FileDiffMetadata } from "@pierre/diffs";
+import { parseDiffFromFile, parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
 import { buildDiffFile, countDiffStats, createSkippedLargeMetadata } from "./diffFile";
 import { replaceExtensionFileLanguages } from "./fileLanguage";
 
@@ -39,6 +39,63 @@ describe("buildDiffFile", () => {
     expect(file.language).toBe("typescript");
     expect(file.patch).toBe("PATCH");
     expect(file.stats).toEqual({ additions: 2, deletions: 1 });
+  });
+
+  test("keeps the public patch aligned with change-group hunks", () => {
+    const patch = [
+      "diff --git a/foo.ts b/foo.ts",
+      "--- a/foo.ts",
+      "+++ b/foo.ts",
+      "@@ -1,7 +1,7 @@",
+      " a",
+      "-b",
+      "+B",
+      " c",
+      " d",
+      " e",
+      "-f",
+      "+F",
+      " g",
+      "",
+    ].join("\n");
+    const parsed = parsePatchFiles(patch, "patch", true)[0]?.files[0];
+    if (!parsed) throw new Error("patch did not parse");
+
+    const file = buildDiffFile(parsed, patch, 0, "src", null);
+    const publicMetadata = parsePatchFiles(file.patch, "public-patch", true)[0]?.files[0];
+
+    expect(file.metadata.hunks).toHaveLength(2);
+    expect(publicMetadata?.hunks).toHaveLength(2);
+    expect(publicMetadata?.hunks.map((hunk) => hunk.additionLines)).toEqual([1, 1]);
+  });
+
+  test("preserves end-of-file markers while splitting the public patch", () => {
+    const patch = [
+      "diff --git a/foo.ts b/foo.ts",
+      "index 1234567..89abcde 100644",
+      "--- a/foo.ts",
+      "+++ b/foo.ts",
+      "@@ -1,4 +1,4 @@",
+      " a",
+      "-b",
+      "+B",
+      " c",
+      "-d",
+      "\\ No newline at end of file",
+      "+D",
+      "\\ No newline at end of file",
+      "",
+    ].join("\n");
+    const parsed = parsePatchFiles(patch, "patch", true)[0]?.files[0];
+    if (!parsed) throw new Error("patch did not parse");
+
+    const file = buildDiffFile(parsed, patch, 0, "src", null);
+    const publicMetadata = parsePatchFiles(file.patch, "public-patch", true)[0]?.files[0];
+
+    expect(publicMetadata?.hunks.map((hunk) => hunk.noEOFCRDeletions)).toEqual([false, true]);
+    expect(publicMetadata?.hunks.map((hunk) => hunk.noEOFCRAdditions)).toEqual([false, true]);
+    expect(file.patch.match(/\\ No newline at end of file/g)).toHaveLength(2);
+    expect(file.patch).toContain("index 1234567..89abcde 100644");
   });
 
   test("derives TypeScript language for module and commonjs TypeScript files", () => {

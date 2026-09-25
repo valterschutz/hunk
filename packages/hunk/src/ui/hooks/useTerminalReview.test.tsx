@@ -1717,6 +1717,90 @@ describe("useTerminalReview", () => {
     }
   });
 
+  test("a file read whole stays whole when a reload changes its content", async () => {
+    const alphaFetcher = createTestSourceFetcher(() => "first\n");
+    const { controllerRef, setFilesRef, setup } = await renderTerminalReview([
+      createAlphaFile(alphaFetcher),
+    ]);
+
+    try {
+      await flush(setup);
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha").length).toBeGreaterThan(0);
+
+      const reloaded = createReloadedAlphaFile(alphaFetcher);
+      await act(async () => {
+        expectValue(setFilesRef.current)([reloaded]);
+      });
+      await flush(setup);
+
+      expect(expandedGaps("alpha")).toEqual([...reviewGapIds(reloaded.metadata)].sort());
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("a file read whole reopens whole when it leaves the review and comes back", async () => {
+    const alphaFetcher = createTestSourceFetcher(() => "first\n");
+    const betaLines = Array.from(
+      { length: 12 },
+      (_unused, index) => `export const beta${index + 1} = ${index + 1};`,
+    );
+    const betaAfterLines = [...betaLines];
+    betaAfterLines[7] = "export const beta8 = 800;";
+    const beta = createDiffFile(
+      "beta",
+      "beta.ts",
+      lines(...betaLines),
+      lines(...betaAfterLines),
+      null,
+      createTestSourceFetcher(() => lines(...betaLines)),
+    );
+    const { controllerRef, setFilesRef, setup } = await renderTerminalReview([
+      createAlphaFile(alphaFetcher),
+      beta,
+    ]);
+
+    try {
+      await flush(setup);
+      const expandedGaps = (fileId: string) =>
+        [...(expectValue(controllerRef.current).expandedGapsByFileId[fileId] ?? [])].sort();
+
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expandedGaps("alpha").length).toBeGreaterThan(0);
+
+      await act(async () => {
+        expectValue(setFilesRef.current)([beta]);
+      });
+      await flush(setup);
+
+      const alpha = createAlphaFile(alphaFetcher);
+      await act(async () => {
+        expectValue(setFilesRef.current)([alpha, beta]);
+      });
+      await flush(setup);
+
+      expect(expandedGaps("alpha")).toEqual([...reviewGapIds(alpha.metadata)].sort());
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
   test("toggleGap surfaces an error status when the fetcher resolves null", async () => {
     const failingFetcher = createTestSourceFetcher(() => null);
 
@@ -2394,6 +2478,110 @@ describe("useTerminalReview", () => {
         setup.renderer.destroy();
       });
     }
+  });
+
+  describe("file jumps", () => {
+    /** Two twelve-line files whose only change sits on line 8, so one leading gap precedes it. */
+    function createFileJumpFiles() {
+      const beforeLines = Array.from(
+        { length: 12 },
+        (_unused, index) => `export const bravo${index + 1} = ${index + 1};`,
+      );
+      const afterLines = [...beforeLines];
+      afterLines[7] = "export const bravo8 = 800;";
+      const bravoFetcher = createTestSourceFetcher((side) =>
+        lines(...(side === "old" ? beforeLines : afterLines)),
+      );
+      const bravo = createDiffFile(
+        "bravo",
+        "bravo.ts",
+        lines(...beforeLines),
+        lines(...afterLines),
+        null,
+        bravoFetcher,
+      );
+      const alphaFetcher = createTestSourceFetcher(() =>
+        lines(
+          ...Array.from({ length: 12 }, (_unused, index) =>
+            index === 7
+              ? "export const alpha8 = 800;"
+              : `export const alpha${index + 1} = ${index + 1};`,
+          ),
+        ),
+      );
+      return [createAlphaFile(alphaFetcher), bravo];
+    }
+
+    async function expectFileJumpLanding(
+      wholeFileByDefault: boolean,
+      jump: (controller: TerminalReview) => void,
+      expected: { fileId: string; line: number },
+    ) {
+      const { controllerRef, setup } = await renderTerminalReview(createFileJumpFiles(), {
+        wholeFileByDefault,
+      });
+
+      try {
+        await flush(setup);
+        await act(async () => {
+          jump(expectValue(controllerRef.current));
+        });
+        await flush(setup);
+
+        const cursor = expectValue(expectValue(controllerRef.current).lineCursor);
+        expect(cursor.fileId).toBe(expected.fileId);
+        expect(cursor.target.line).toBe(expected.line);
+      } finally {
+        await act(async () => {
+          setup.renderer.destroy();
+        });
+      }
+    }
+
+    test("stepping into a whole file lands on its first line", async () => {
+      await expectFileJumpLanding(true, (controller) => controller.moveSelection("file", 1), {
+        fileId: "bravo",
+        line: 1,
+      });
+    });
+
+    test("stepping back into a whole file lands on its first line", async () => {
+      await expectFileJumpLanding(
+        true,
+        (controller) => {
+          controller.moveLineCursor(6);
+          controller.moveSelection("file", 1);
+          controller.moveLineCursor(6);
+          controller.moveSelection("file", -1);
+        },
+        { fileId: "alpha", line: 1 },
+      );
+    });
+
+    test("selecting a whole file lands on its first line", async () => {
+      await expectFileJumpLanding(true, (controller) => controller.selectFile("bravo"), {
+        fileId: "bravo",
+        line: 1,
+      });
+    });
+
+    test("selecting the current whole file returns to its first line", async () => {
+      await expectFileJumpLanding(
+        true,
+        (controller) => {
+          controller.moveLineCursor(6);
+          controller.selectFile("alpha");
+        },
+        { fileId: "alpha", line: 1 },
+      );
+    });
+
+    test("stepping into a folded file still lands on its first hunk", async () => {
+      await expectFileJumpLanding(false, (controller) => controller.moveSelection("file", 1), {
+        fileId: "bravo",
+        line: 5,
+      });
+    });
   });
 
   test("recovers the current line when a reload retires the hunk it was on", async () => {

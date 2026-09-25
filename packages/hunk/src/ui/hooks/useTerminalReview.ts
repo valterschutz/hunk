@@ -431,8 +431,12 @@ export function useTerminalReview({
   // A held key drains as one stdin chunk, so every press in the burst would otherwise read the
   // same pre-batch state and the cursor would advance a single row.
   const lineCursorRef = useRef<LineCursor | null>(null);
-  const initialLineCursorFileIdRef = useRef<string | null>(null);
-  const initialLineCursorAppliedRef = useRef(false);
+  // A request to put the current line on a file's first source line once that line renders.
+  // The launch request names no file until the first selection exists and scrolls to the line;
+  // a file jump leaves scrolling to the jump's own reveal.
+  const pendingFileStartRef = useRef<{ fileId: string | null; reveal: boolean } | null>(
+    initialLineCursorAtFileStart ? { fileId: null, reveal: true } : null,
+  );
   const lineCursorsRef = useRef(lineCursors);
   lineCursorsRef.current = lineCursors;
   /** Read the latest cursor without waiting for React to publish a render. */
@@ -533,6 +537,8 @@ export function useTerminalReview({
     }
     return result as ReadonlySet<string>;
   }, [fileByKey, wholeFileKeys]);
+  const wholeFileIdsRef = useRef(wholeFileIds);
+  wholeFileIdsRef.current = wholeFileIds;
   const expandedGaps = state.expandedGaps;
   const expandedGapsByFileId = useMemo(() => {
     const result: Record<string, ReadonlySet<string>> = {};
@@ -655,19 +661,6 @@ export function useTerminalReview({
     [keyByFileId, runIntent],
   );
 
-  /** Jump to one file through the shared file-jump rule. */
-  const selectFile = useCallback(
-    (fileId: string, options?: ReviewSelectionOptions) => {
-      const fileKey = keyByFileId.get(fileId);
-      if (!fileKey) {
-        return;
-      }
-
-      runIntent({ type: "selection/select-file", fileKey, reveal: revealRequestFor(options) });
-    },
-    [keyByFileId, runIntent],
-  );
-
   /** Reconcile only a stale document selection; filtering preserves the reviewer's place. */
   const reconcileSelection = useCallback(() => {
     const action = planTerminalSelectionReconciliation(store.getSnapshot());
@@ -711,23 +704,71 @@ export function useTerminalReview({
     [applyLineCursor, keyByFileId, runIntent],
   );
 
+  /**
+   * Land a pending file-start request once its file renders its first source line.
+   *
+   * Reports whether it moved the current line. A file jump drops its request when the target
+   * leaves whole-file mode, since folded files land on their first hunk as usual.
+   */
+  const resolvePendingFileStart = useCallback(
+    (cursors: LineCursor[], fileId: string, reveal: boolean) => {
+      if (!reveal && !wholeFileIdsRef.current.has(fileId)) {
+        pendingFileStartRef.current = null;
+        return false;
+      }
+
+      const firstLine = lineCursorAtFileEdge(cursors, fileId, "start");
+      if (firstLine?.target.line !== 1) return false;
+
+      pendingFileStartRef.current = null;
+      if (reveal) revealLineCursor(firstLine);
+      else applyLineCursor(firstLine);
+      return true;
+    },
+    [applyLineCursor, revealLineCursor],
+  );
+
+  /**
+   * Start a jump into a whole file on its first source line rather than its first hunk.
+   *
+   * The jump's file-top reveal already brings that line on screen, so only the current line
+   * moves. A file whose source is still loading lands once its leading context renders.
+   */
+  const requestFileStartAfterJump = useCallback(() => {
+    const { fileId } = getSelection();
+    if (fileId === null || !wholeFileIdsRef.current.has(fileId)) return;
+
+    pendingFileStartRef.current = { fileId, reveal: false };
+    resolvePendingFileStart(lineCursorsRef.current, fileId, false);
+  }, [getSelection, resolvePendingFileStart]);
+
+  /** Jump to one file through the shared file-jump rule. */
+  const selectFile = useCallback(
+    (fileId: string, options?: ReviewSelectionOptions) => {
+      const fileKey = keyByFileId.get(fileId);
+      if (!fileKey) {
+        return;
+      }
+
+      runIntent({ type: "selection/select-file", fileKey, reveal: revealRequestFor(options) });
+      requestFileStartAfterJump();
+    },
+    [keyByFileId, requestFileStartAfterJump, runIntent],
+  );
+
   const reconcileLineCursor = useCallback(() => {
     if (selectActiveStoredReviewNote(store.getSnapshot())) {
       applyLineCursor(null);
       return;
     }
 
-    if (initialLineCursorAtFileStart && !initialLineCursorAppliedRef.current) {
-      initialLineCursorFileIdRef.current ??= selectedFileId ?? null;
-      if (selectedFileId === initialLineCursorFileIdRef.current) {
-        const firstLine = selectedFileId
-          ? lineCursorAtFileEdge(lineCursors, selectedFileId, "start")
-          : null;
-        if (firstLine?.target.line === 1) {
-          initialLineCursorAppliedRef.current = true;
-          revealLineCursor(firstLine);
-          return;
-        }
+    const fileStart = pendingFileStartRef.current;
+    if (fileStart && selectedFileId) {
+      fileStart.fileId ??= selectedFileId;
+      if (fileStart.fileId !== selectedFileId) {
+        pendingFileStartRef.current = null;
+      } else if (resolvePendingFileStart(lineCursors, selectedFileId, fileStart.reveal)) {
+        return;
       }
     }
 
@@ -756,9 +797,8 @@ export function useTerminalReview({
     applyLineCursor(firstLineCursorInHunk(lineCursors, selectedFileId, selectedHunkIndex));
   }, [
     applyLineCursor,
-    initialLineCursorAtFileStart,
     lineCursors,
-    revealLineCursor,
+    resolvePendingFileStart,
     selectedFileId,
     selectedHunkIndex,
     state.activeNoteId,
@@ -919,9 +959,14 @@ export function useTerminalReview({
         }
       }
 
-      return runIntent({ type: "selection/move", scope, delta }, { annotations });
+      const previousFileId = getSelection().fileId;
+      const outcome = runIntent({ type: "selection/move", scope, delta }, { annotations });
+      if (scope === "file" && getSelection().fileId !== previousFileId) {
+        requestFileStartAfterJump();
+      }
+      return outcome;
     },
-    [annotations, getSelection, revealLineCursor, runIntent],
+    [annotations, getSelection, requestFileStartAfterJump, revealLineCursor, runIntent],
   );
 
   /**
@@ -1209,7 +1254,26 @@ export function useTerminalReview({
   // by hand is never fought on the next render. Keyed by semantic file key: content that
   // actually changes mints a new key and is treated as a new file.
   const wholeFileDefaultAppliedRef = useRef(new Set<string>());
+  const wholeFileKeysRef = useRef(wholeFileKeys);
+  wholeFileKeysRef.current = wholeFileKeys;
+  const wholeFileDocumentRef = useRef(document);
   useEffect(() => {
+    // Reading a file whole is the reviewer's view mode, so it outlives the gaps that carry it:
+    // a reload or hunk filter that retires a whole file's expansion, or drops the file and
+    // brings it back, opens it whole again.
+    const previous = wholeFileDocumentRef.current;
+    wholeFileDocumentRef.current = document;
+    if (previous !== document) {
+      const previousKeys = new Set(previous.files.map((file) => file.key));
+      const retired = reviewFileKeysWithRetiredContent(previous, document);
+      for (const semanticFile of document.files) {
+        const returned = retired.has(semanticFile.key) || !previousKeys.has(semanticFile.key);
+        if (returned && wholeFileKeysRef.current.has(semanticFile.key)) {
+          expandFileToWhole(semanticFile.key);
+        }
+      }
+    }
+
     if (!wholeFileByDefault) {
       return;
     }

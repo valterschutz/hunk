@@ -3,8 +3,6 @@ import { findSidecarFileContext } from "./sidecar";
 import { patchLooksBinary } from "./binary";
 import { fileLanguageForPath } from "./fileLanguageLookup";
 import { normalizeDiffMetadataPaths, normalizeDiffPath } from "./diffPaths";
-import { splitHunksAtChangeGroups } from "./changeGroups";
-import { patchWithMetadataHunks } from "./patchHunks";
 import type { FileSourceFetcher } from "./fileSource";
 import type { DiffFile, DiffLineMoveKinds, SidecarContext } from "./model";
 
@@ -64,12 +62,7 @@ export function buildDiffFile(
     pathsAreExact,
   }: BuildDiffFileOptions = {},
 ): DiffFile {
-  const sourceMetadata = pathsAreExact ? metadata : normalizeDiffMetadataPaths(metadata);
-  const normalizedMetadata = splitHunksAtChangeGroups(sourceMetadata);
-  const normalizedPatch =
-    normalizedMetadata === sourceMetadata
-      ? patch
-      : patchWithMetadataHunks(patch, normalizedMetadata);
+  const normalizedMetadata = pathsAreExact ? metadata : normalizeDiffMetadataPaths(metadata);
   const path = normalizedMetadata.name;
   const resolvedPreviousPath = pathsAreExact
     ? (previousPath ?? normalizedMetadata.prevName)
@@ -88,7 +81,7 @@ export function buildDiffFile(
     id: `${sourcePrefix}:${index}:${path}`,
     path,
     previousPath: resolvedPreviousPath,
-    patch: normalizedPatch,
+    patch,
     language,
     stats: stats ?? countDiffStats(normalizedMetadata),
     // Pierre otherwise re-derives the language from the path and cannot see Hunk-only selectors.

@@ -74,6 +74,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     toggleHelp: record("toggleHelp"),
     toggleHunkHeaders: record("toggleHunkHeaders"),
     toggleLineNumbers: record("toggleLineNumbers"),
+    toggleLineReviewMode: record("toggleLineReviewMode"),
     toggleLineWrap: record("toggleLineWrap"),
     toggleMenuBar: record("toggleMenuBar"),
     toggleFilesPane: record("toggleFilesPane"),
@@ -131,7 +132,7 @@ describe("built-in command chords", () => {
   });
 
   test("shifted and unshifted forms stay separate commands", () => {
-    const { commands } = createTestCommands();
+    const { commands, ran } = createTestCommands();
     const press = (fields: Partial<ParsedKey>) =>
       dispatchAppCommand(commands, keyEvent(fields))?.id;
 
@@ -139,9 +140,17 @@ describe("built-in command chords", () => {
     expect(press({ name: "g", sequence: "G", shift: true })).toBe("hunk.review.jumpToBottom");
     expect(press({ name: "m", sequence: "m" })).toBe("hunk.view.toggleHunkHeaders");
     expect(press({ name: "m", sequence: "M", shift: true })).toBe("hunk.view.toggleMenuBar");
+    expect(press({ name: "h", sequence: "H", shift: true })).toBe("hunk.view.toggleLineReviewMode");
     // The note shortcut is the unmodified c only.
     expect(press({ name: "c", sequence: "c" })).toBe("hunk.review.startNote");
     expect(press({ name: "c", sequence: "c", ctrl: true })).toBeUndefined();
+    expect(ran).toEqual([
+      "jumpLineCursorToFileEdge:end",
+      "toggleHunkHeaders",
+      "toggleMenuBar",
+      "toggleLineReviewMode",
+      "startUserNote",
+    ]);
   });
 
   test("edge jumps select the corresponding file line", () => {
@@ -523,6 +532,7 @@ describe("command catalog parity", () => {
       copyDecorations: false,
       cursorLine: "row",
       layoutMode: "auto",
+      lineReviewMode: false,
       filesPaneVisible: true,
       showAgentNotes: false,
       showHelp: false,

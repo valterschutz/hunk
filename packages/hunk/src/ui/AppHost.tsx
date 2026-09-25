@@ -6,6 +6,7 @@ import { reviewDescriptorAfterReload, reviewDescriptorResourceCwd } from "../app
 import { loadConfiguredSessionBootstrap } from "../app/sessionBootstrap";
 import { getBundledVcsCatalog } from "../app/vcsCatalog";
 import { restoreFileLanguageRegistrations } from "../core/changeset/fileLanguage";
+import { projectDiffFilesToReviewUnits, type ReviewUnit } from "../core/changeset/reviewUnits";
 import { resolveConfiguredCliInput } from "../core/run/config";
 import { resolveRuntimeCliInput } from "../core/process/terminal";
 import type { StartupNotice } from "../core/process/startupNotice";
@@ -42,6 +43,18 @@ import { assertReliableWatchRuntime } from "../core/watch/runtime";
 import type { WatchedInputRuntime } from "./hooks/useWatchedInput";
 import { ThemeController } from "./theme/controller";
 import type { PersistedViewPreferences } from "../core/run/config";
+
+/** Project one lifecycle payload into the review units visible to the mounted app. */
+function projectChangesetToReviewUnit(
+  changeset: AppBootstrap["changeset"],
+  reviewUnit: ReviewUnit,
+): AppBootstrap["changeset"] {
+  if (reviewUnit === "hunk") return changeset;
+  return {
+    ...changeset,
+    files: projectDiffFilesToReviewUnits(changeset.files, reviewUnit),
+  };
+}
 
 /** Build the stable refusal returned once quit becomes terminal for reload coordination. */
 function reloadRefusedDuringShutdown() {
@@ -131,6 +144,7 @@ export function AppHost({
   // explicit empty owner. Production startup always attaches the owner's current result.
   const extensionLifecycleEnabled = initialBootstrap.extensions !== undefined;
   const [activeBootstrap, setActiveBootstrap] = useState(initialBootstrap);
+  const [reviewUnit, setReviewUnit] = useState<ReviewUnit>("hunk");
   const reviewIdentityRef = useRef({
     input: initialBootstrap.input,
     cwd: reviewDescriptorResourceCwd(
@@ -221,11 +235,12 @@ export function AppHost({
     if (pending.emitStartup) {
       activeExtensionSession.startCurrent(pending.cwd);
     }
+    const projectedChangeset = projectChangesetToReviewUnit(pending.changeset, reviewUnit);
     emitExtensionEvent(pending.extensions, "changeset_loaded", {
-      changeset: pending.changeset,
+      changeset: projectedChangeset,
     });
     emitExtensionEvent(pending.extensions, "session_reload", {
-      changeset: pending.changeset,
+      changeset: projectedChangeset,
       reason: pending.reason,
     });
     pending.resolveMounted();
@@ -235,7 +250,20 @@ export function AppHost({
     extensionOwnership,
     activeExtensionSession,
     initialBootstrap.reloadContext.cwd,
+    reviewUnit,
   ]);
+
+  const previousReviewUnitRef = useRef(reviewUnit);
+  useLayoutEffect(() => {
+    if (previousReviewUnitRef.current === reviewUnit) return;
+    previousReviewUnitRef.current = reviewUnit;
+    const changeset = projectChangesetToReviewUnit(activeBootstrap.changeset, reviewUnit);
+    emitExtensionEvent(
+      extensionLifecycleEnabled ? activeExtensionSession.current : undefined,
+      "changeset_loaded",
+      { changeset },
+    );
+  }, [activeBootstrap.changeset, activeExtensionSession, extensionLifecycleEnabled, reviewUnit]);
 
   /** Start one irreversible write atomically with host tracking, unless quit already won. */
   const runWorkspaceWrite = useCallback<WorkspaceWriteRunner>(async (write) => {
@@ -611,8 +639,10 @@ export function AppHost({
       onRegisterWorkspaceRefreshRequest={registerWorkspaceRefreshRequest}
       onReloadSession={reloadSession}
       onRequestExtensionReviewReload={requestExtensionReviewReload}
+      onReviewUnitChange={setReviewUnit}
       onWorkspaceWriteCompleted={reloadAfterWorkspaceWrite}
       reviewProducer={producer}
+      reviewUnit={reviewUnit}
       runWorkspaceWrite={runWorkspaceWrite}
       themeController={activeThemeController}
       watchRuntime={watchRuntime}

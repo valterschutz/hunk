@@ -22,6 +22,7 @@ import {
   fileReviewStatus,
   filterHunksByState,
 } from "../core/changeset/hunkDecisions";
+import { projectDiffFilesToReviewUnits, type ReviewUnit } from "../core/changeset/reviewUnits";
 import {
   HUNK_DECISIONS,
   HUNK_STATES,
@@ -50,6 +51,7 @@ import {
 } from "../extensions/apply";
 import { projectExtensionReviewNotes } from "../extensions/reviewSnapshot";
 import type { ExtensionNotifyType, ExtensionLoadResult } from "../extensions/types";
+import { emitExtensionEvent } from "../extensions/events";
 import type { ReviewProducer } from "../app/review/producer";
 import type { HunkSessionBrokerClient } from "../session/broker/brokerClient";
 import type { ReloadedSessionResult, ReloadSessionOptions } from "../session/types";
@@ -182,8 +184,10 @@ export function App({
   onRegisterWorkspaceRefreshRequest,
   onReloadSession,
   onRequestExtensionReviewReload,
+  onReviewUnitChange,
   onWorkspaceWriteCompleted,
   reviewProducer,
+  reviewUnit: controlledReviewUnit,
   runWorkspaceWrite,
   themeController,
   returnToHistory = process.env.HUNK_RETURN_TO_HISTORY === "1",
@@ -210,10 +214,14 @@ export function App({
   onRequestExtensionReviewReload: (
     reviewGeneration: AppBootstrap,
   ) => Promise<ExtensionReviewReloadResult>;
+  /** Persist a host-owned review-unit change across review reloads. */
+  onReviewUnitChange?: (reviewUnit: ReviewUnit) => void;
   /** Reconcile the currently mounted review after a consented filesystem write succeeds. */
   onWorkspaceWriteCompleted: () => void;
   /** The producer publishing this review's generations, when the host mounted one. */
   reviewProducer?: ReviewProducer;
+  /** Host-owned review unit; standalone mounts keep their own local unit when omitted. */
+  reviewUnit?: ReviewUnit;
   /** Start and track one irreversible write, or refuse it once graceful shutdown begins. */
   runWorkspaceWrite: WorkspaceWriteRunner;
   /** Session-owned committed theme state shared across routed surfaces. */
@@ -235,6 +243,12 @@ export function App({
   const experimentalFiles = useMemo(
     () => resolveExperimentalDiffFiles(bootstrap.changeset.files, bootstrap.input.options),
     [bootstrap.changeset.files, bootstrap.input.options.experimental],
+  );
+  const [localReviewUnit, setLocalReviewUnit] = useState<ReviewUnit>("hunk");
+  const reviewUnit = controlledReviewUnit ?? localReviewUnit;
+  const reviewUnitFiles = useMemo(
+    () => projectDiffFilesToReviewUnits(experimentalFiles, reviewUnit),
+    [experimentalFiles, reviewUnit],
   );
   // Decided hunks leave the review stream. The review file is re-read on every reload and
   // after every write, so decisions and notes synced from another machine appear without a
@@ -286,18 +300,18 @@ export function App({
   /** Content identity of every hunk this review shows, decided or not. */
   const reviewHunkIdentities = useMemo(
     () =>
-      experimentalFiles.flatMap((file) =>
+      reviewUnitFiles.flatMap((file) =>
         file.metadata.hunks.map((hunk) => diffHunkIdentity(file, hunk)),
       ),
-    [experimentalFiles],
+    [reviewUnitFiles],
   );
   const [shownHunkStates, setShownHunkStates] = useState<ReadonlySet<HunkState>>(
     () => new Set(bootstrap.input.options.shownHunks ?? ["undecided"]),
   );
   const decidedHunksShown = HUNK_DECISIONS.some((decision) => shownHunkStates.has(decision));
   const decisionsProjection = useMemo(
-    () => filterHunksByState(experimentalFiles, hunkDecisions, shownHunkStates),
-    [experimentalFiles, hunkDecisions, shownHunkStates],
+    () => filterHunksByState(reviewUnitFiles, hunkDecisions, shownHunkStates),
+    [reviewUnitFiles, hunkDecisions, shownHunkStates],
   );
   const reviewFiles = decisionsProjection.files;
   // While any decided state is shown, the rail marks each decided hunk with its decision.
@@ -383,6 +397,18 @@ export function App({
     statusLineState.prompt !== null && statusLineState.prompt.id === filterPromptIdRef.current;
   const focusArea: FocusArea = filterPromptOpen ? "filter" : storedFocusArea;
   const extensions = bootstrap.extensions as ExtensionLoadResult | undefined;
+  const projectedExtensionFilesRef = useRef(reviewUnitFiles);
+  const projectedExtensionUnitRef = useRef(reviewUnit);
+  useEffect(() => {
+    if (onReviewUnitChange || projectedExtensionFilesRef.current === reviewUnitFiles) return;
+    const unitChanged = projectedExtensionUnitRef.current !== reviewUnit;
+    projectedExtensionFilesRef.current = reviewUnitFiles;
+    projectedExtensionUnitRef.current = reviewUnit;
+    if (!unitChanged && reviewUnit === "hunk") return;
+    emitExtensionEvent(extensions, "changeset_loaded", {
+      changeset: { ...bootstrap.changeset, files: reviewUnitFiles },
+    });
+  }, [bootstrap.changeset, extensions, onReviewUnitChange, reviewUnit, reviewUnitFiles]);
   const pendingTrustRepoRoot = extensions?.pendingTrustRepoRoot;
   const extensionToast = useExtensionNotifications(extensions?.notifications);
   const [ownedThemeController] = useState(
@@ -464,11 +490,11 @@ export function App({
   const approvedFileIds = useMemo(
     () =>
       new Set(
-        experimentalFiles
+        reviewUnitFiles
           .filter((file) => fileReviewStatus(file, hunkDecisions) === "approved")
           .map((file) => file.id),
       ),
-    [experimentalFiles, hunkDecisions],
+    [reviewUnitFiles, hunkDecisions],
   );
   // One-file-at-a-time review narrows the rendered stream to the selected file. Only the diff
   // pane and the geometry that measures it follow this; the sidebar, extensions, and the review
@@ -677,7 +703,7 @@ export function App({
     if (decidedHunksShown && selectedHunkDecision !== undefined) {
       hostItems.push({
         id: "host:decided",
-        spans: [{ text: `selected hunk ${selectedHunkDecision}`, tone: "muted" }],
+        spans: [{ text: `selected ${reviewUnit} ${selectedHunkDecision}`, tone: "muted" }],
         priority: 1,
       });
     }
@@ -697,6 +723,7 @@ export function App({
     daemonNoticeText,
     review.filter,
     reviewFileStore.enabled,
+    reviewUnit,
     selectedHunkDecision,
     decidedHunksShown,
     shownHunkStates,
@@ -1241,6 +1268,17 @@ export function App({
     setCopyDecorations(nextCopyDecorations);
   };
 
+  /** Switch review actions between standard patch hunks and individual changed rows. */
+  const toggleLineReviewMode = () => {
+    const next = reviewUnit === "hunk" ? "line" : "hunk";
+    if (onReviewUnitChange) {
+      onReviewUnitChange(next);
+    } else {
+      setLocalReviewUnit(next);
+    }
+    showTransientNotice(next === "line" ? "Line review mode" : "Hunk review mode");
+  };
+
   /** Toggle whether diff code rows wrap instead of truncating to one terminal row. */
   const toggleLineWrap = () => {
     // Capture the pre-toggle viewport position synchronously so DiffPane can restore the same
@@ -1295,6 +1333,7 @@ export function App({
     input: bootstrap.input,
     refresh: () => refreshCurrentInput({ reason: "manual" }),
     showNotice: showSessionNotice,
+    unitLabel: reviewUnit,
   });
 
   const {
@@ -1359,19 +1398,19 @@ export function App({
   }, [activeLineCursor, editorBasePath, review.selectedHunk, selectedFile, showSessionNotice]);
 
   /**
-   * Record a decision on the selected hunk, writing the review file and re-reading it.
+   * Record a decision on the selected review unit, writing the review file and re-reading it.
    *
    * `decide` maps the current decision to the next one; null leaves everything untouched.
    */
   const decideSelectedHunk = useCallback(
     (decide: (current: HunkDecision | undefined) => HunkDecision | undefined | null) => {
       if (!reviewFileStore.enabled) {
-        showSessionNotice("Set review_file in your config to decide hunks");
+        showSessionNotice(`Set review_file in your config to decide ${reviewUnit}s`);
         return;
       }
       const hunk = selectedFile?.metadata.hunks[selectedHunkIndex];
       if (!selectedFile || !hunk || selectedHunkIdentity === undefined) {
-        showSessionNotice("No hunk selected");
+        showSessionNotice(`No ${reviewUnit} selected`);
         return;
       }
       const state = decide(hunkDecisions.get(selectedHunkIdentity));
@@ -1399,6 +1438,7 @@ export function App({
       hunkDecisions,
       reviewFileStore,
       reviewRepo,
+      reviewUnit,
       selectedFile,
       selectedHunkIdentity,
       selectedHunkIndex,
@@ -1706,6 +1746,7 @@ export function App({
         toggleHelp,
         toggleHunkHeaders,
         toggleLineNumbers,
+        toggleLineReviewMode,
         toggleLineWrap,
         toggleMenuBar,
         toggleFilesPane,
@@ -1770,6 +1811,7 @@ export function App({
       : undefined,
     copyDecorations,
     layoutMode,
+    lineReviewMode: reviewUnit === "line",
     filesPaneVisible,
     showAgentNotes,
     showHelp,

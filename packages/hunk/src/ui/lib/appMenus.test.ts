@@ -18,6 +18,7 @@ const MENU_STATE: Omit<BuildAppMenusOptions, "commands" | "extensionCommands"> =
   copyDecorations: true,
   cursorLine: "row" as const,
   layoutMode: "unified",
+  lineReviewMode: false,
   filesPaneVisible: false,
   showAgentNotes: true,
   showHelp: false,
@@ -66,6 +67,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     toggleHelp: noop,
     toggleHunkHeaders: noop,
     toggleLineNumbers: noop,
+    toggleLineReviewMode: record("toggleLineReviewMode"),
     toggleLineWrap: noop,
     toggleMenuBar: noop,
     toggleFilesPane: record("toggleFilesPane"),
@@ -170,6 +172,14 @@ describe("buildAppMenus", () => {
     ]);
     // The filter ships unbound, so its Navigate entry carries no hint.
     expect(items(menus.navigate).map((item) => item.hint)).toEqual(["[", "]", "{", "}", undefined]);
+  });
+
+  test("names review actions for their active line unit", () => {
+    const { commands } = createTestCommands();
+    const menus = buildAppMenus({ commands, ...MENU_STATE, lineReviewMode: true });
+
+    expect(items(menus.file).map((item) => item.label)).toContain("Accept selected line");
+    expect(items(menus.file).map((item) => item.label)).toContain("Discard selected line…");
   });
 
   test("only the hunk-state toggles keep the menu open", () => {

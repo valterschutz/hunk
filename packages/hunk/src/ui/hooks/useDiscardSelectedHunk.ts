@@ -22,6 +22,7 @@ export function useDiscardSelectedHunk({
   input,
   refresh,
   showNotice,
+  unitLabel,
 }: {
   catalog?: VcsCatalog;
   cwd: string;
@@ -31,6 +32,7 @@ export function useDiscardSelectedHunk({
   input: CliInput;
   refresh: () => Promise<void>;
   showNotice: (message: string) => void;
+  unitLabel: "hunk" | "line";
 }): DiscardSelectedHunkController {
   const [discarding, setDiscarding] = useState(false);
   const supported =
@@ -41,9 +43,9 @@ export function useDiscardSelectedHunk({
   const confirmation = useMemo(() => {
     if (input.kind !== "vcs") return "";
     return input.staged
-      ? "This removes the hunk from the index. Your working tree is unchanged."
-      : "This reverts the hunk in your working tree. This cannot be undone.";
-  }, [input]);
+      ? `This removes the ${unitLabel} from the index. Your working tree is unchanged.`
+      : `This reverts the ${unitLabel} in your working tree. This cannot be undone.`;
+  }, [input, unitLabel]);
 
   const discardSelectedHunk = useCallback(() => {
     if (
@@ -61,7 +63,7 @@ export function useDiscardSelectedHunk({
       patchText = buildSelectedHunkPatch(file, hunk);
     } catch (error) {
       showNotice(
-        `Could not prepare selected hunk: ${error instanceof Error ? error.message : String(error)}`,
+        `Could not prepare selected ${unitLabel}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return;
     }
@@ -69,7 +71,7 @@ export function useDiscardSelectedHunk({
     setDiscarding(true);
     void dialogs
       .confirm({
-        title: "Discard selected hunk?",
+        title: `Discard selected ${unitLabel}?`,
         body: confirmation,
         confirmLabel: "discard",
       })
@@ -82,18 +84,32 @@ export function useDiscardSelectedHunk({
         try {
           await discardVcsHunk(input, patchText, { cwd }, catalog);
           showNotice(
-            input.staged ? "Removed selected hunk from the index" : "Discarded selected hunk",
+            input.staged
+              ? `Removed selected ${unitLabel} from the index`
+              : `Discarded selected ${unitLabel}`,
           );
           setDiscarding(false);
           await refresh();
         } catch (error) {
           setDiscarding(false);
           showNotice(
-            `Could not discard selected hunk: ${error instanceof Error ? error.message : String(error)}`,
+            `Could not discard selected ${unitLabel}: ${error instanceof Error ? error.message : String(error)}`,
           );
         }
       });
-  }, [catalog, confirmation, cwd, dialogs, discarding, file, hunk, input, refresh, showNotice]);
+  }, [
+    catalog,
+    confirmation,
+    cwd,
+    dialogs,
+    discarding,
+    file,
+    hunk,
+    input,
+    refresh,
+    showNotice,
+    unitLabel,
+  ]);
 
   return { canDiscardSelectedHunk, discardSelectedHunk };
 }

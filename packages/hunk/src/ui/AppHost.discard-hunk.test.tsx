@@ -40,6 +40,21 @@ function createChangedRepo(staged: boolean) {
   return repo;
 }
 
+/** Create one standard hunk containing two adjacent changed rows. */
+function createAdjacentChangedRepo() {
+  const repo = mkdtempSync(join(tmpdir(), "hunk-discard-line-"));
+  tempDirs.push(repo);
+  git(repo, "init");
+  git(repo, "config", "user.email", "test@test");
+  git(repo, "config", "user.name", "test");
+  git(repo, "config", "commit.gpgsign", "false");
+  writeFileSync(join(repo, "file.txt"), "before\nold one\nold two\nafter\n");
+  git(repo, "add", "file.txt");
+  git(repo, "commit", "-m", "base");
+  writeFileSync(join(repo, "file.txt"), "before\nnew one\nnew two\nafter\n");
+  return repo;
+}
+
 /** Render until one visible condition holds. */
 async function waitForFrame(
   setup: Awaited<ReturnType<typeof testRender>>,
@@ -62,6 +77,35 @@ afterEach(async () => {
 });
 
 describe("discarding the selected current-change hunk", () => {
+  test("line mode discards only the selected changed row", async () => {
+    const repo = createAdjacentChangedRepo();
+    const bootstrap = await loadAppBootstrap(
+      { kind: "vcs", staged: false, options: { mode: "unified" } },
+      { cwd: repo, vcsCatalog: getBundledVcsCatalog() },
+    );
+    const setup = await testRender(<AppHost bootstrap={bootstrap} />, {
+      width: 160,
+      height: 30,
+    });
+
+    try {
+      await waitForFrame(setup, (frame) => frame.includes("new two"));
+      await act(async () => setup.mockInput.typeText("H"));
+      await waitForFrame(setup, (frame) => frame.includes("Line review mode"));
+      await act(async () => setup.mockInput.typeText("]"));
+      await act(async () => setup.mockInput.typeText("d"));
+      await waitForFrame(setup, (frame) => frame.includes("Discard selected line?"));
+      await act(async () => setup.mockInput.typeText("y"));
+      await waitForFrame(setup, (frame) => !frame.includes("Discard selected line?"));
+
+      expect(readFileSync(join(repo, "file.txt"), "utf8")).toBe(
+        "before\nnew one\nold two\nafter\n",
+      );
+    } finally {
+      await act(async () => setup.renderer.destroy());
+    }
+  });
+
   for (const staged of [false, true]) {
     test(`discards one ${staged ? "staged" : "unstaged"} hunk with d`, async () => {
       const repo = createChangedRepo(staged);

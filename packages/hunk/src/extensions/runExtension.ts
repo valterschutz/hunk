@@ -144,7 +144,10 @@ function isThenable(value: unknown): value is Promise<void> {
 function toInternalVcsOperation(
   operation: ExtensionVcsOperation<VcsReviewInput>,
 ): VcsOperation<VcsReviewInput> {
-  const { watchSignature, watchPlan } = operation;
+  const { discardHunk, watchSignature, watchPlan } =
+    operation as ExtensionVcsOperation<VcsReviewInput> & {
+      discardHunk?: NonNullable<VcsOperation<VcsReviewInput>["discardHunk"]>;
+    };
 
   return {
     async load(input, context) {
@@ -154,6 +157,15 @@ function toInternalVcsOperation(
         throw toUserFacingError(error);
       }
     },
+    ...(typeof discardHunk === "function" && {
+      async discardHunk(request, context) {
+        try {
+          await discardHunk.call(operation, request, context);
+        } catch (error) {
+          throw toUserFacingError(error);
+        }
+      },
+    }),
     // Watch support stays optional inward as well as outward: an absent hook is
     // what tells planning to fall back to signature polling.
     ...(watchSignature && {

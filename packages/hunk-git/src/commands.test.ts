@@ -9,6 +9,7 @@ import {
   buildGitShowArgs,
   buildGitStashShowArgs,
   buildGitStatusArgs,
+  discardGitHunk,
   listGitIgnoredDirectoryRoots,
   listGitUntrackedFiles,
   parseGitIgnoredDirectoryRoots,
@@ -80,6 +81,86 @@ afterEach(() => {
     }
   }
 });
+describe("discardGitHunk", () => {
+  const selectedPatch = [
+    "diff --git a/file.txt b/file.txt",
+    "--- a/file.txt",
+    "+++ b/file.txt",
+    "@@ -1,6 +1,6 @@",
+    " line 1",
+    " line 2",
+    "-line 3",
+    "+line three",
+    " line 4",
+    " line 5",
+    " line 6",
+    "",
+  ].join("\n");
+
+  function createChangedRepo(staged: boolean) {
+    const repo = createTempRepo("hunk-git-discard-");
+    writeFileSync(join(repo, "file.txt"), `${numberedLines(20)}`);
+    git(repo, "add", "file.txt");
+    git(repo, "commit", "-m", "base");
+    writeFileSync(
+      join(repo, "file.txt"),
+      numberedLines(20)
+        .replace("line 3\n", "line three\n")
+        .replace("line 17\n", "line seventeen\n"),
+    );
+    if (staged) git(repo, "add", "file.txt");
+    return repo;
+  }
+
+  test("reverses one unstaged hunk in the working tree", async () => {
+    const repo = createChangedRepo(false);
+
+    await discardGitHunk(makeGitInput(), selectedPatch, { cwd: repo });
+
+    expect(Bun.file(join(repo, "file.txt")).text()).resolves.toBe(
+      numberedLines(20).replace("line 17\n", "line seventeen\n"),
+    );
+  });
+
+  test("removes one staged hunk from the index without changing the working tree", async () => {
+    const repo = createChangedRepo(true);
+    const before = await Bun.file(join(repo, "file.txt")).text();
+
+    await discardGitHunk(makeGitInput({ staged: true }), selectedPatch, { cwd: repo });
+
+    expect(await Bun.file(join(repo, "file.txt")).text()).toBe(before);
+    expect(git(repo, "diff", "--cached")).not.toContain("line three");
+    expect(git(repo, "diff")).toContain("line three");
+  });
+
+  test("preserves a staged rename when discarding its content change", async () => {
+    const repo = createTempRepo("hunk-git-discard-rename-");
+    writeFileSync(join(repo, "before.txt"), "before\n");
+    git(repo, "add", "before.txt");
+    git(repo, "commit", "-m", "base");
+    git(repo, "mv", "before.txt", "after.txt");
+    writeFileSync(join(repo, "after.txt"), "after\n");
+    git(repo, "add", "after.txt");
+    const patch = [
+      "--- b/after.txt",
+      "+++ b/after.txt",
+      "@@ -1 +1 @@",
+      "-before",
+      "+after",
+      "",
+    ].join("\n");
+
+    await discardGitHunk(makeGitInput({ staged: true }), patch, { cwd: repo });
+
+    expect(git(repo, "diff", "--cached", "--summary")).toContain("rename before.txt => after.txt");
+    expect(git(repo, "show", ":after.txt")).toBe("before\n");
+    expect(await Bun.file(join(repo, "after.txt")).text()).toBe("after\n");
+  });
+});
+
+const numberedLines = (count: number) =>
+  `${Array.from({ length: count }, (_, index) => `line ${index + 1}`).join("\n")}\n`;
+
 describe("git command helpers", () => {
   test("enables deterministic color-moved output for patch parsing", () => {
     const args = buildGitDiffArgs(

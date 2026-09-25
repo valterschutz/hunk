@@ -116,6 +116,7 @@ export interface BuildAppCommandsOptions {
   canAlignCurrentLine: boolean;
   canApplyFilePresentationToAllMatching: boolean;
   canDeleteActiveNote?: boolean;
+  canDiscardSelectedHunk: boolean;
   canEditActiveNote?: boolean;
   canReplyToActiveNote?: boolean;
   canRefreshCurrentInput: boolean;
@@ -124,6 +125,7 @@ export interface BuildAppCommandsOptions {
   focusFilter: () => void;
   jumpLineCursorToFileEdge: (edge: "start" | "end") => void;
   deleteActiveNote?: () => void;
+  discardSelectedHunk: () => void;
   editActiveNote?: () => void;
   replyToActiveNote?: () => void;
   /** Step shared semantic selection through one scope. */
@@ -234,6 +236,10 @@ function builtinCommandHandlers(
     },
     "hunk.review.pageDown": { run: (_key, count) => options.scrollDiff(count, "viewport") },
     "hunk.review.pageUp": { run: (_key, count) => options.scrollDiff(-count, "viewport") },
+    "hunk.review.discardSelectedHunk": {
+      isEnabled: () => options.canDiscardSelectedHunk,
+      run: () => options.discardSelectedHunk(),
+    },
     "hunk.review.halfPageDown": { run: (_key, count) => options.scrollDiff(count, "half") },
     "hunk.review.halfPageUp": { run: (_key, count) => options.scrollDiff(-count, "half") },
     "hunk.review.stepDown": { run: (_key, count) => options.stepDiffLine(count) },
@@ -374,9 +380,11 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
   return {
     canAlignCurrentLine: false,
     canApplyFilePresentationToAllMatching: false,
+    canDiscardSelectedHunk: false,
     canRefreshCurrentInput: true,
     alignCurrentLine: noop,
     applyFilePresentationToAllMatching: noop,
+    discardSelectedHunk: noop,
     focusFilter: noop,
     jumpLineCursorToFileEdge: noop,
     moveSelection: noop,

@@ -614,7 +614,13 @@ reports it as unsupported. Jujutsu supplies commit/change identities, bookmarks,
 and native merge-review semantics without routing through a colocated Git repository. Third-party
 adapters use exactly the same contract.
 
-Every operation `load` and `watchSignature` receives optional `context.signal`.
+API version 30 adds optional `discardHunk` support to `working-tree-diff`. The hook receives the
+original current-changes input plus a one-file unified patch for the selected displayed hunk. For
+unstaged input, reverse the patch in the working tree. For staged input, remove it from the index
+without changing the working tree. Reject range comparisons and stale patches rather than applying
+them with fuzz. Hunk confirms the destructive action and reloads the review after the hook succeeds.
+
+Every operation `load`, `discardHunk`, and `watchSignature` receives optional `context.signal`.
 Use asynchronous subprocess APIs, pass cancellation through, and terminate plus
 reap provider processes when it aborts; a synchronous spawn blocks Hunk's renderer
 and prevents the abort handler from running.

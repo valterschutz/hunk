@@ -5,6 +5,7 @@ import type {
   ExtensionVcsHistoryPage,
   ExtensionVcsHistoryRangeReviewAction,
   ExtensionVcsHistoryRangeSelection,
+  ExtensionVcsDiscardHunkRequest,
   ExtensionVcsHistoryReviewAction,
   ExtensionVcsHistoryReviewOptions,
   ExtensionVcsWatchPlan,
@@ -40,6 +41,7 @@ export type VcsReviewOperationKind = VcsReviewOperation["kind"];
 
 export interface VcsOperation<Input extends VcsReviewInput> {
   load(input: Input, context: VcsLoadContext): Promise<VcsPatchResult>;
+  discardHunk?: (request: ExtensionVcsDiscardHunkRequest, context: VcsLoadContext) => Promise<void>;
   watchSignature?: (input: Input, context: VcsLoadContext) => string | Promise<string>;
   watchPlan?: (input: Input, context: VcsLoadContext) => ExtensionVcsWatchPlan;
 }

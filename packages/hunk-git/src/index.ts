@@ -6,6 +6,7 @@ import {
   buildGitDiffNumstatArgs,
   buildGitShowArgs,
   buildGitStashShowArgs,
+  discardGitHunk,
   listGitIgnoredDirectoryRoots,
   listGitUntrackedFilesAsync,
   parseGitNumstat,
@@ -378,6 +379,9 @@ export function createGitVcsAdapter({
     },
     operations: {
       "working-tree-diff": {
+        async discardHunk({ input, patchText }, context) {
+          await discardGitHunk(input, patchText, context);
+        },
         async load(input, { cwd, signal }) {
           const repoRoot = await resolveGitRepoRootAsync(input, { cwd, gitExecutable, signal });
           const repoName = basename(repoRoot);

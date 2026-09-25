@@ -13,11 +13,13 @@ export async function runAbortableCommand(
     cwd,
     env,
     signal,
+    stdin,
     terminationGraceMs = DEFAULT_TERMINATION_GRACE_MS,
   }: {
     cwd: string;
     env?: Record<string, string | undefined>;
     signal?: AbortSignal;
+    stdin?: string;
     terminationGraceMs?: number;
   },
 ): Promise<AsyncCommandResult> {
@@ -27,10 +29,15 @@ export async function runAbortableCommand(
     cwd,
     env,
     detached: ownsProcessGroup,
-    stdin: "ignore",
+    stdin: stdin === undefined ? "ignore" : "pipe",
     stdout: "pipe",
     stderr: "pipe",
   });
+  if (stdin !== undefined) {
+    if (!proc.stdin) throw new Error("Subprocess stdin pipe was not created.");
+    proc.stdin.write(stdin);
+    proc.stdin.end();
+  }
 
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   let terminating = false;

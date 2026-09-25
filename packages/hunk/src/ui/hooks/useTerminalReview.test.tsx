@@ -125,6 +125,28 @@ function createReloadedAlphaFile(sourceFetcher?: DiffFile["sourceFetcher"]) {
   );
 }
 
+/** Build a partial Git-style patch before or after its first change has been staged. */
+function createPartiallyStagedFile(
+  firstChangePresent: boolean,
+  sourceFetcher: DiffFile["sourceFetcher"],
+) {
+  const beforeLines = Array.from({ length: 36 }, (_, index) => `line ${index + 1}`);
+  const afterLines = [...beforeLines];
+  if (firstChangePresent) {
+    afterLines[4] = "line 5 changed";
+  }
+  afterLines[24] = "line 25 changed";
+  const file = createDiffFile(
+    "alpha",
+    "alpha.ts",
+    lines(...beforeLines),
+    lines(...afterLines),
+    null,
+    sourceFetcher,
+  );
+  return { ...file, metadata: { ...file.metadata, isPartial: true } };
+}
+
 /** Build one file with two independently expandable gaps. */
 function createTwoGapFile(sourceFetcher: DiffFile["sourceFetcher"]) {
   const beforeLines = Array.from({ length: 50 }, (_, index) => `line ${index + 1}`);
@@ -1741,6 +1763,46 @@ describe("useTerminalReview", () => {
       await flush(setup);
 
       expect(expandedGaps("alpha")).toEqual([...reviewGapIds(reloaded.metadata)].sort());
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("a partially staged file read whole reloads its source to stay whole", async () => {
+    const sourceLines = Array.from({ length: 36 }, (_, index) => `line ${index + 1}`);
+    sourceLines[4] = "line 5 changed";
+    sourceLines[24] = "line 25 changed";
+    const sourceText = lines(...sourceLines);
+    const initialFetcher = createTestSourceFetcher(() => sourceText);
+    const initial = createPartiallyStagedFile(true, initialFetcher);
+    const { controllerRef, setFilesRef, setup } = await renderTerminalReview([initial]);
+
+    try {
+      await flush(setup);
+      await act(async () => {
+        expectValue(controllerRef.current).toggleSelectedFileContext();
+      });
+      await flush(setup);
+      expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
+
+      const reloadedFetcher = createTestSourceFetcher(() => sourceText);
+      const reloaded = createPartiallyStagedFile(false, reloadedFetcher);
+      await act(async () => {
+        expectValue(setFilesRef.current)([reloaded]);
+      });
+      await flush(setup);
+
+      expect(reloadedFetcher.calls).toEqual(["new"]);
+      expect(
+        [...(expectValue(controllerRef.current).expandedGapsByFileId.alpha ?? [])].sort(),
+      ).toEqual(
+        [
+          ...reviewGapIds(reviewGapSourceWithSourceText(reloaded.metadata, "new", sourceText)),
+        ].sort(),
+      );
       expect(expectValue(controllerRef.current).wholeFileIds.has("alpha")).toBe(true);
     } finally {
       await act(async () => {

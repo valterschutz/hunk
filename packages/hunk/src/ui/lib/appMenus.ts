@@ -41,6 +41,8 @@ export interface BuildAppMenusOptions {
   copyDecorations: boolean;
   cursorLine: CursorLine;
   layoutMode: LayoutMode;
+  /** Whether changed rows, rather than standard patch hunks, are the active review units. */
+  lineReviewMode: boolean;
   filesPaneVisible: boolean;
   showAgentNotes: boolean;
   showHelp: boolean;
@@ -139,6 +141,7 @@ export function buildAppMenus({
   copyDecorations,
   cursorLine,
   layoutMode,
+  lineReviewMode,
   filesPaneVisible,
   showAgentNotes,
   showHelp,
@@ -157,10 +160,22 @@ export function buildAppMenus({
         commandId: "hunk.review.editSelectedFileSplit",
         label: "Open file in editor (Herdr split pane)",
       },
-      { commandId: "hunk.review.discardSelectedHunk", label: "Discard selected hunk…" },
-      { commandId: "hunk.review.acceptSelectedHunk", label: "Accept selected hunk" },
-      { commandId: "hunk.review.rejectSelectedHunk", label: "Reject selected hunk" },
-      { commandId: "hunk.review.markSelectedHunkFixed", label: "Mark selected hunk fixed" },
+      {
+        commandId: "hunk.review.discardSelectedHunk",
+        label: lineReviewMode ? "Discard selected line…" : "Discard selected hunk…",
+      },
+      {
+        commandId: "hunk.review.acceptSelectedHunk",
+        label: lineReviewMode ? "Accept selected line" : "Accept selected hunk",
+      },
+      {
+        commandId: "hunk.review.rejectSelectedHunk",
+        label: lineReviewMode ? "Reject selected line" : "Reject selected hunk",
+      },
+      {
+        commandId: "hunk.review.markSelectedHunkFixed",
+        label: lineReviewMode ? "Mark selected line fixed" : "Mark selected hunk fixed",
+      },
       { commandId: "hunk.app.refresh", label: "Reload" },
       SEPARATOR,
       { commandId: "hunk.app.quit" },

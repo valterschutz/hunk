@@ -11,6 +11,48 @@ afterEach(() => {
   harness.cleanup();
 });
 
+test("line mode discards only the selected changed row", async () => {
+  const before = "before\nold one\nold two\nafter\n";
+  const after = "before\nnew one\nnew two\nafter\n";
+  const fixture = harness.createGitRepoFixture([{ path: "file.txt", before, after }]);
+  const session = await harness.launchHunk({
+    args: ["diff", "--mode", "unified"],
+    cwd: fixture.dir,
+    cols: 140,
+    rows: 28,
+  });
+
+  try {
+    await session.waitForText(/new two/, { timeout: 15_000 });
+    await harness.ensureKeyboardIsLive(session);
+    await harness.pressAndWaitForText(session, ["shift", "h"], /Line review mode/, {
+      timeout: 5_000,
+    });
+    await session.press("]");
+    await harness.pressAndWaitForText(session, "d", /Discard selected line\?/, {
+      timeout: 5_000,
+    });
+    await harness.pressAndWaitForSnapshot(
+      session,
+      "y",
+      (text) => !text.includes("Discard selected line?"),
+      5_000,
+    );
+
+    expect(readFileSync(join(fixture.dir, "file.txt"), "utf8")).toBe(
+      "before\nnew one\nold two\nafter\n",
+    );
+
+    await harness.ensureKeyboardIsLive(session);
+    await harness.pressAndWaitForText(session, "d", /Discard selected line\?/, {
+      timeout: 5_000,
+    });
+    await session.press("escape");
+  } finally {
+    session.close();
+  }
+});
+
 test("d confirms and discards only the selected unstaged hunk", async () => {
   const before = `${Array.from({ length: 20 }, (_, index) => `line ${index + 1}`).join("\n")}\n`;
   const after = before.replace("line 3\n", "line three\n").replace("line 17\n", "line seventeen\n");

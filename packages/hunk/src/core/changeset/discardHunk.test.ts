@@ -3,6 +3,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
 import { buildDiffFile } from "./diffFile";
 import { buildSelectedHunkPatch } from "./discardHunk";
+import { projectDiffFilesToReviewUnits } from "./reviewUnits";
 
 /** Parse one text change through the same patch path as a loaded VCS review. */
 function fileFromTexts(before: string, after: string) {
@@ -18,11 +19,13 @@ const numberedLines = (count: number) =>
   `${Array.from({ length: count }, (_, index) => `line ${index + 1}`).join("\n")}\n`;
 
 describe("buildSelectedHunkPatch", () => {
-  test("emits only the selected edit when Git grouped nearby edits into one hunk", () => {
+  test("emits only the selected line when Git grouped nearby edits into one hunk", () => {
     const before = numberedLines(14);
     const after = before.replace("line 4\n", "line four\n").replace("line 9\n", "line nine\n");
-    const file = fileFromTexts(before, after);
+    const sourceFile = fileFromTexts(before, after);
+    const file = projectDiffFilesToReviewUnits([sourceFile], "line")[0]!;
 
+    expect(sourceFile.metadata.hunks).toHaveLength(1);
     expect(file.metadata.hunks).toHaveLength(2);
     expect(buildSelectedHunkPatch(file, file.metadata.hunks[1]!)).toContain(
       "@@ -7,6 +7,6 @@\n line 7\n line 8\n-line 9\n+line nine\n line 10\n line 11\n line 12\n",

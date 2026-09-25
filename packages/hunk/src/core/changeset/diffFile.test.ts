@@ -41,7 +41,7 @@ describe("buildDiffFile", () => {
     expect(file.stats).toEqual({ additions: 2, deletions: 1 });
   });
 
-  test("keeps the public patch aligned with change-group hunks", () => {
+  test("keeps the public patch aligned with standard hunks", () => {
     const patch = [
       "diff --git a/foo.ts b/foo.ts",
       "--- a/foo.ts",
@@ -64,12 +64,12 @@ describe("buildDiffFile", () => {
     const file = buildDiffFile(parsed, patch, 0, "src", null);
     const publicMetadata = parsePatchFiles(file.patch, "public-patch", true)[0]?.files[0];
 
-    expect(file.metadata.hunks).toHaveLength(2);
-    expect(publicMetadata?.hunks).toHaveLength(2);
-    expect(publicMetadata?.hunks.map((hunk) => hunk.additionLines)).toEqual([1, 1]);
+    expect(file.metadata.hunks).toHaveLength(1);
+    expect(publicMetadata?.hunks).toHaveLength(1);
+    expect(publicMetadata?.hunks.map((hunk) => hunk.additionLines)).toEqual([2]);
   });
 
-  test("preserves end-of-file markers while splitting the public patch", () => {
+  test("preserves end-of-file markers in the public patch", () => {
     const patch = [
       "diff --git a/foo.ts b/foo.ts",
       "index 1234567..89abcde 100644",
@@ -92,8 +92,8 @@ describe("buildDiffFile", () => {
     const file = buildDiffFile(parsed, patch, 0, "src", null);
     const publicMetadata = parsePatchFiles(file.patch, "public-patch", true)[0]?.files[0];
 
-    expect(publicMetadata?.hunks.map((hunk) => hunk.noEOFCRDeletions)).toEqual([false, true]);
-    expect(publicMetadata?.hunks.map((hunk) => hunk.noEOFCRAdditions)).toEqual([false, true]);
+    expect(publicMetadata?.hunks.map((hunk) => hunk.noEOFCRDeletions)).toEqual([true]);
+    expect(publicMetadata?.hunks.map((hunk) => hunk.noEOFCRAdditions)).toEqual([true]);
     expect(file.patch.match(/\\ No newline at end of file/g)).toHaveLength(2);
     expect(file.patch).toContain("index 1234567..89abcde 100644");
   });

@@ -466,6 +466,15 @@ const BUILTIN_COMMANDS = [
     closesMenu: true,
   },
   {
+    id: "hunk.view.toggleLineReviewMode",
+    title: "Toggle line review mode",
+    category: "view",
+    defaultKeys: ["H"],
+    locus: "client-local",
+    publicToExtensions: true,
+    closesMenu: true,
+  },
+  {
     id: "hunk.view.toggleLineWrap",
     title: "Toggle line wrapping",
     category: "view",

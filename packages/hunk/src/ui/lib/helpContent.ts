@@ -94,6 +94,10 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
         description: "sidebar / theme selector",
       },
       { commandIds: ["hunk.view.toggleAgentNotes"], description: "toggle AI notes" },
+      {
+        commandIds: ["hunk.view.toggleLineReviewMode"],
+        description: "toggle hunk / line review mode",
+      },
       { commandIds: ["hunk.review.toggleFileContext"], description: "show whole file" },
       {
         commandIds: [

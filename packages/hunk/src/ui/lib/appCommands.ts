@@ -155,6 +155,7 @@ export interface BuildAppCommandsOptions {
   toggleHelp: () => void;
   toggleHunkHeaders: () => void;
   toggleLineNumbers: () => void;
+  toggleLineReviewMode: () => void;
   toggleLineWrap: () => void;
   toggleMenuBar: () => void;
   toggleFilesPane: () => void;
@@ -286,6 +287,7 @@ function builtinCommandHandlers(
     "hunk.view.openThemeSelector": { run: () => options.openThemeSelector() },
     "hunk.view.toggleAgentNotes": { run: () => options.toggleAgentNotes() },
     "hunk.view.toggleLineNumbers": { run: () => options.toggleLineNumbers() },
+    "hunk.view.toggleLineReviewMode": { run: () => options.toggleLineReviewMode() },
     "hunk.view.toggleLineWrap": { run: () => options.toggleLineWrap() },
     "hunk.view.toggleMenuBar": { run: () => options.toggleMenuBar() },
     "hunk.view.toggleHunkHeaders": { run: () => options.toggleHunkHeaders() },
@@ -410,6 +412,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     toggleHelp: noop,
     toggleHunkHeaders: noop,
     toggleLineNumbers: noop,
+    toggleLineReviewMode: noop,
     toggleLineWrap: noop,
     toggleMenuBar: noop,
     toggleFilesPane: noop,

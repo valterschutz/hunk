@@ -175,8 +175,13 @@ Review and shared commands:
 | `hunk.view.toggleFilesPane`                    | Toggle files pane                                            | `s`                          |
 | `hunk.view.toggleHunkHeaders`                  | Toggle hunk headers                                          | `m`                          |
 | `hunk.view.toggleLineNumbers`                  | Toggle line numbers                                          | `l`                          |
+| `hunk.view.toggleLineReviewMode`               | Toggle standard-hunk / changed-line review units             | `H`                          |
 | `hunk.view.toggleLineWrap`                     | Toggle line wrapping                                         | `w`                          |
 | `hunk.view.toggleMenuBar`                      | Toggle menu bar                                              | `M`                          |
+
+`H` switches between standard patch hunks and individual changed rows. Accept, reject, fixed,
+discard, and extension staging/marking commands act on the selected unit; the status line confirms
+each mode change.
 
 The files-pane command follows the named `hunk:files` role. If an extension
 replaces that role, the command and **View → Files pane** toggle the resolved

@@ -630,6 +630,7 @@ optional, and each optional field buys one thing. API version 24 adds `review`:
 | `readFileSource`  | exact whole-file contents, for context expansion and highlighting          |
 | `sourceCacheKey`  | stable source-snapshot identity for highlight reuse across reloads         |
 | `extraFiles`      | files reviewed outside the patch, including skipped placeholders           |
+| `conflictedFiles` | working copies with conflict markers, reviewed as one hunk per conflict    |
 
 Use the same `ExtensionReviewDescriptor` accepted by delegated CLI reviews. Return a `commit`
 descriptor when the operation resolves one reviewed commit, or a `comparison` descriptor when both
@@ -827,6 +828,36 @@ read, so it never gets a source reader.
 VCS calls unknown and Hunk synthesizes the added-file diffs from the working
 copy, skipping binaries and files too large to render. Use `extraFiles` instead
 only when your VCS renders those files better than a plain read would.
+
+#### Conflicted files
+
+`conflictedFiles` lists the working copies your VCS left with conflict markers
+after a merge, rebase, or similar. Keep each one out of `patchText` — a
+conflicted path diffs as a combined diff nobody can act on — and Hunk reads the
+working copy instead, splits it at its `<<<<<<<`, `|||||||`, `=======`, and
+`>>>>>>>` markers, and shows every conflict as one hunk: ours on the old side,
+theirs on the new side, the untouched text between conflicts as context. The
+reviewer resolves a conflict from the keyboard (`<` ours, `>` theirs, `|` both,
+`B` the base when `diff3` markers recorded one) and Hunk rewrites exactly that
+marker block in the working copy before reloading the review. Conflicted files
+are listed ahead of everything else.
+
+```ts
+conflictedFiles: [
+  {
+    path: "src/app.ts",
+    // Shown once every marker is gone: the working copy against the side
+    // the merge started from. Omit it to list a resolved file without a diff.
+    patchText: await runHgDiff(ctx.cwd, "--rev", ".", "src/app.ts"),
+    // Optional names for the sides; the markers' own labels are used otherwise.
+    labels: { ours: "working copy", theirs: "merged branch" },
+  },
+],
+```
+
+Hunk never asks the VCS to mark a file resolved: once the markers are gone the
+file is an ordinary edit, and staging it stays with the VCS front end the
+reviewer came from.
 
 #### Moved lines
 

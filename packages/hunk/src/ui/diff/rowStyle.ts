@@ -106,9 +106,14 @@ export function dimRailColor(color: string, theme: AppTheme) {
   return blendHex(color, theme.panel, 1 - themeTuning(theme).inactiveRailFade);
 }
 
-/** The rail color that marks a decided hunk. */
-export function decisionRailColor(theme: AppTheme, decision: HunkDecision) {
+/** What paints a hunk's whole rail: the reviewer's decision, or a conflict still to resolve. */
+export type HunkRailMark = HunkDecision | "conflict";
+
+/** The rail color that marks a decided or conflicted hunk. */
+export function decisionRailColor(theme: AppTheme, decision: HunkRailMark) {
   switch (decision) {
+    case "conflict":
+      return theme.conflictRailColor;
     case "accepted":
       return theme.acceptedRailColor;
     case "rejected":
@@ -131,14 +136,14 @@ function finishRailColor(
   color: string,
   theme: AppTheme,
   selected: boolean,
-  decision: HunkDecision | undefined,
+  decision: HunkRailMark | undefined,
 ) {
   const resolved = decision ? decisionRailColor(theme, decision) : color;
   return selected ? resolved : dimRailColor(resolved, theme);
 }
 
 /** Pick the rail color for a hunk header or collapsed-gap row. */
-export function metaRailColor(theme: AppTheme, selected: boolean, decision?: HunkDecision) {
+export function metaRailColor(theme: AppTheme, selected: boolean, decision?: HunkRailMark) {
   return finishRailColor(neutralRailColor(theme), theme, selected, decision);
 }
 
@@ -417,7 +422,7 @@ export function unifiedRailColor(
   kind: UnifiedLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  decision?: HunkDecision,
+  decision?: HunkRailMark,
 ) {
   let color: string;
 
@@ -437,7 +442,7 @@ export function splitLeftRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  decision?: HunkDecision,
+  decision?: HunkRailMark,
 ) {
   const color = kind === "deletion" ? theme.removedRailColor : neutralRailColor(theme);
   return finishRailColor(color, theme, selected, decision);
@@ -448,7 +453,7 @@ export function splitRightRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  decision?: HunkDecision,
+  decision?: HunkRailMark,
 ) {
   const color = kind === "addition" ? theme.addedRailColor : neutralRailColor(theme);
   return finishRailColor(color, theme, selected, decision);

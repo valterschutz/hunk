@@ -4,12 +4,12 @@
  * `DiffSection` owns the file header and picks a body; this is the diff-row body it picks
  * for a normal review, beside `FileView` for the alternate file views.
  */
-import type { HunkDecision } from "../../core/review/reviewFile";
 import { useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_HUNK_GAP } from "../../core/run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../../core/run/tabWidth";
 import type { DiffFile } from "../../core/changeset/model";
+import type { HunkRailMark } from "./rowStyle";
 import type { LayoutMode } from "../../core/run/commandInputs";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import { AgentInlineNote } from "../components/panes/AgentInlineNote";
@@ -121,7 +121,7 @@ export function DiffSectionBody({
   width: number;
   selectedHunkIndex: number;
   /** Decisions on this file's hunks by hunk index, when decided hunks are shown. */
-  hunkDecisions?: ReadonlyMap<number, HunkDecision>;
+  hunkDecisions?: ReadonlyMap<number, HunkRailMark>;
   sectionGeometry?: DiffSectionGeometry;
   shouldLoadHighlight?: boolean;
   offloadLargeDiff?: boolean;
@@ -442,7 +442,8 @@ export function DiffSectionBody({
         // neighbor hunk's index for ordering only (see DiffRow's isExpansionRow doc) and must
         // not read as that hunk's own content for selection or decision painting, or a whole
         // expanded file would look like one hunk.
-        const isExpansionRow = "isExpansionRow" in plannedRow.row && plannedRow.row.isExpansionRow === true;
+        const isExpansionRow =
+          "isExpansionRow" in plannedRow.row && plannedRow.row.isExpansionRow === true;
 
         return (
           <box key={plannedRow.key} id={rowId} style={{ width: "100%", flexDirection: "column" }}>

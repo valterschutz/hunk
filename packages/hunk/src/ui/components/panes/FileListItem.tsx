@@ -23,6 +23,9 @@ function getFileStateIcon(
   entry: FileListEntry,
   theme: ExtensionSidebarTheme,
 ): { icon: string; color: string } {
+  if (entry.conflict === "unresolved") {
+    return { icon: "U", color: theme.fileConflicted };
+  }
   if (entry.isUntracked) {
     return { icon: "?", color: theme.fileUntracked };
   }

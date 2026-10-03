@@ -1,5 +1,4 @@
 /** Mounts split and unified code rows from the canonical code-row layout and paint plans. */
-import type { HunkDecision } from "../../core/review/reviewFile";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import { copySelectedRangeAtVisualLine, type CopySelectedRowRange } from "../lib/diffSpatial";
 import type { AppTheme } from "../themes";
@@ -22,6 +21,7 @@ import {
   unfocusedHunkRow,
   unfocusedHunkTheme,
   unifiedRailColor,
+  type HunkRailMark,
 } from "./rowStyle";
 import { markNestedRowMouseAction } from "./rowMouseActions";
 
@@ -35,7 +35,7 @@ export interface CodeRowViewProps {
   theme: AppTheme;
   selected: boolean;
   /** The decision on the hunk the row belongs to, when decided hunks are shown. */
-  decision?: HunkDecision;
+  decision?: HunkRailMark;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;

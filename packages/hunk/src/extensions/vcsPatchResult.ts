@@ -12,6 +12,7 @@ import {
 import type { DiffFile } from "../core/changeset/model";
 import type { VcsPatchResult } from "../core/vcs/types";
 import type {
+  ExtensionVcsConflictedFile,
   ExtensionVcsExtraFile,
   ExtensionVcsFileSourceReader,
   ExtensionVcsPatchResult,
@@ -184,6 +185,48 @@ function toInternalExtraFile(
   );
 }
 
+/** Validate the conflicted-file list: bounded repo-relative paths, optional one-file patches. */
+function validateConflictedFiles(value: unknown): ExtensionVcsConflictedFile[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error("VCS conflicted files must be an array.");
+  }
+  return value.map((entry): ExtensionVcsConflictedFile => {
+    if (typeof entry !== "object" || entry === null) {
+      throw new Error("VCS conflicted files must be objects.");
+    }
+    const { path, patchText, labels } = entry as Record<string, unknown>;
+    if (typeof path !== "string" || path.length === 0 || path.includes("\0")) {
+      throw new Error("VCS conflicted files need a non-empty path.");
+    }
+    if (patchText !== undefined && typeof patchText !== "string") {
+      throw new Error("VCS conflicted file patch text must be a string.");
+    }
+    if (labels !== undefined && (typeof labels !== "object" || labels === null)) {
+      throw new Error("VCS conflicted file labels must be an object.");
+    }
+    const sideLabels = labels as { ours?: unknown; theirs?: unknown } | undefined;
+    for (const side of ["ours", "theirs"] as const) {
+      const label = sideLabels?.[side];
+      if (label !== undefined && typeof label !== "string") {
+        throw new Error(`VCS conflicted file ${side} label must be a string.`);
+      }
+    }
+    return {
+      path,
+      ...(patchText !== undefined ? { patchText } : {}),
+      ...(sideLabels
+        ? {
+            labels: {
+              ...(typeof sideLabels.ours === "string" ? { ours: sideLabels.ours } : {}),
+              ...(typeof sideLabels.theirs === "string" ? { theirs: sideLabels.theirs } : {}),
+            },
+          }
+        : {}),
+    };
+  });
+}
+
 /** Convert one published patch result into the internal result loaders consume. */
 export function toInternalVcsPatchResult(result: ExtensionVcsPatchResult): VcsPatchResult {
   const sourceFetcherBuilder = result.readFileSource
@@ -205,5 +248,6 @@ export function toInternalVcsPatchResult(result: ExtensionVcsPatchResult): VcsPa
     extraFiles: result.extraFiles?.map((entry, index) =>
       toInternalExtraFile(entry, index, result.repoRoot, sourceFetcherBuilder),
     ),
+    conflictedFiles: validateConflictedFiles(result.conflictedFiles),
   };
 }

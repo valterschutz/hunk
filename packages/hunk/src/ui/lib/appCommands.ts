@@ -6,6 +6,7 @@ import {
   type VerticalCommandDirection,
 } from "../../core/run/commandCatalog";
 import type { ReviewSelectionScope } from "../../core/review/navigation";
+import type { ConflictResolutionChoice } from "../../core/changeset/model";
 import type { HunkState } from "../../core/review/reviewFile";
 import type { CursorLine, LayoutMode } from "../../core/run/commandInputs";
 import type { ExtensionCommandExecutionOptions } from "../../extension-api/types";
@@ -162,6 +163,8 @@ export interface BuildAppCommandsOptions {
   acceptSelectedHunk: () => void;
   rejectSelectedHunk: () => void;
   markSelectedHunkFixed: () => void;
+  /** Rewrite the selected conflict region in the working copy with the chosen side. */
+  resolveSelectedConflict: (choice: ConflictResolutionChoice) => void;
   toggleDecidedHunks: () => void;
   toggleAllHunkStates: () => void;
   toggleHunkState: (state: HunkState) => void;
@@ -291,6 +294,10 @@ function builtinCommandHandlers(
     "hunk.review.acceptSelectedHunk": { run: () => options.acceptSelectedHunk() },
     "hunk.review.rejectSelectedHunk": { run: () => options.rejectSelectedHunk() },
     "hunk.review.markSelectedHunkFixed": { run: () => options.markSelectedHunkFixed() },
+    "hunk.review.resolveConflictOurs": { run: () => options.resolveSelectedConflict("ours") },
+    "hunk.review.resolveConflictTheirs": { run: () => options.resolveSelectedConflict("theirs") },
+    "hunk.review.resolveConflictBoth": { run: () => options.resolveSelectedConflict("both") },
+    "hunk.review.resolveConflictBase": { run: () => options.resolveSelectedConflict("base") },
     "hunk.view.toggleDecidedHunks": { run: () => options.toggleDecidedHunks() },
     "hunk.view.toggleAllHunkStates": { run: () => options.toggleAllHunkStates() },
     "hunk.view.toggleUndecidedHunks": { run: () => options.toggleHunkState("undecided") },
@@ -411,6 +418,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     acceptSelectedHunk: noop,
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
+    resolveSelectedConflict: noop,
     toggleDecidedHunks: noop,
     toggleAllHunkStates: noop,
     toggleHunkState: noop,

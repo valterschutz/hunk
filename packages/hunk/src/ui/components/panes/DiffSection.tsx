@@ -1,9 +1,9 @@
-import type { HunkDecision } from "../../../core/review/reviewFile";
 import { memo } from "react";
 import type { DiffFile } from "../../../core/changeset/model";
 import type { LayoutMode } from "../../../core/run/commandInputs";
 import type { UserNoteLineTarget } from "../../../core/liveComments";
 import type { FileSourceStatus } from "../../diff/expandCollapsedRows";
+import type { HunkRailMark } from "../../diff/rowStyle";
 import { DiffSectionBody, type ActiveAddNoteAffordance } from "../../diff/DiffSectionBody";
 import type { CursorHighlight } from "../../diff/cursorHighlight";
 import type { VisibleBodyBounds } from "../../diff/rowWindowing";
@@ -35,7 +35,7 @@ interface DiffSectionProps {
   layout: Exclude<LayoutMode, "auto">;
   selectedHunkIndex: number;
   /** Decisions on this file's hunks by hunk index, when decided hunks are shown. */
-  hunkDecisions?: ReadonlyMap<number, HunkDecision>;
+  hunkDecisions?: ReadonlyMap<number, HunkRailMark>;
   copySelectedRowRanges?: Map<string, CopySelectedRowRange>;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;

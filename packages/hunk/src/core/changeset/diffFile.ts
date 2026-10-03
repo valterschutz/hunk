@@ -5,7 +5,7 @@ import { fileLanguageForPath } from "./fileLanguageLookup";
 import { normalizeDiffMetadataPaths, normalizeDiffPath } from "./diffPaths";
 import { splitHunksAtChangeGroups } from "./changeGroups";
 import type { FileSourceFetcher } from "./fileSource";
-import type { DiffFile, DiffLineMoveKinds, SidecarContext } from "./model";
+import type { DiffFile, DiffFileConflict, DiffLineMoveKinds, SidecarContext } from "./model";
 
 /** Count visible additions and deletions from parsed diff metadata. */
 export function countDiffStats(metadata: FileDiffMetadata) {
@@ -42,6 +42,7 @@ export interface BuildDiffFileOptions {
   statsTruncated?: boolean;
   lineMoveKinds?: DiffLineMoveKinds;
   pathsAreExact?: boolean;
+  conflict?: DiffFileConflict;
 }
 
 /** Build the normalized per-file model used by the UI regardless of input mode. */
@@ -61,6 +62,7 @@ export function buildDiffFile(
     statsTruncated,
     lineMoveKinds,
     pathsAreExact,
+    conflict,
   }: BuildDiffFileOptions = {},
 ): DiffFile {
   const normalizedMetadata = splitHunksAtChangeGroups(
@@ -95,6 +97,7 @@ export function buildDiffFile(
     isBinary: resolvedIsBinary,
     isTooLarge,
     statsTruncated,
+    conflict,
     sourceFetcher,
   };
 }

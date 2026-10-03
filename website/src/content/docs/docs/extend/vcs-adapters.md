@@ -32,11 +32,12 @@ The ids Hunk ships with — `git`, `jj`, and `sl` — are reserved. An adapter t
 
 A `load` result is patch text plus how to label it. Everything else on it is optional, and each optional field buys one thing:
 
-| Field            | What it adds                                                      |
-| ---------------- | ----------------------------------------------------------------- |
-| `untrackedPaths` | files your VCS calls unknown, synthesized into added-file diffs   |
-| `readFileSource` | exact whole-file contents, for context expansion and highlighting |
-| `extraFiles`     | files reviewed outside the patch, including skipped placeholders  |
+| Field             | What it adds                                                            |
+| ----------------- | ----------------------------------------------------------------------- |
+| `untrackedPaths`  | files your VCS calls unknown, synthesized into added-file diffs         |
+| `readFileSource`  | exact whole-file contents, for context expansion and highlighting       |
+| `extraFiles`      | files reviewed outside the patch, including skipped placeholders        |
+| `conflictedFiles` | working copies with conflict markers, reviewed as one hunk per conflict |
 
 `untrackedPaths` is the shorthand: list the repo-root-relative paths your VCS reports as unknown and Hunk synthesizes the added-file diffs for you, skipping binaries and files too large to render. Honor `input.options.excludeUntracked` when you do, so `--exclude-untracked` still means what it says. The other two are covered below.
 
@@ -157,6 +158,10 @@ extraFiles: [
 `readFileSource` covers the patch entries too; a skipped entry has no content to read, so it never gets a source reader.
 
 `untrackedPaths` remains the shorthand for the common case: list the paths your VCS calls unknown and Hunk synthesizes the added-file diffs from the working copy, skipping binaries and files too large to render. Use `extraFiles` instead only when your VCS renders those files better than a plain read would.
+
+## Conflicted files
+
+`conflictedFiles` lists the working copies your VCS left with conflict markers after a merge or rebase. Keep each one out of `patchText` and Hunk reads the working copy instead, splits it at its markers, and shows every conflict as one hunk: ours on the old side, theirs on the new side. The reviewer resolves a conflict from the keyboard (`<` ours, `>` theirs, `|` both, `B` the base when `diff3` markers recorded one) and Hunk rewrites exactly that marker block before reloading. Each entry may carry `patchText`, the diff shown once every marker is gone, and `labels` naming the two sides. Conflicted files are listed ahead of everything else, and Hunk never asks the VCS to mark one resolved.
 
 ## Moved lines
 

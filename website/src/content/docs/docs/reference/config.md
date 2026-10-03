@@ -467,6 +467,7 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.acceptedRailColor`   | Override the acceptedRailColor semantic color.   |
 | `custom_theme.rejectedRailColor`   | Override the rejectedRailColor semantic color.   |
 | `custom_theme.fixedRailColor`      | Override the fixedRailColor semantic color.      |
+| `custom_theme.conflictRailColor`   | Override the conflictRailColor semantic color.   |
 | `custom_theme.cursorLineBg`        | Override the cursorLineBg semantic color.        |
 | `custom_theme.selectedHunk`        | Override the selectedHunk semantic color.        |
 | `custom_theme.badgeAdded`          | Override the badgeAdded semantic color.          |
@@ -477,6 +478,7 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.fileRenamed`         | Override the fileRenamed semantic color.         |
 | `custom_theme.fileModified`        | Override the fileModified semantic color.        |
 | `custom_theme.fileUntracked`       | Override the fileUntracked semantic color.       |
+| `custom_theme.fileConflicted`      | Override the fileConflicted semantic color.      |
 | `custom_theme.noteBorder`          | Override the noteBorder semantic color.          |
 | `custom_theme.noteBackground`      | Override the noteBackground semantic color.      |
 | `custom_theme.noteTitleBackground` | Override the noteTitleBackground semantic color. |

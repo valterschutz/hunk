@@ -1,12 +1,11 @@
 /** Renders collapsed gaps and hunk headers without introducing code-row geometry policy. */
-import type { HunkDecision } from "../../core/review/reviewFile";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import { reviewGapId } from "../../core/review/expansion";
 import type { AppTheme } from "../themes";
 import { CODE_ROW_ADD_NOTE_BADGE_TEXT } from "./codeRowAffordance";
 import type { PlannedDiffMetaReviewRow } from "./reviewRenderPlan";
 import { fitText } from "./plannedRowText";
-import { diffRailMarker, metaRailColor, unfocusedHunkTheme } from "./rowStyle";
+import { diffRailMarker, type HunkRailMark, metaRailColor, unfocusedHunkTheme } from "./rowStyle";
 import { markNestedRowMouseAction } from "./rowMouseActions";
 
 export interface DiffMetaRowViewProps {
@@ -15,7 +14,7 @@ export interface DiffMetaRowViewProps {
   theme: AppTheme;
   selected: boolean;
   /** The decision on the hunk the row belongs to, when decided hunks are shown. */
-  decision?: HunkDecision;
+  decision?: HunkRailMark;
   showHunkHeaders: boolean;
   showAddNoteBadge?: boolean;
   onHoverRow?: (rowKey: string) => void;

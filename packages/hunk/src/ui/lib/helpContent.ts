@@ -133,6 +133,15 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
         description: "accept / reject / mark fixed",
       },
       {
+        commandIds: [
+          "hunk.review.resolveConflictOurs",
+          "hunk.review.resolveConflictTheirs",
+          "hunk.review.resolveConflictBoth",
+          "hunk.review.resolveConflictBase",
+        ],
+        description: "keep ours / theirs / both / base",
+      },
+      {
         commandIds: ["hunk.view.toggleDecidedHunks"],
         description: "all hunk states / undecided only",
       },

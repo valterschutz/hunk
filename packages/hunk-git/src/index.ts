@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
+  buildGitConflictResolvedDiffArgs,
   buildGitDiffArgs,
   buildGitDiffNumstatArgs,
   buildGitShowArgs,
   buildGitStashShowArgs,
+  listGitConflictedFilesAsync,
   listGitIgnoredDirectoryRoots,
   listGitUntrackedFilesAsync,
   parseGitNumstat,
@@ -33,6 +35,7 @@ import { commitReviewInfo, comparisonReviewInfo } from "@hunk/vcs/review-info";
 import {
   HUNK_VCS_DETECTION_BASELINE_PRIORITY,
   type ExtensionVcsAdapter,
+  type ExtensionVcsConflictedFile,
   type ExtensionVcsDiffInput,
   type ExtensionVcsDirectoryTreeWatchTarget,
   type ExtensionVcsExtraFile,
@@ -439,6 +442,26 @@ export function createGitVcsAdapter({
           const largeTrackedFiles = parseGitNumstat(numstat).filter((file) =>
             shouldSkipLargeTrackedDiff(file, repoRoot),
           );
+          // A conflicted path diffs as a combined diff nobody can review, so it
+          // leaves the patch and Hunk builds its conflict review from the
+          // markers. The HEAD diff is what the file becomes once they are gone.
+          const conflictedPaths = comparison
+            ? []
+            : await listGitConflictedFilesAsync(input, { cwd, gitExecutable, signal });
+          const conflictedFiles = await Promise.all(
+            conflictedPaths.map(
+              async (path): Promise<ExtensionVcsConflictedFile> => ({
+                path,
+                patchText: await runGitTextAsync({
+                  input,
+                  args: buildGitConflictResolvedDiffArgs(path),
+                  cwd: repoRoot,
+                  gitExecutable,
+                  signal,
+                }),
+              }),
+            ),
+          );
 
           return {
             repoRoot,
@@ -448,7 +471,7 @@ export function createGitVcsAdapter({
               input,
               args: buildGitDiffArgs(
                 patchInput,
-                largeTrackedFiles.map((file) => file.path),
+                [...largeTrackedFiles.map((file) => file.path), ...conflictedPaths],
                 colorMoved,
               ),
               cwd,
@@ -472,6 +495,7 @@ export function createGitVcsAdapter({
             // instead costs one subprocess per file, which made working-tree
             // review scale with the untracked file count.
             untrackedPaths,
+            ...(conflictedFiles.length > 0 ? { conflictedFiles } : {}),
           };
         },
         watchPlan(input, { cwd }) {

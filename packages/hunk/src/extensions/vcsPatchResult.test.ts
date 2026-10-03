@@ -383,3 +383,30 @@ describe("published user errors", () => {
     expect(adapter.operations["working-tree-diff"]).toBeUndefined();
   });
 });
+
+describe("published conflicted files", () => {
+  const base = { repoRoot: "/repo", sourceLabel: "/repo", title: "t", patchText: "" };
+
+  test("are copied through with their optional patch text and labels", () => {
+    const result = toInternalVcsPatchResult({
+      ...base,
+      conflictedFiles: [
+        { path: "a.txt" },
+        { path: "b.txt", patchText: "diff --git a/b.txt b/b.txt\n", labels: { ours: "HEAD" } },
+      ],
+    });
+    expect(result.conflictedFiles).toEqual([
+      { path: "a.txt" },
+      { path: "b.txt", patchText: "diff --git a/b.txt b/b.txt\n", labels: { ours: "HEAD" } },
+    ]);
+  });
+
+  test("reject entries without a usable path", () => {
+    expect(() => toInternalVcsPatchResult({ ...base, conflictedFiles: [{ path: "" }] })).toThrow(
+      /non-empty path/,
+    );
+    expect(() => toInternalVcsPatchResult({ ...base, conflictedFiles: "a.txt" as never })).toThrow(
+      /array/,
+    );
+  });
+});

@@ -41,6 +41,8 @@ export interface AppTheme {
   rejectedRailColor: string;
   /** Rail marker beside every row of a rejected hunk the reviewer has since fixed. */
   fixedRailColor: string;
+  /** Rail marker beside every row of a conflict region the reviewer has not resolved yet. */
+  conflictRailColor: string;
   /**
    * Fixed color the current line lifts toward, replacing the computed white/black tint.
    *
@@ -58,6 +60,8 @@ export interface AppTheme {
   fileRenamed: string;
   fileModified: string;
   fileUntracked: string;
+  /** Sidebar badge of a file with unresolved conflicts. */
+  fileConflicted: string;
   noteBorder: string;
   noteBackground: string;
   noteTitleBackground: string;

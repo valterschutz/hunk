@@ -138,3 +138,83 @@ export function splitHunksAtChangeGroups(metadata: FileDiffMetadata): FileDiffMe
 
   return { ...metadata, hunks: relayoutHunks(hunks) };
 }
+
+/** Split one single-change hunk into one hunk per changed split-view row. */
+function splitChangeGroupAtChangedLines(hunk: DiffHunk): DiffHunk[] {
+  const changeIndex = hunk.hunkContent.findIndex((block) => block.type === "change");
+  if (changeIndex < 0) {
+    throw new Error(`Hunk ${hunk.hunkSpecs?.trim() ?? ""} has no changed lines`);
+  }
+  const change = hunk.hunkContent[changeIndex]!;
+  if (change.type !== "change") {
+    throw new Error("The located change block must contain changed lines");
+  }
+  if (hunk.hunkContent.slice(changeIndex + 1).some((block) => block.type === "change")) {
+    throw new Error(`Hunk ${hunk.hunkSpecs?.trim() ?? ""} has more than one change block`);
+  }
+
+  const unitCount = Math.max(change.additions, change.deletions);
+  if (unitCount <= 1) return [hunk];
+
+  const leading = hunk.hunkContent.slice(0, changeIndex);
+  const trailing = hunk.hunkContent.slice(changeIndex + 1);
+  const unitBlocks = Array.from({ length: unitCount }, (_, index): DiffHunkBlock[] => [
+    ...(index === 0 ? leading : []),
+    {
+      ...change,
+      additions: index < change.additions ? 1 : 0,
+      deletions: index < change.deletions ? 1 : 0,
+      additionLineIndex: change.additionLineIndex + Math.min(index, change.additions),
+      deletionLineIndex: change.deletionLineIndex + Math.min(index, change.deletions),
+    },
+    ...(index === unitCount - 1 ? trailing : []),
+  ]);
+
+  let additionCursor = hunk.additionStart + (hunk.additionCount === 0 ? 1 : 0);
+  let deletionCursor = hunk.deletionStart + (hunk.deletionCount === 0 ? 1 : 0);
+  const { hunkSpecs: _hunkSpecs, hunkContext, ...base } = hunk;
+
+  return unitBlocks.map((blocks, index) => {
+    const first = blocks[0]!;
+    const isFirst = index === 0;
+    const isLast = index === unitBlocks.length - 1;
+    const additionCount = sideLineCount(blocks, "additions");
+    const deletionCount = sideLineCount(blocks, "deletions");
+    const additionStart = additionCount === 0 ? additionCursor - 1 : additionCursor;
+    const deletionStart = deletionCount === 0 ? deletionCursor - 1 : deletionCursor;
+    additionCursor += additionCount;
+    deletionCursor += deletionCount;
+
+    return {
+      ...base,
+      ...(isFirst && hunkContext !== undefined ? { hunkContext } : {}),
+      hunkContent: blocks,
+      additionLineIndex: first.additionLineIndex,
+      deletionLineIndex: first.deletionLineIndex,
+      additionStart,
+      additionCount,
+      additionLines: sideChangedLineCount(blocks, "additions"),
+      deletionStart,
+      deletionCount,
+      deletionLines: sideChangedLineCount(blocks, "deletions"),
+      splitLineCount: splitRowCount(blocks),
+      unifiedLineCount: unifiedRowCount(blocks),
+      noEOFCRAdditions: isLast && hunk.noEOFCRAdditions,
+      noEOFCRDeletions: isLast && hunk.noEOFCRDeletions,
+    };
+  });
+}
+
+/** Rebuild metadata so each selectable hunk contains at most one changed row. */
+export function splitHunksAtChangedLines(metadata: FileDiffMetadata): FileDiffMetadata {
+  const changeGroups = metadata.hunks.flatMap(splitHunkAtChangeGroups);
+  const hunks = changeGroups.flatMap(splitChangeGroupAtChangedLines);
+  if (
+    hunks.length === metadata.hunks.length &&
+    hunks.every((hunk, index) => hunk === metadata.hunks[index])
+  ) {
+    return metadata;
+  }
+
+  return { ...metadata, hunks: relayoutHunks(hunks) };
+}

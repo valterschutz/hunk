@@ -32,6 +32,7 @@ export interface RunGitTextOptions {
   gitExecutable?: string;
   preventOptionalLocks?: boolean;
   signal?: AbortSignal;
+  stdin?: string;
 }
 
 interface RunGitCommandResult {
@@ -522,6 +523,7 @@ async function runGitCommandAsync({
   gitExecutable = "git",
   preventOptionalLocks = false,
   signal,
+  stdin,
   acceptedExitCodes = [0],
 }: RunGitCommandOptions): Promise<RunGitCommandResult> {
   let result: Awaited<ReturnType<typeof runAbortableCommand>>;
@@ -530,6 +532,7 @@ async function runGitCommandAsync({
       cwd,
       signal,
       env: preventOptionalLocks ? { ...process.env, GIT_OPTIONAL_LOCKS: "0" } : undefined,
+      stdin,
     });
   } catch (error) {
     if (signal?.aborted) signal.throwIfAborted();
@@ -547,6 +550,29 @@ async function runGitCommandAsync({
 /** Run one Git command asynchronously and return its decoded stdout. */
 export async function runGitTextAsync(options: RunGitTextOptions): Promise<string> {
   return (await runGitCommandAsync(options)).stdout;
+}
+
+/** Reverse one reviewed hunk in the working tree, or in the index for a staged review. */
+export async function discardGitHunk(
+  input: ExtensionVcsDiffInput,
+  patchText: string,
+  options: Omit<RunGitTextOptions, "input" | "args" | "stdin"> = {},
+): Promise<void> {
+  if (input.range !== undefined || input.rangeEndpoints !== undefined) {
+    throw new HunkExtensionUserError("Only current staged or unstaged changes can be discarded.");
+  }
+  if (patchText.length === 0) {
+    throw new HunkExtensionUserError("The selected hunk has no patch to discard.");
+  }
+
+  const repoRoot = await resolveGitRepoRootAsync(input, options);
+  await runGitCommandAsync({
+    input,
+    args: ["apply", "--reverse", "--recount", ...(input.staged ? ["--cached"] : []), "-"],
+    ...options,
+    cwd: repoRoot,
+    stdin: patchText,
+  });
 }
 
 const GIT_BOOLEAN_TRUE_VALUES = new Set(["true", "yes", "on", "1", "always"]);

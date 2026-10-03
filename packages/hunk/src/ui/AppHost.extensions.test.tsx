@@ -866,6 +866,54 @@ describe("reload keeps launch extension authority", () => {
 });
 
 describe("mounted lifecycle ordering", () => {
+  test("publishes line-mode review units to lifecycle extensions", async () => {
+    const repo = createTestRepo("hunk-apphost-line-mode-lifecycle-");
+    const reviewedPath = join(repo, "sub", "a.txt");
+    writeFileSync(reviewedPath, "before\nold one\nold two\nafter\n");
+    execSync("git add . && git commit -m adjacent-base", { cwd: repo, stdio: "ignore" });
+    writeFileSync(reviewedPath, "before\nnew one\nnew two\nafter\n");
+    const logPath = join(repo, "review-units.log");
+    const extPath = join(repo, "review-units.ts");
+    writeFileSync(
+      extPath,
+      `import { appendFileSync } from "node:fs";\n` +
+        `export default function (hunk) {\n` +
+        `  hunk.on("changeset_loaded", ({ changeset }) => {\n` +
+        `    appendFileSync(${JSON.stringify(logPath)}, String(changeset.files[0]?.hunks?.length ?? 0) + "\\n");\n` +
+        `  });\n` +
+        `}\n`,
+    );
+    useTempConfigHome();
+
+    const bootstrap = await loadAppBootstrap(
+      { kind: "vcs", staged: false, options: { mode: "unified", extensionPaths: [extPath] } },
+      { cwd: repo },
+    );
+    bootstrap.extensions = await loadStartupExtensions({
+      extensions: { enabled: true, paths: [], repoPaths: [], extensionConfigs: {} },
+      cwd: repo,
+      cliExtensionPaths: [extPath],
+    });
+
+    await withAppHost(bootstrap, async (setup) => {
+      await flushUntil(setup, () => readProbeLog(logPath).includes("1"), "standard hunk event");
+      await act(async () => setup.mockInput.typeText("H"));
+      await flushUntil(setup, () => readProbeLog(logPath).includes("2"), "line-mode event");
+      const beforeReload = readProbeLog(logPath).length;
+
+      await act(async () => setup.mockInput.typeText("r"));
+      await flushUntil(
+        setup,
+        () => readProbeLog(logPath).length > beforeReload,
+        "line-mode reload event",
+      );
+      expect(readProbeLog(logPath).slice(beforeReload)).toEqual(["2"]);
+
+      await act(async () => setup.mockInput.typeText("H"));
+      await flushUntil(setup, () => readProbeLog(logPath).at(-1) === "1", "hunk-mode event");
+    });
+  });
+
   test("reports unavailable when the mounted review cannot reload its input", async () => {
     const root = createTempDir("hunk-apphost-extension-unavailable-reload-");
     const logPath = join(root, "extension-reload.log");

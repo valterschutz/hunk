@@ -94,7 +94,7 @@ describe("AppHost conflicts", () => {
     expect(frame).toContain("feature line");
     expect(frame).not.toContain("<<<<<<<");
     expect(frame).toContain("(conflict)");
-    const theme = resolveTheme("github-dark-default");
+    const theme = resolveTheme("github-dark-default", null);
     expect(railColorOfLine(setup, "main line")).toBe(theme.conflictRailColor.toLowerCase());
   });
 

@@ -350,7 +350,7 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
     conflictRailColor:
       customTheme.conflictRailColor ?? customTheme.fileConflicted ?? baseTheme.conflictRailColor,
     cursorLineBg: customTheme.cursorLineBg ?? baseTheme.cursorLineBg,
-    copyAction: customTheme.lineNumberFg ?? baseTheme.copyAction,
+    copyAction: customTheme.copyAction ?? customTheme.lineNumberFg ?? baseTheme.copyAction,
     selectedHunk: customTheme.selectedHunk ?? baseTheme.selectedHunk,
     badgeAdded: customTheme.badgeAdded ?? baseTheme.badgeAdded,
     badgeRemoved: customTheme.badgeRemoved ?? baseTheme.badgeRemoved,

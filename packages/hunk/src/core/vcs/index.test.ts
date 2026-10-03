@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { HunkUserError } from "../run/errors";
 import {
+  canDiscardVcsHunk,
   createUnsupportedVcsOperationError,
   createVcsCatalog,
+  discardVcsHunk,
   detectVcs,
   extendVcsCatalog,
   getConfiguredVcsAdapter,
@@ -123,6 +125,30 @@ describe("VCS operation dispatch", () => {
     const input = { kind: "vcs", staged: false, options: {} } as const;
     const result = await loadVcsReview(git, operationFromInput(input), { cwd: "/repo" }, catalog);
     expect(result.repoRoot).toBe("/repo");
+  });
+
+  test("discards only current changes through a supporting provider", async () => {
+    const calls: unknown[] = [];
+    const git = adapter("git", {
+      operations: {
+        "working-tree-diff": {
+          async load() {
+            return { repoRoot: "/repo", sourceLabel: "/repo", title: "review", patchText: "" };
+          },
+          async discardHunk(request, context) {
+            calls.push(request, context);
+          },
+        },
+      },
+    });
+    const catalog = createVcsCatalog([git], "git");
+    const input = { kind: "vcs", staged: false, options: {} } as const;
+
+    expect(canDiscardVcsHunk(input, catalog)).toBe(true);
+    expect(canDiscardVcsHunk({ ...input, range: "HEAD" }, catalog)).toBe(false);
+    await discardVcsHunk(input, "selected patch", { cwd: "/repo" }, catalog);
+
+    expect(calls).toEqual([{ input, patchText: "selected patch" }, { cwd: "/repo" }]);
   });
 
   test("recommends a supporting adapter from the active catalog", () => {

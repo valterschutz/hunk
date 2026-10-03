@@ -62,6 +62,40 @@ describe("PTY current line", () => {
     }
   });
 
+  test("file jumps into a whole file land on its first line", async () => {
+    const fixture = harness.createCollapsedTopRepoFixture();
+    const configHome = harness.createIsolatedConfigHome();
+    mkdirSync(join(configHome, "hunk"));
+    writeFileSync(join(configHome, "hunk", "config.toml"), "whole_file = true\n");
+    const session = await harness.launchHunk({
+      args: ["diff", "--mode", "unified"],
+      cwd: fixture.dir,
+      cols: 140,
+      env: { XDG_CONFIG_HOME: configHome },
+      rows: 18,
+    });
+
+    try {
+      await session.waitForText(/export const line366 = 9999;/, { timeout: 15_000 });
+      await session.waitIdle({ timeout: 400 });
+
+      await session.press(".");
+      await session.waitForText(/export const other = 2;/, { timeout: 5_000 });
+      await session.press(",");
+      const landed = await session.waitForText(/export const line001 = 1;/, { timeout: 5_000 });
+      await session.waitIdle({ timeout: 400 });
+
+      expect(landed).not.toContain("export const line366 = 9999;");
+      const firstLineRow = lineIndexOf(landed, "export const line001 = 1;") - 1;
+      const secondLineRow = lineIndexOf(landed, "export const line002 = 2;") - 1;
+      expect(rowCellBackgrounds(session, firstLineRow)).not.toEqual(
+        rowCellBackgrounds(session, secondLineRow),
+      );
+    } finally {
+      session.close();
+    }
+  });
+
   test("stepping moves the current line before it moves the viewport", async () => {
     const fixture = harness.createPinnedHeaderRepoFixture();
     const session = await harness.launchHunk({

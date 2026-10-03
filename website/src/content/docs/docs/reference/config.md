@@ -445,6 +445,7 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.border`              | Override the border semantic color.              |
 | `custom_theme.accent`              | Override the accent semantic color.              |
 | `custom_theme.accentMuted`         | Override the accentMuted semantic color.         |
+| `custom_theme.copyAction`          | Override the copyAction semantic color.          |
 | `custom_theme.text`                | Override the text semantic color.                |
 | `custom_theme.muted`               | Override the muted semantic color.               |
 | `custom_theme.addedBg`             | Override the addedBg semantic color.             |

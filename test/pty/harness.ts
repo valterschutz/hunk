@@ -1350,6 +1350,7 @@ end
     createAgentFilePair,
     createAgentNavigationRepoFixture,
     createGapAnnotatedAgentFilePair,
+    createGitRepoFixture,
     createBottomClampedRepoFixture,
     createCollapsedTopRepoFixture,
     createExpandableContextFilePair,

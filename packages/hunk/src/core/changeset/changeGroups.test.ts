@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseDiffFromFile, parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
-import { splitHunksAtChangeGroups } from "./changeGroups";
+import { splitHunksAtChangeGroups, splitHunksAtChangedLines } from "./changeGroups";
 import { buildDiffFile } from "./diffFile";
 import { formatHunkHeader } from "./hunkHeader";
 import { hunkRows } from "./hunkLayout";
@@ -219,14 +219,43 @@ describe("splitHunksAtChangeGroups", () => {
     ]);
   });
 
-  test("buildDiffFile reviews change groups as hunks without changing the file stats", () => {
+  test("buildDiffFile preserves the producer's standard hunks", () => {
     const metadata = metadataFromPatch(
       ["@@ -1,7 +1,8 @@", " a", "-b", "+B", " c", " d", " e", "+extra", " f", " g", ""].join("\n"),
     );
     const file = buildDiffFile(metadata, "", 0, "test", null);
 
-    expect(file.metadata.hunks).toHaveLength(2);
-    expect(headers(file.metadata)).toEqual(["@@ -1,3 +1,3 @@", "@@ -4,4 +4,5 @@"]);
+    expect(file.metadata.hunks).toHaveLength(1);
+    expect(headers(file.metadata)).toEqual(["@@ -1,7 +1,8 @@"]);
     expect(file.stats).toEqual({ additions: 2, deletions: 1 });
+  });
+});
+
+describe("splitHunksAtChangedLines", () => {
+  test("splits contiguous replacements into one hunk per changed row", () => {
+    const before = "before\nold one\nold two\nafter\n";
+    const after = "before\nnew one\nnew two\nafter\n";
+
+    const split = splitHunksAtChangedLines(metadataFromTexts(before, after));
+
+    expect(headers(split)).toEqual(["@@ -1,2 +1,2 @@", "@@ -3,2 +3,2 @@"]);
+    expect(split.hunks.map((hunk) => [hunk.deletionLines, hunk.additionLines])).toEqual([
+      [1, 1],
+      [1, 1],
+    ]);
+    expectHunksToAddressTexts(split, before, after);
+  });
+
+  test("keeps unmatched changed lines independently selectable", () => {
+    const before = "before\nold one\nold two\nafter\n";
+    const after = "before\nnew one\nafter\n";
+
+    const split = splitHunksAtChangedLines(metadataFromTexts(before, after));
+
+    expect(split.hunks.map((hunk) => [hunk.deletionLines, hunk.additionLines])).toEqual([
+      [1, 1],
+      [1, 0],
+    ]);
+    expectHunksToAddressTexts(split, before, after);
   });
 });

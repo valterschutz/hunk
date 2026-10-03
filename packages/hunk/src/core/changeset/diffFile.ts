@@ -3,7 +3,6 @@ import { findSidecarFileContext } from "./sidecar";
 import { patchLooksBinary } from "./binary";
 import { fileLanguageForPath } from "./fileLanguageLookup";
 import { normalizeDiffMetadataPaths, normalizeDiffPath } from "./diffPaths";
-import { splitHunksAtChangeGroups } from "./changeGroups";
 import type { FileSourceFetcher } from "./fileSource";
 import type { DiffFile, DiffFileConflict, DiffLineMoveKinds, SidecarContext } from "./model";
 
@@ -65,9 +64,7 @@ export function buildDiffFile(
     conflict,
   }: BuildDiffFileOptions = {},
 ): DiffFile {
-  const normalizedMetadata = splitHunksAtChangeGroups(
-    pathsAreExact ? metadata : normalizeDiffMetadataPaths(metadata),
-  );
+  const normalizedMetadata = pathsAreExact ? metadata : normalizeDiffMetadataPaths(metadata);
   const path = normalizedMetadata.name;
   const resolvedPreviousPath = pathsAreExact
     ? (previousPath ?? normalizedMetadata.prevName)

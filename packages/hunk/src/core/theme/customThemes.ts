@@ -59,6 +59,7 @@ export const CUSTOM_THEME_COLOR_KEYS = [
   "border",
   "accent",
   "accentMuted",
+  "copyAction",
   "text",
   "muted",
   "addedBg",

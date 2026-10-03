@@ -18,6 +18,7 @@ const MENU_STATE: Omit<BuildAppMenusOptions, "commands" | "extensionCommands"> =
   copyDecorations: true,
   cursorLine: "row" as const,
   layoutMode: "unified",
+  lineReviewMode: false,
   filesPaneVisible: false,
   showAgentNotes: true,
   showHelp: false,
@@ -40,9 +41,11 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
   const commands = buildAppCommands({
     canAlignCurrentLine: true,
     canApplyFilePresentationToAllMatching: false,
+    canDiscardSelectedHunk: true,
     canRefreshCurrentInput: true,
     alignCurrentLine: record("alignCurrentLine"),
     applyFilePresentationToAllMatching: record("applyFilePresentationToAllMatching"),
+    discardSelectedHunk: record("discardSelectedHunk"),
     focusFilter: noop,
     jumpLineCursorToFileEdge: noop,
     moveSelection: record("moveSelection"),
@@ -64,6 +67,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     toggleHelp: noop,
     toggleHunkHeaders: noop,
     toggleLineNumbers: noop,
+    toggleLineReviewMode: record("toggleLineReviewMode"),
     toggleLineWrap: noop,
     toggleMenuBar: noop,
     toggleFilesPane: record("toggleFilesPane"),
@@ -132,6 +136,7 @@ describe("buildAppMenus", () => {
       "Focus filter",
       "Open file in editor",
       "Open file in editor (Herdr split pane)",
+      "Discard selected hunk…",
       "Accept selected hunk",
       "Reject selected hunk",
       "Mark selected hunk fixed",
@@ -174,6 +179,14 @@ describe("buildAppMenus", () => {
     expect(items(menus.navigate).map((item) => item.hint)).toEqual(["[", "]", "{", "}", undefined]);
   });
 
+  test("names review actions for their active line unit", () => {
+    const { commands } = createTestCommands();
+    const menus = buildAppMenus({ commands, ...MENU_STATE, lineReviewMode: true });
+
+    expect(items(menus.file).map((item) => item.label)).toContain("Accept selected line");
+    expect(items(menus.file).map((item) => item.label)).toContain("Discard selected line…");
+  });
+
   test("only the hunk-state toggles keep the menu open", () => {
     const { commands } = createTestCommands();
     const menus = buildAppMenus({ commands, ...MENU_STATE });
@@ -194,6 +207,7 @@ describe("buildAppMenus", () => {
       "hunk.review.focusFilter",
       "hunk.review.editSelectedFile",
       "hunk.review.editSelectedFileSplit",
+      "hunk.review.discardSelectedHunk",
       "hunk.review.acceptSelectedHunk",
       "hunk.review.rejectSelectedHunk",
       "hunk.review.markSelectedHunkFixed",
@@ -276,6 +290,7 @@ describe("buildAppMenus", () => {
       "Focus filter",
       "Open file in editor",
       "Open file in editor (Herdr split pane)",
+      "Discard selected hunk…",
       "Accept selected hunk",
       "Reject selected hunk",
       "Mark selected hunk fixed",

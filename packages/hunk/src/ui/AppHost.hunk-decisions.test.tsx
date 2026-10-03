@@ -5,9 +5,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { act } from "react";
 import { createTestVcsAppBootstrap } from "../../../../test/helpers/app-bootstrap";
-import { createTestDiffFile, lines } from "../../../../test/helpers/diff-helpers";
+import {
+  createTestDiffFile,
+  createTestSourceFetcher,
+  lines,
+} from "../../../../test/helpers/diff-helpers";
 import { capturedTestColorToHex } from "../../../../test/helpers/test-color-helpers";
 import { diffHunkIdentity } from "../core/changeset/hunkDecisions";
+import { projectDiffFilesToReviewUnits } from "../core/changeset/reviewUnits";
 import { COMMIT_STATUS_FILE_NAME, createReviewFileStore } from "../core/process/reviewFileStore";
 import { HUNK_STATES, type HunkRecord, type HunkState } from "../core/review/reviewFile";
 import { resolveTheme } from "./themes";
@@ -75,6 +80,24 @@ function createBootstrap(
         review: { kind: "commit" as const, provider: "git", title: "Commit", revision: COMMIT },
       }
     : bootstrap;
+}
+
+/** A review whose one standard hunk contains two changed rows. */
+function createAdjacentLineBootstrap(reviewFile: string) {
+  return createTestVcsAppBootstrap({
+    changesetId: "changeset:line-review-mode",
+    initialMode: "unified",
+    files: [
+      createTestDiffFile({
+        before: lines("before", "old one", "old two", "after"),
+        after: lines("before", "new one", "new two", "after"),
+        context: 3,
+        id: "adjacent",
+        path: "adjacent.ts",
+      }),
+    ],
+    vcsOptions: { reviewFile },
+  });
 }
 
 function createRangeBootstrap(reviewFile: string) {
@@ -150,6 +173,36 @@ afterEach(async () => {
 });
 
 describe("AppHost hunk decisions", () => {
+  test("hunk mode decides every changed row in the selected standard hunk", async () => {
+    const reviewFile = createReviewFile();
+    setup = await testRender(<AppHost bootstrap={createAdjacentLineBootstrap(reviewFile)} />, WIDE);
+    await flush(setup);
+
+    await pressKeys(setup, "+");
+
+    const frame = setup.captureCharFrame();
+    expect(frame).not.toContain("new one");
+    expect(frame).not.toContain("new two");
+    expect(hunkRecords(reviewFile)).toHaveLength(1);
+  });
+
+  test("line mode decides only the selected changed row", async () => {
+    const reviewFile = createReviewFile();
+    const bootstrap = createAdjacentLineBootstrap(reviewFile);
+    setup = await testRender(<AppHost bootstrap={bootstrap} />, WIDE);
+    await flush(setup);
+
+    await pressKeys(setup, "H]+");
+
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("new one");
+    expect(frame).not.toContain("new two");
+    const projected = projectDiffFilesToReviewUnits(bootstrap.changeset.files, "line")[0]!;
+    expect(hunkRecords(reviewFile).map((record) => record.id)).toEqual([
+      diffHunkIdentity(projected, projected.metadata.hunks[1]!),
+    ]);
+  });
+
   test("+ accepts and hides the selected hunk, V shows it in green, and + again clears it", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(<AppHost bootstrap={createBootstrap(reviewFile)} />, WIDE);
@@ -210,6 +263,23 @@ describe("AppHost hunk decisions", () => {
     expect(frame).toContain("first change");
     expect(frame).not.toContain("hidden");
     expect(hunkRecords(reviewFile)).toEqual([]);
+  });
+
+  test("the file checkmark updates as soon as its final hunk is accepted", async () => {
+    const reviewFile = createReviewFile();
+    setup = await testRender(
+      <AppHost bootstrap={createBootstrap(reviewFile, { shownHunks: [...HUNK_STATES] })} />,
+      WIDE,
+    );
+    await flush(setup);
+
+    await pressKeys(setup, "+]+");
+
+    const sampleRow = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes("sample.ts"));
+    expect(sampleRow).toContain("✓ M sample.ts");
   });
 
   test("deciding every hunk derives the commit status, and = moves a rejection to fixed", async () => {
@@ -420,6 +490,36 @@ describe("AppHost hunk decisions", () => {
 
     await pressKeys(setup, "T");
     expect(setup.captureCharFrame()).toContain("● ● ● ●");
+  });
+
+  test("a file read whole stays whole when a decision hides one of its hunks", async () => {
+    const reviewFile = createReviewFile();
+    const bootstrap = createBootstrap(reviewFile);
+    const [sample, other] = bootstrap.changeset.files;
+    const wholeSample = {
+      ...sample!,
+      sourceFetcher: createTestSourceFetcher((side) => (side === "old" ? BEFORE : AFTER)),
+    };
+    setup = await testRender(
+      <AppHost
+        bootstrap={{
+          ...bootstrap,
+          changeset: { ...bootstrap.changeset, files: [wholeSample, other!] },
+        }}
+      />,
+      WIDE,
+    );
+    await flush(setup);
+    expect(setup.captureCharFrame()).not.toContain("line 9");
+
+    await pressKeys(setup, "z");
+    expect(setup.captureCharFrame()).toContain("line 9");
+
+    await pressKeys(setup, "+");
+
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("1 hidden");
+    expect(frame).toContain("line 9");
   });
 
   test("a review of uncommitted changes records no commit review", async () => {

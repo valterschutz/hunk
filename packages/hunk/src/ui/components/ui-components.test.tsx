@@ -3756,7 +3756,7 @@ describe("UI components", () => {
       "Up / Down                move through lines and notes",
       "PageDown / Space / f     page down",
       "PageUp / b / Shift+Space page up",
-      "d / u                    half page down / up",
+      "Ctrl+D / u               half page down / up",
       "[ / ]                    previous / next hunk",
       ", / .                    previous / next file",
       "{ / }                    annotated hunk / exact note",

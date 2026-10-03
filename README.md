@@ -200,7 +200,9 @@ Every keyboard shortcut is a named command, and a `[keybindings]` table in your
 user config remaps command ids to the keys you want them on — several keys per
 command, exclusive claims over defaults, and `false` to unbind. See
 [the keybinding guide](https://hunk.dev/docs/configure/keybindings/) for the rules, the chord grammar,
-and the full table of built-in commands and their default keys.
+and the full table of built-in commands and their default keys. Press `H` to switch between standard
+patch hunks and individual changed rows; review decisions, discarding, and extension staging/marking
+commands then act on the selected unit.
 
 ### Git integration
 

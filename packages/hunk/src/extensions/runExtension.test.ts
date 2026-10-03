@@ -13,8 +13,8 @@ function bundledMetadata(id: string) {
 }
 
 describe("runExtensionFactory", () => {
-  test("advertises complete review commit identities through extension API v29", () => {
-    expect(HUNK_EXTENSION_API_VERSION).toBe(29);
+  test("advertises hunk discard support through extension API v30", () => {
+    expect(HUNK_EXTENSION_API_VERSION).toBe(30);
   });
 
   test("applies a synchronous factory before returning, with nothing to await", () => {
@@ -791,6 +791,38 @@ describe("registerCommand", () => {
 
     expect(registry.commands).toEqual([]);
     expect(issues[0]?.message).toContain("handler function");
+  });
+});
+
+describe("toInternalVcsAdapter working-tree mutations", () => {
+  test("forwards discard requests through the provider boundary", async () => {
+    const seen: unknown[] = [];
+    const adapter = toInternalVcsAdapter({
+      id: "demo",
+      name: "Demo",
+      detect: (cwd) => ({ id: "demo", repoRoot: cwd }),
+      operations: {
+        "working-tree-diff": {
+          load: async () => ({
+            repoRoot: "/repo",
+            sourceLabel: "/repo",
+            title: "demo",
+            patchText: "",
+          }),
+          discardHunk: async (request, context) => {
+            seen.push(request, context);
+          },
+        },
+      },
+    });
+    const input = { kind: "vcs" as const, staged: false, options: {} };
+
+    await adapter.operations["working-tree-diff"]?.discardHunk?.(
+      { input, patchText: "selected patch" },
+      { cwd: "/repo" },
+    );
+
+    expect(seen).toEqual([{ input, patchText: "selected patch" }, { cwd: "/repo" }]);
   });
 });
 

@@ -29,6 +29,14 @@ describe("abortable bundled VCS subprocesses", () => {
     expect(Date.now() - startedAt).toBeLessThan(2_000);
   });
 
+  test("writes bounded caller input to the subprocess", async () => {
+    const result = await runAbortableCommand(
+      [process.execPath, "-e", "process.stdin.pipe(process.stdout)"],
+      { cwd: process.cwd(), stdin: "selected patch\n" },
+    );
+    expect(result).toEqual({ stdout: "selected patch\n", stderr: "", exitCode: 0 });
+  });
+
   test("collects output and exit status on normal completion", async () => {
     const result = await runAbortableCommand(
       [process.execPath, "-e", 'process.stdout.write("ok"); process.stderr.write("note")'],

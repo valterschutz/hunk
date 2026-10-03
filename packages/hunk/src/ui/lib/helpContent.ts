@@ -94,6 +94,10 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
         description: "sidebar / theme selector",
       },
       { commandIds: ["hunk.view.toggleAgentNotes"], description: "toggle AI notes" },
+      {
+        commandIds: ["hunk.view.toggleLineReviewMode"],
+        description: "toggle hunk / line review mode",
+      },
       { commandIds: ["hunk.review.toggleFileContext"], description: "show whole file" },
       {
         commandIds: [
@@ -115,6 +119,7 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
     title: "Review",
     entries: [
       { commandIds: ["hunk.review.focusFilter"], description: "focus file filter" },
+      { commandIds: ["hunk.review.discardSelectedHunk"], description: "discard selected hunk" },
       { commandIds: ["hunk.review.startNote"], description: "create review note" },
       {
         commandIds: [

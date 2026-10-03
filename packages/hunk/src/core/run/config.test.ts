@@ -1285,6 +1285,7 @@ describe("config resolution", () => {
         "[custom_theme]",
         'base = "catppuccin-mocha"',
         'accent = "#7755aa"',
+        'copyAction = "#89b4fa"',
         "",
         "[custom_theme.syntax_scopes]",
         '"comment" = "#998877"',
@@ -1315,6 +1316,7 @@ describe("config resolution", () => {
         id: "custom",
         base: "catppuccin-mocha",
         accent: "#7755aa",
+        copyAction: "#89b4fa",
         syntaxScopes: {
           comment: "#998877",
         },

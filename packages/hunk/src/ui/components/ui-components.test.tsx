@@ -3863,13 +3863,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes(keys)}
-        terminalHeight={42}
+        terminalHeight={43}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      42,
+      43,
     );
 
     expect(frame).toContain("Ctrl+X");

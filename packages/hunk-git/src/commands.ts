@@ -689,6 +689,53 @@ function parseUntrackedFilePaths(statusText: string) {
     .flatMap((entry) => (entry.startsWith("?? ") ? [entry.slice(3)] : []));
 }
 
+// Both-modified and both-added are the unmerged states whose working copy
+// carries conflict markers; the modify/delete states leave one side's file
+// behind untouched, and both-deleted leaves nothing to review.
+const GIT_CONTENT_CONFLICT_CODES = new Set(["UU", "AA"]);
+
+/** Parse `git status --porcelain=v1 -z` into the paths whose working copies hold conflict markers. */
+export function parseConflictedFilePaths(statusText: string) {
+  return statusText
+    .split("\0")
+    .filter(Boolean)
+    .flatMap((entry) =>
+      GIT_CONTENT_CONFLICT_CODES.has(entry.slice(0, 2)) && entry[2] === " " ? [entry.slice(3)] : [],
+    );
+}
+
+/** Build the one-file diff shown for a conflicted path once its markers are gone: the working copy against HEAD. */
+export function buildGitConflictResolvedDiffArgs(path: string) {
+  return withNormalizedDiffPrefixes(["diff", "--no-ext-diff", "--no-color", "HEAD", "--", path]);
+}
+
+/**
+ * List the working copies with conflict markers for a live working-tree review.
+ *
+ * Only the plain working tree can be mid-merge: a staged or range review has no
+ * conflicted side, so it lists nothing and its patch keeps every path.
+ */
+export async function listGitConflictedFilesAsync(
+  input: ExtensionVcsDiffInput,
+  {
+    cwd = process.cwd(),
+    gitExecutable = "git",
+    preventOptionalLocks = false,
+    signal,
+  }: Omit<RunGitTextOptions, "input" | "args"> = {},
+) {
+  if (input.staged || requireGitDiffRangeArg(input)) return [];
+  const statusText = await runGitTextAsync({
+    input,
+    args: buildGitStatusArgs(input),
+    cwd,
+    gitExecutable,
+    preventOptionalLocks,
+    signal,
+  });
+  return parseConflictedFilePaths(statusText);
+}
+
 /** Parse Git's NUL output into absolute roots only for collapsed directory entries. */
 export function parseGitIgnoredDirectoryRoots(output: string, repoRoot: string) {
   const roots = output

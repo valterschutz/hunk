@@ -263,6 +263,7 @@ function buildShikiTheme(themeId: BundledShikiThemeId): AppTheme {
     acceptedRailColor: addedSignColor,
     rejectedRailColor: removedSignColor,
     fixedRailColor: lineNumberForeground,
+    conflictRailColor: badgeRemoved,
     copyAction: lineNumberForeground,
     selectedHunk: blendHex(modifiedColor, editorBackground, selectedTint),
     noteBackground: neutralPanel,
@@ -277,6 +278,7 @@ function buildShikiTheme(themeId: BundledShikiThemeId): AppTheme {
     fileRenamed: badgeModified,
     fileModified: badgeModified,
     fileUntracked: badgeAdded,
+    fileConflicted: badgeRemoved,
     syntaxTheme: themeId,
   };
 
@@ -345,6 +347,8 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
       customTheme.rejectedRailColor ?? customTheme.removedRailColor ?? baseTheme.rejectedRailColor,
     fixedRailColor:
       customTheme.fixedRailColor ?? customTheme.contextRailColor ?? baseTheme.fixedRailColor,
+    conflictRailColor:
+      customTheme.conflictRailColor ?? customTheme.fileConflicted ?? baseTheme.conflictRailColor,
     cursorLineBg: customTheme.cursorLineBg ?? baseTheme.cursorLineBg,
     copyAction: customTheme.copyAction ?? customTheme.lineNumberFg ?? baseTheme.copyAction,
     selectedHunk: customTheme.selectedHunk ?? baseTheme.selectedHunk,
@@ -356,6 +360,7 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
     fileRenamed: customTheme.fileRenamed ?? baseTheme.fileRenamed,
     fileModified: customTheme.fileModified ?? baseTheme.fileModified,
     fileUntracked: customTheme.fileUntracked ?? baseTheme.fileUntracked,
+    fileConflicted: customTheme.fileConflicted ?? baseTheme.fileConflicted,
     noteBorder: customTheme.noteBorder ?? baseTheme.noteBorder,
     noteBackground: customTheme.noteBackground ?? baseTheme.noteBackground,
     noteTitleBackground: customTheme.noteTitleBackground ?? baseTheme.noteTitleBackground,

@@ -204,6 +204,19 @@ export interface ExtensionDiffFile {
   isTooLarge?: boolean;
   /** Review outcome derived by the host for the complete file. */
   reviewStatus?: "approved";
+  /** Present on a file the VCS reported as conflicted; see `ExtensionDiffFileConflict`. */
+  conflict?: ExtensionDiffFileConflict;
+}
+
+/**
+ * Conflict state of one reviewed file.
+ *
+ * While `unresolved` is above zero the file's hunks are its conflict regions,
+ * ours on the old side and theirs on the new side. At zero the reviewer has
+ * replaced every marker and the file shows as an ordinary edit.
+ */
+export interface ExtensionDiffFileConflict {
+  unresolved: number;
 }
 
 /** One reviewed changeset, as extensions see it. */
@@ -661,6 +674,8 @@ export interface CustomThemeConfig {
   rejectedRailColor?: string;
   /** Rail marker beside every row of an fixed hunk; defaults to contextRailColor. */
   fixedRailColor?: string;
+  /** Rail marker beside every row of an unresolved conflict; defaults to fileConflicted. */
+  conflictRailColor?: string;
   /** Fixed color the current line lifts toward; unset keeps the computed white/black tint. */
   cursorLineBg?: string;
   selectedHunk?: string;
@@ -672,6 +687,8 @@ export interface CustomThemeConfig {
   fileRenamed?: string;
   fileModified?: string;
   fileUntracked?: string;
+  /** Sidebar badge of a file with unresolved conflicts; defaults to badgeRemoved. */
+  fileConflicted?: string;
   noteBorder?: string;
   noteBackground?: string;
   noteTitleBackground?: string;
@@ -1053,6 +1070,28 @@ export interface ExtensionVcsSkippedFile {
  */
 export type ExtensionVcsExtraFile = ExtensionVcsExtraPatchFile | ExtensionVcsSkippedFile;
 
+/**
+ * One file whose working copy holds unresolved merge conflicts.
+ *
+ * Hunk reads the working copy, parses its conflict markers, and shows each
+ * conflict as one hunk between the two sides, so an adapter only has to say
+ * which paths its VCS reports as conflicted and how to describe the sides.
+ * Once the reviewer has resolved every marker the file is an ordinary edit
+ * against the side the merge started from, which is what `patchText` shows.
+ */
+export interface ExtensionVcsConflictedFile {
+  /** Repo-root-relative path of the conflicted working copy. */
+  path: string;
+  /**
+   * Unified diff of the working copy against the side the merge started from,
+   * covering exactly this one file. Shown once the file has no markers left;
+   * omitted, a fully resolved file is listed without a rendered diff.
+   */
+  patchText?: string;
+  /** Names for the two sides, shown in place of whatever the markers carry. */
+  labels?: { ours?: string; theirs?: string };
+}
+
 /** The patch text one operation produced, plus how to label it in the UI. */
 export interface ExtensionVcsPatchResult {
   repoRoot: string;
@@ -1098,6 +1137,14 @@ export interface ExtensionVcsPatchResult {
    * content to read.
    */
   extraFiles?: ExtensionVcsExtraFile[];
+  /**
+   * Files with unresolved merge conflicts, reviewed ahead of everything else.
+   *
+   * Leave each one out of `patchText`: a conflicted path diffs as a combined
+   * diff no reviewer can act on, and Hunk builds the conflict review itself
+   * from the working copy's markers.
+   */
+  conflictedFiles?: ExtensionVcsConflictedFile[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1257,6 +1304,8 @@ export interface ExtensionPaintTheme {
   fileRenamed: string;
   fileModified: string;
   fileUntracked: string;
+  /** Badge of a file with unresolved conflicts. */
+  fileConflicted: string;
   /** Accent for agent-note affordances, like the note-count badge on a file row. */
   noteBorder: string;
 }

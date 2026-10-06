@@ -137,7 +137,14 @@ import {
 import { HUNK_FILES_PANE_KEY } from "../extensions/extensionIds";
 import { maxFileHeaderStatsWidth } from "./lib/fileHeader";
 import { setMouseCapture } from "./lib/mouseCapture";
-import { openSelectedFileInEditor, openSelectedFileInEditorSplit } from "./lib/openInEditor";
+import {
+  openSelectedFileInEditor,
+  openSelectedFileInEditorSplit,
+  resolveEditableFilePath,
+} from "./lib/openInEditor";
+import { resolveConflictRegion } from "../core/vcs/conflicts";
+import type { ConflictResolutionChoice } from "../core/changeset/model";
+import type { HunkRailMark } from "./diff/rowStyle";
 import { collapseHomePath, createReviewFileStore } from "../core/process/reviewFileStore";
 import { resolveResponsiveLayout } from "./lib/responsive";
 import type { WorkspaceRefreshRequest } from "./currentReviewRefresh";
@@ -315,19 +322,27 @@ export function App({
     [reviewUnitFiles, hunkDecisions, shownHunkStates],
   );
   const reviewFiles = decisionsProjection.files;
-  // While any decided state is shown, the rail marks each decided hunk with its decision.
+  // While any decided state is shown, the rail marks each decided hunk with its decision;
+  // an unresolved conflict region is always marked, whatever the reviewer decided about it.
   const hunkDecisionsByFileId = useMemo(() => {
-    if (!decidedHunksShown || hunkDecisions.size === 0) return undefined;
-    const byFileId = new Map<string, ReadonlyMap<number, HunkDecision>>();
-    for (const [fileId, identities] of decisionsProjection.hunkIdentitiesByFileId) {
-      const decisions = new Map<number, HunkDecision>();
-      identities.forEach((identity, index) => {
-        const decision = hunkDecisions.get(identity);
-        if (decision !== undefined) decisions.set(index, decision);
-      });
-      if (decisions.size > 0) byFileId.set(fileId, decisions);
+    const byFileId = new Map<string, Map<number, HunkRailMark>>();
+    if (decidedHunksShown && hunkDecisions.size > 0) {
+      for (const [fileId, identities] of decisionsProjection.hunkIdentitiesByFileId) {
+        const decisions = new Map<number, HunkRailMark>();
+        identities.forEach((identity, index) => {
+          const decision = hunkDecisions.get(identity);
+          if (decision !== undefined) decisions.set(index, decision);
+        });
+        if (decisions.size > 0) byFileId.set(fileId, decisions);
+      }
     }
-    return byFileId;
+    for (const file of decisionsProjection.files) {
+      if (!file.conflict || file.conflict.regions.length === 0) continue;
+      const marks = byFileId.get(file.id) ?? new Map<number, HunkRailMark>();
+      for (const region of file.conflict.regions) marks.set(region.hunkIndex, "conflict");
+      byFileId.set(file.id, marks);
+    }
+    return byFileId.size > 0 ? byFileId : undefined;
   }, [decidedHunksShown, decisionsProjection, hunkDecisions]);
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
@@ -1473,6 +1488,57 @@ export function App({
     decideSelectedHunk((current) => (current === "fixed" ? undefined : "fixed"));
   }, [decideSelectedHunk]);
 
+  /**
+   * Resolve the selected conflict region in the working copy and reload the review.
+   *
+   * The selected hunk has to be one of the file's conflict regions; the write
+   * replaces that region's marker block and nothing else, and the reload shows
+   * the file with one conflict fewer.
+   */
+  const resolveSelectedConflict = useCallback(
+    (choice: ConflictResolutionChoice) => {
+      const region = selectedFile?.conflict?.regions.find(
+        (candidate) => candidate.hunkIndex === selectedHunkIndex,
+      );
+      if (!selectedFile || !region) {
+        showSessionNotice("The selected hunk is not a conflict");
+        return;
+      }
+      try {
+        resolveConflictRegion(
+          resolveEditableFilePath(selectedFile.path, editorBasePath),
+          region,
+          choice,
+        );
+      } catch (error) {
+        showSessionNotice(
+          `Could not resolve the conflict: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return;
+      }
+      const kept =
+        choice === "both"
+          ? "both sides"
+          : choice === "base"
+            ? "the base"
+            : choice === "ours"
+              ? region.oursLabel || "ours"
+              : region.theirsLabel || "theirs";
+      showSessionNotice(`Kept ${kept} in ${selectedFile.path}`);
+      if (canRefreshCurrentInput) {
+        triggerRefreshCurrentInput();
+      }
+    },
+    [
+      canRefreshCurrentInput,
+      editorBasePath,
+      selectedFile,
+      selectedHunkIndex,
+      showSessionNotice,
+      triggerRefreshCurrentInput,
+    ],
+  );
+
   /** Switch between showing every hunk state and showing only undecided hunks. */
   const toggleDecidedHunks = useCallback(() => {
     setShownHunkStates((current) =>
@@ -1770,6 +1836,7 @@ export function App({
         approveReview,
         rejectSelectedHunk,
         markSelectedHunkFixed,
+        resolveSelectedConflict,
         toggleDecidedHunks,
         toggleAllHunkStates,
         toggleHunkState,

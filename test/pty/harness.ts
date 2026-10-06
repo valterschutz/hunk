@@ -677,6 +677,29 @@ export function createPtyHarness() {
   }
 
   /**
+   * A repository stopped mid-rebase: `f.txt` conflicts between the branch and its
+   * upstream, and `other.txt` carries an ordinary uncommitted edit beside it.
+   */
+  function createRebaseConflictRepoFixture() {
+    const { dir } = createGitRepoFixture([
+      { path: "f.txt", before: "alpha\nshared\nomega\n", after: "alpha\nshared\nomega\n" },
+      { path: "other.txt", before: "same\n", after: "same\n" },
+    ]);
+    runGit(["switch", "-c", "feat"], dir);
+    writeText(join(dir, "f.txt"), "alpha\nfeature line\nomega\n");
+    runGit(["commit", "-am", "feat"], dir);
+    runGit(["switch", "-"], dir);
+    writeText(join(dir, "f.txt"), "alpha\nmain line\nomega\n");
+    runGit(["commit", "-am", "main"], dir);
+    runGit(["switch", "feat"], dir);
+    // The rebase stops on the conflict with exit code 1; that is the state under test.
+    runGit(["rebase", "-"], dir, true);
+    writeText(join(dir, "other.txt"), "edited\n");
+
+    return { dir };
+  }
+
+  /**
    * Build a block that moves between two files, with Git's move detection enabled.
    *
    * `plainAddition` is an ordinary added line in the same diff, so tests can tell a moved tint
@@ -1347,6 +1370,7 @@ end
     createManyShortFileRepoFixture,
     createPinnedHeaderRepoFixture,
     createRapidThemePreviewTestRepoFixture,
+    createRebaseConflictRepoFixture,
     createScrollableFilePair,
     createSearchRepoFixture,
     createSidebarJumpRepoFixture,

@@ -77,6 +77,10 @@ describe("app command catalog", () => {
       "hunk.review.approveReview",
       "hunk.review.rejectSelectedHunk",
       "hunk.review.markSelectedHunkFixed",
+      "hunk.review.resolveConflictOurs",
+      "hunk.review.resolveConflictTheirs",
+      "hunk.review.resolveConflictBoth",
+      "hunk.review.resolveConflictBase",
     ]);
   });
 

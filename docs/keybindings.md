@@ -147,6 +147,10 @@ Review and shared commands:
 | `hunk.review.previousNote`                     | Previous review note                                         | _(none)_                     |
 | `hunk.review.rejectSelectedHunk`               | Reject the selected hunk, or clear its decision              | `-`                          |
 | `hunk.review.replyToActiveNote`                | Reply to active review note                                  | `R`                          |
+| `hunk.review.resolveConflictBase`              | Resolve the selected conflict with the base                  | `B`                          |
+| `hunk.review.resolveConflictBoth`              | Resolve the selected conflict with both sides, ours first    | `\|`                         |
+| `hunk.review.resolveConflictOurs`              | Resolve the selected conflict with our side                  | `<`                          |
+| `hunk.review.resolveConflictTheirs`            | Resolve the selected conflict with their side                | `>`                          |
 | `hunk.review.scrollCodeLeft`                   | Scroll code left (shifted scrolls fast)                      | `left`, `shift+left`         |
 | `hunk.review.scrollCodeRight`                  | Scroll code right (shifted scrolls fast)                     | `right`, `shift+right`       |
 | `hunk.review.startNote`                        | Add a review note                                            | `c`                          |

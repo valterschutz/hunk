@@ -1,4 +1,3 @@
-import type { HunkDecision } from "../../../core/review/reviewFile";
 import { type MouseEvent as TuiMouseEvent, type ScrollBoxRenderable } from "@opentui/core";
 import { useRenderer } from "@opentui/react";
 import {
@@ -11,6 +10,7 @@ import {
   type RefObject,
 } from "react";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../../../core/run/reviewGap";
+import type { HunkRailMark } from "../../diff/rowStyle";
 import { DEFAULT_TAB_WIDTH } from "../../../core/run/tabWidth";
 import {
   DEFAULT_WHEEL_SCROLL_LINES,
@@ -419,7 +419,7 @@ export function DiffPane({
   selectedFileId?: string;
   selectedHunkIndex: number;
   /** Decisions by file id and hunk index, present only while decided hunks are shown. */
-  hunkDecisionsByFileId?: ReadonlyMap<string, ReadonlyMap<number, HunkDecision>>;
+  hunkDecisionsByFileId?: ReadonlyMap<string, ReadonlyMap<number, HunkRailMark>>;
   activeNoteId?: string;
   noteActionKeyLabels?: { delete: string; edit: string; reply: string };
   cursorLine?: CursorLine;

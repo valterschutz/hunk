@@ -35,4 +35,29 @@ describe("projectDiffFilesToReviewUnits", () => {
     expect(projected?.patch.match(/^@@ /gm)).toHaveLength(2);
     expect(parsePatchFiles(projected!.patch, "patch", true)[0]?.files[0]?.hunks).toHaveLength(2);
   });
+
+  test("keeps an unresolved conflict region as one hunk in line mode", () => {
+    const conflicted = {
+      ...file(),
+      conflict: {
+        unresolved: 1,
+        regions: [
+          {
+            hunkIndex: 0,
+            markerStart: 1,
+            markerEnd: 6,
+            ours: ["old one", "old two"],
+            theirs: ["new one", "new two"],
+            oursLabel: "HEAD",
+            theirsLabel: "feat",
+          },
+        ],
+      },
+    };
+
+    const [projected] = projectDiffFilesToReviewUnits([conflicted], "line");
+
+    expect(projected).toBe(conflicted);
+    expect(projected?.metadata.hunks).toHaveLength(1);
+  });
 });

@@ -15,6 +15,8 @@ import {
   parseGitIgnoredDirectoryRoots,
   resolveGitDiffEndpoints,
   parseGitNumstat,
+  parseConflictedFilePaths,
+  buildGitConflictResolvedDiffArgs,
   resolveGitMetadata,
   runGitText,
   shouldSkipLargeTrackedDiff,
@@ -671,5 +673,34 @@ describe("git diff stats helpers", () => {
     expect(shouldSkipLargeTrackedDiff({ path: "gone.txt", additions: 1, deletions: 1 }, repo)).toBe(
       false,
     );
+  });
+});
+
+describe("git conflict helpers", () => {
+  test("parseConflictedFilePaths keeps only the unmerged states that carry markers", () => {
+    const status = [
+      "UU both.txt",
+      "AA added.txt",
+      "DU deleted-by-us.txt",
+      "UD deleted-by-them.txt",
+      "DD gone.txt",
+      "M  staged.txt",
+      "?? new.txt",
+      "R  renamed.txt",
+      "old.txt",
+    ].join("\0");
+    expect(parseConflictedFilePaths(status)).toEqual(["both.txt", "added.txt"]);
+  });
+
+  test("buildGitConflictResolvedDiffArgs diffs one path against HEAD without color", () => {
+    const args = buildGitConflictResolvedDiffArgs("dir/f.txt");
+    expect(args.slice(-6)).toEqual([
+      "diff",
+      "--no-ext-diff",
+      "--no-color",
+      "HEAD",
+      "--",
+      "dir/f.txt",
+    ]);
   });
 });

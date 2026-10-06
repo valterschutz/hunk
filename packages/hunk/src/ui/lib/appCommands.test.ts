@@ -85,6 +85,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     approveReview: record("approveReview"),
     rejectSelectedHunk: record("rejectSelectedHunk"),
     markSelectedHunkFixed: record("markSelectedHunkFixed"),
+    resolveSelectedConflict: record("resolveSelectedConflict"),
     toggleDecidedHunks: record("toggleDecidedHunks"),
     toggleAllHunkStates: record("toggleAllHunkStates"),
     toggleHunkState: record("toggleHunkState"),

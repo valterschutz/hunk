@@ -13,6 +13,9 @@ export function projectDiffFilesToReviewUnits(
   if (reviewUnit === "hunk") return files;
 
   return files.map((file) => {
+    // A conflict region is resolved as a whole, so it stays one hunk whatever
+    // the review unit; splitting it would detach the regions from their hunks.
+    if (file.conflict && file.conflict.unresolved > 0) return file;
     const metadata = splitHunksAtChangedLines(file.metadata);
     if (metadata === file.metadata) return file;
     return {

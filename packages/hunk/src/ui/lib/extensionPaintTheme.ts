@@ -26,6 +26,7 @@ export function toExtensionPaintTheme(theme: AppTheme): ExtensionPaintTheme {
     fileRenamed: theme.fileRenamed,
     fileModified: theme.fileModified,
     fileUntracked: theme.fileUntracked,
+    fileConflicted: theme.fileConflicted,
     noteBorder: theme.noteBorder,
   });
 }

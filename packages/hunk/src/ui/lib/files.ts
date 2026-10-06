@@ -17,6 +17,8 @@ export interface FileListEntry {
   deletionsText: string | null;
   changeType: FileDiffMetadata["type"];
   isUntracked: boolean;
+  /** Conflicts left in the file: unresolved ones to work through, or none once resolved. */
+  conflict?: "unresolved" | "resolved" | null;
 }
 
 /**
@@ -39,6 +41,7 @@ export interface SidebarFileSource {
   changeType?: FileDiffMetadata["type"];
   metadata?: unknown;
   reviewStatus?: "approved";
+  conflict?: { unresolved: number };
 }
 
 export interface FileGroupEntry {
@@ -160,6 +163,7 @@ function buildSidebarFileEntry(file: SidebarFileSource, depth: number): FileList
     deletionsText: formatSidebarStat("-", file.stats.deletions),
     changeType: file.changeType ?? readMetadataChangeType(file.metadata) ?? "change",
     isUntracked: file.isUntracked ?? false,
+    conflict: file.conflict ? (file.conflict.unresolved > 0 ? "unresolved" : "resolved") : null,
   };
 }
 
@@ -355,7 +359,9 @@ export function fileLabelParts(file: DiffFile | undefined): {
 
   // Determine state label for special cases
   let stateLabel: string | null = null;
-  if (file.isUntracked) {
+  if (file.conflict) {
+    stateLabel = file.conflict.unresolved > 0 ? " (conflict)" : " (resolved)";
+  } else if (file.isUntracked) {
     stateLabel = " (untracked)";
   } else if (file.metadata.type === "new") {
     stateLabel = " (new)";

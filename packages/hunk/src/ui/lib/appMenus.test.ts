@@ -78,6 +78,7 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     approveReview: noop,
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
+    resolveSelectedConflict: noop,
     toggleDecidedHunks: noop,
     toggleAllHunkStates: noop,
     toggleHunkState: noop,
@@ -143,6 +144,10 @@ describe("buildAppMenus", () => {
       "Mark selected hunk fixed",
       "Approve undecided hunks in file",
       "Approve entire review…",
+      "Resolve conflict: keep ours",
+      "Resolve conflict: keep theirs",
+      "Resolve conflict: keep both",
+      "Resolve conflict: keep base",
       "Reload",
       "Quit",
     ]);
@@ -212,6 +217,10 @@ describe("buildAppMenus", () => {
       "hunk.review.markSelectedHunkFixed",
       "hunk.review.approveFile",
       "hunk.review.approveReview",
+      "hunk.review.resolveConflictOurs",
+      "hunk.review.resolveConflictTheirs",
+      "hunk.review.resolveConflictBoth",
+      "hunk.review.resolveConflictBase",
       "hunk.app.refresh",
       "hunk.app.quit",
     ]);
@@ -293,6 +302,10 @@ describe("buildAppMenus", () => {
       "Mark selected hunk fixed",
       "Approve undecided hunks in file",
       "Approve entire review…",
+      "Resolve conflict: keep ours",
+      "Resolve conflict: keep theirs",
+      "Resolve conflict: keep both",
+      "Resolve conflict: keep base",
       "Quit",
     ]);
   });

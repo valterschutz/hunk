@@ -25,6 +25,7 @@ import {
   operationFromInput,
 } from "../vcs";
 import type { VcsCatalog } from "../vcs/types";
+import { buildConflictedDiffFile } from "../vcs/conflicts";
 import { buildFilesystemUntrackedDiffFile } from "../vcs/untracked";
 import { computeWatchSignature } from "../watch/signature";
 import type { NamedCustomThemeConfig } from "../../extension-api/types";
@@ -250,10 +251,21 @@ async function loadVcsChangeset(
     id: `${file.id}:extra:${index}`,
     agent: findSidecarFileContext(sidecar, file.path, file.previousPath),
   }));
+  // Conflicted working copies come first: they block whatever the reviewer is
+  // in the middle of, and the adapter kept them out of the patch so Hunk could
+  // build each one's conflict review from the markers instead.
+  const conflictedFiles = (result.conflictedFiles ?? []).map((entry, index) => {
+    const file = buildConflictedDiffFile(result.repoRoot, entry, index, result.repoRoot);
+    return {
+      ...file,
+      id: `${file.id}:conflict:${index}`,
+      agent: findSidecarFileContext(sidecar, file.path, file.previousPath),
+    };
+  });
   return {
     changeset: {
       ...parsedChangeset,
-      files: [...parsedChangeset.files, ...adapterFiles],
+      files: [...conflictedFiles, ...parsedChangeset.files, ...adapterFiles],
     } satisfies Changeset,
     repoRoot: result.repoRoot,
     review: result.review,

@@ -1,5 +1,5 @@
 /** Dispatches planned diff rows to their focused mounted row views. */
-import type { HunkDecision } from "../../core/review/reviewFile";
+import type { HunkRailMark } from "./rowStyle";
 import { memo } from "react";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import type { CopySelectedRowRange } from "../lib/diffSpatial";
@@ -27,7 +27,7 @@ export interface DiffRowViewProps {
   theme: AppTheme;
   selected: boolean;
   /** The decision on the hunk the row belongs to, when decided hunks are shown. */
-  decision?: HunkDecision;
+  decision?: HunkRailMark;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;

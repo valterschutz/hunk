@@ -1,5 +1,6 @@
 import type {
   ExtensionReviewDescriptor,
+  ExtensionVcsConflictedFile,
   ExtensionVcsHistoryCommit,
   ExtensionVcsHistoryInput,
   ExtensionVcsHistoryPage,
@@ -96,6 +97,8 @@ export interface VcsPatchResult {
   sourceFetcherBuilder?: BuildDiffFileOptions["sourceFetcherBuilder"];
   /** Diff files built from the result's declarative `extraFiles` entries. */
   extraFiles?: DiffFile[];
+  /** Conflicted working copies Hunk synthesizes into conflict reviews, listed first. */
+  conflictedFiles?: ExtensionVcsConflictedFile[];
 }
 
 /** Complete ordered VCS capability set used throughout one session. */

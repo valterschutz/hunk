@@ -2230,3 +2230,64 @@ describe("loadAppBootstrap source fetcher attachment", () => {
     expect(bootstrap.changeset.files[0]?.sourceFetcher).toBeUndefined();
   });
 });
+
+describe("conflicted files", () => {
+  /** Run a Git command that is expected to stop with conflicts, ignoring its exit code. */
+  function gitExpectingConflict(cwd: string, ...cmd: string[]) {
+    Bun.spawnSync(["git", ...cmd], { cwd, stdout: "pipe", stderr: "pipe", stdin: "ignore" });
+  }
+
+  test("a rebase conflict is reviewed from its markers ahead of the rest of the working tree", async () => {
+    const dir = createTempRepo("hunk-git-conflict-");
+    writeFileSync(join(dir, "f.txt"), "a\nb\nc\n");
+    writeFileSync(join(dir, "other.txt"), "same\n");
+    git(dir, "add", "f.txt", "other.txt");
+    git(dir, "commit", "-m", "base");
+    git(dir, "switch", "-c", "feat");
+    writeFileSync(join(dir, "f.txt"), "a\nFEAT\nc\n");
+    git(dir, "commit", "-am", "feat");
+    git(dir, "switch", "master");
+    writeFileSync(join(dir, "f.txt"), "a\nMAIN\nc\n");
+    git(dir, "commit", "-am", "main");
+    git(dir, "switch", "feat");
+    gitExpectingConflict(dir, "rebase", "master");
+    expect(git(dir, "status", "--porcelain")).toContain("UU f.txt");
+    writeFileSync(join(dir, "other.txt"), "edited\n");
+
+    const bootstrap = await loadFromRepo(dir, {
+      kind: "vcs",
+      staged: false,
+      options: { mode: "auto" },
+    });
+
+    expect(bootstrap.changeset.files.map((file) => file.path)).toEqual(["f.txt", "other.txt"]);
+    const conflicted = bootstrap.changeset.files[0]!;
+    expect(conflicted.conflict?.unresolved).toBe(1);
+    expect(conflicted.metadata.hunks).toHaveLength(1);
+    expect(conflicted.patch).toContain("-MAIN\n+FEAT\n");
+    expect(conflicted.patch).not.toContain("<<<<<<<");
+    expect(bootstrap.changeset.files[1]?.conflict).toBeUndefined();
+  });
+
+  test("a staged review lists no conflicted files", async () => {
+    const dir = createTempRepo("hunk-git-conflict-staged-");
+    writeFileSync(join(dir, "f.txt"), "a\n");
+    git(dir, "add", "f.txt");
+    git(dir, "commit", "-m", "base");
+    git(dir, "switch", "-c", "feat");
+    writeFileSync(join(dir, "f.txt"), "FEAT\n");
+    git(dir, "commit", "-am", "feat");
+    git(dir, "switch", "master");
+    writeFileSync(join(dir, "f.txt"), "MAIN\n");
+    git(dir, "commit", "-am", "main");
+    gitExpectingConflict(dir, "merge", "feat");
+
+    const bootstrap = await loadFromRepo(dir, {
+      kind: "vcs",
+      staged: true,
+      options: { mode: "auto" },
+    });
+
+    expect(bootstrap.changeset.files.every((file) => file.conflict === undefined)).toBe(true);
+  });
+});

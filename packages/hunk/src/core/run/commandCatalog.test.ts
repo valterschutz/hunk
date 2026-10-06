@@ -73,6 +73,8 @@ describe("app command catalog", () => {
       "hunk.review.editSelectedFile",
       "hunk.review.editSelectedFileSplit",
       "hunk.review.acceptSelectedHunk",
+      "hunk.review.approveFile",
+      "hunk.review.approveReview",
       "hunk.review.rejectSelectedHunk",
       "hunk.review.markSelectedHunkFixed",
     ]);

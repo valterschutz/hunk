@@ -66,6 +66,28 @@ describe("createReviewFileStore", () => {
     }
   });
 
+  test("bulk approval preserves decisions, notes, unknown lines and deduplicates identities", () => {
+    const path = tempPath();
+    const store = createReviewFileStore(path);
+    const other = { ...HUNK, id: "fedcba9876543210fedcba9876543210" };
+    store.upsertNotes({ hunks: [{ kind: "hunk", ...HUNK }], notes: [note("n")] });
+    store.setHunkDecision({ hunk: other, state: "rejected" });
+    store.recordReview({ ...REVIEW, hunks: [HUNK.id, other.id] });
+    writeFileSync(path, `${readFileSync(path, "utf8")}unparseable line\n`);
+    expect(store.acceptUndecidedHunks([HUNK, HUNK, other])).toBe(1);
+    expect(store.load().records).toContainEqual({ kind: "hunk", ...other, state: "rejected" });
+    expect(store.load().records).toContainEqual(note("n"));
+    expect(readFileSync(path, "utf8")).toContain("unparseable line");
+    expect(readFileSync(statusFile(path), "utf8")).toBe("abc reviewed\n");
+    expect(store.acceptUndecidedHunks([HUNK, other])).toBe(0);
+    store.setHunkDecision({ hunk: other, state: "fixed" });
+    expect(store.acceptUndecidedHunks([other])).toBe(0);
+    expect(readFileSync(statusFile(path), "utf8")).toBe("abc approved\n");
+    expect(() => createReviewFileStore(undefined).acceptUndecidedHunks([HUNK])).toThrow(
+      /review_file/,
+    );
+  });
+
   test("a decision creates the file and the commit status beside it", () => {
     const path = tempPath();
     const store = createReviewFileStore(path);

@@ -173,6 +173,78 @@ afterEach(async () => {
 });
 
 describe("AppHost hunk decisions", () => {
+  test("file approval includes hidden undecided hunks and preserves rejection", async () => {
+    const reviewFile = createReviewFile();
+    const bootstrap = createBootstrap(reviewFile, { shownHunks: ["rejected"] });
+    bootstrap.keybindings = { "hunk.review.approveFile": ["A"] };
+    const file = bootstrap.changeset.files[0]!;
+    const hunk = file.metadata.hunks[0]!;
+    createReviewFileStore(reviewFile).setHunkDecision({
+      hunk: {
+        id: diffHunkIdentity(file, hunk),
+        repo: "~/repo",
+        path: file.path,
+        oldStart: hunk.deletionStart,
+        newStart: hunk.additionStart,
+      },
+      state: "rejected",
+    });
+    setup = await testRender(<AppHost bootstrap={bootstrap} />, WIDE);
+    await flush(setup);
+    await pressKeys(setup, "A");
+    expect(
+      hunkRecords(reviewFile)
+        .map((record) => record.state)
+        .sort(),
+    ).toEqual(["accepted", "rejected"]);
+    expect(setup.captureCharFrame()).toContain("Approved 1");
+  });
+
+  test("bulk actions refuse an unconfigured store without opening confirmation", async () => {
+    const bootstrap = createBootstrap(undefined);
+    bootstrap.keybindings = {
+      "hunk.review.approveFile": ["A"],
+      "hunk.review.approveReview": ["F"],
+    };
+    setup = await testRender(<AppHost bootstrap={bootstrap} />, WIDE);
+    await flush(setup);
+    await pressKeys(setup, "AF");
+    expect(setup.captureCharFrame()).toContain("Set review_file");
+    expect(setup.captureCharFrame()).not.toContain("Approve entire review?");
+  });
+
+  for (const kind of ["commit", "range", "working-tree", "line"] as const) {
+    test(`review approval confirms and approves all units in ${kind} mode`, async () => {
+      const reviewFile = createReviewFile();
+      const bootstrap =
+        kind === "range"
+          ? createRangeBootstrap(reviewFile)
+          : kind === "line"
+            ? createAdjacentLineBootstrap(reviewFile)
+            : createBootstrap(reviewFile, { commit: kind === "commit" });
+      bootstrap.keybindings = { "hunk.review.approveReview": ["A"] };
+      setup = await testRender(<AppHost bootstrap={bootstrap} />, WIDE);
+      await flush(setup);
+      if (kind === "line") await pressKeys(setup, "H");
+      await pressKeys(setup, "A");
+      expect(setup.captureCharFrame()).toContain("Approve entire review?");
+      await pressKeys(setup, "n");
+      expect(hunkRecords(reviewFile)).toHaveLength(0);
+      await pressKeys(setup, "Ay");
+      expect(hunkRecords(reviewFile)).toHaveLength(kind === "line" ? 2 : 3);
+      expect(hunkRecords(reviewFile).every((record) => record.state === "accepted")).toBe(true);
+      if (kind === "commit") expect(commitStatus(reviewFile)).toBe(`${COMMIT} approved\n`);
+      if (kind === "range")
+        expect(commitStatus(reviewFile)).toBe(
+          RANGE_COMMITS.map((id) => `${id} approved\n`).join(""),
+        );
+      if (kind === "working-tree") expect(commitStatus(reviewFile)).toBe("");
+      await pressKeys(setup, "Ay");
+      expect(setup.captureCharFrame()).toContain("Approved 0");
+      expect(hunkRecords(reviewFile).every((record) => record.state === "accepted")).toBe(true);
+    });
+  }
+
   test("hunk mode decides every changed row in the selected standard hunk", async () => {
     const reviewFile = createReviewFile();
     setup = await testRender(<AppHost bootstrap={createAdjacentLineBootstrap(reviewFile)} />, WIDE);

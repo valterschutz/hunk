@@ -176,6 +176,8 @@ export function buildAppMenus({
         commandId: "hunk.review.markSelectedHunkFixed",
         label: lineReviewMode ? "Mark selected line fixed" : "Mark selected hunk fixed",
       },
+      { commandId: "hunk.review.approveFile", label: "Approve undecided hunks in file" },
+      { commandId: "hunk.review.approveReview", label: "Approve entire review…" },
       { commandId: "hunk.app.refresh", label: "Reload" },
       SEPARATOR,
       { commandId: "hunk.app.quit" },

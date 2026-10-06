@@ -47,6 +47,8 @@ export interface ReviewFileStore {
   load(): ReviewFileLoad;
   /** Record, change, or clear the decision on one hunk and refresh the commit statuses. */
   setHunkDecision(input: HunkDecisionInput): void;
+  /** Accept only undecided identities in one write, preserving fresh persisted decisions. */
+  acceptUndecidedHunks(hunks: readonly HunkDecisionInput["hunk"][]): number;
   /** Remember which hunks a commit or range review shows and refresh the commit statuses. */
   recordReview(review: Omit<CommitReviewRecord, "kind">): void;
   /** Replace the given note records and add their hunks when missing; true when the file changed. */
@@ -182,6 +184,29 @@ export function createReviewFileStore(configuredPath: string | undefined): Revie
         });
       }
       commit(file, records);
+    },
+    acceptUndecidedHunks(hunks) {
+      const file = readFile(requirePath());
+      const decided = new Set(
+        file.records
+          .filter(
+            (record): record is HunkRecord => record.kind === "hunk" && record.state !== undefined,
+          )
+          .map((record) => record.id),
+      );
+      const accepted = new Map<string, HunkRecord>();
+      for (const hunk of hunks) {
+        if (!decided.has(hunk.id)) {
+          accepted.set(hunk.id, { kind: "hunk", ...hunk, state: "accepted" });
+        }
+      }
+      if (accepted.size === 0) return 0;
+      const records = file.records.filter(
+        (record) => !(record.kind === "hunk" && accepted.has(record.id)),
+      );
+      records.push(...accepted.values());
+      commit(file, records);
+      return accepted.size;
     },
     recordReview(review) {
       if (review.commits.length === 0) {

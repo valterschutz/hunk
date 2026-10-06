@@ -557,6 +557,25 @@ const BUILTIN_COMMANDS = [
     closesMenu: true,
   },
   {
+    id: "hunk.review.approveFile",
+    title: "Approve undecided hunks in the selected file",
+    category: "review",
+    defaultKeys: [],
+    // Like individual decisions, persistence is a host capability, not a ReviewState intent.
+    locus: "host-only",
+    publicToExtensions: true,
+    closesMenu: true,
+  },
+  {
+    id: "hunk.review.approveReview",
+    title: "Approve undecided hunks in the entire review…",
+    category: "review",
+    defaultKeys: [],
+    locus: "host-only",
+    publicToExtensions: true,
+    closesMenu: true,
+  },
+  {
     id: "hunk.review.rejectSelectedHunk",
     title: "Reject the selected hunk, or clear its decision",
     category: "review",

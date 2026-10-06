@@ -163,6 +163,8 @@ export interface BuildAppCommandsOptions {
   triggerEditSelectedFileSplit: () => void;
   triggerRefreshCurrentInput: () => void;
   acceptSelectedHunk: () => void;
+  approveFile: () => void;
+  approveReview: () => void;
   rejectSelectedHunk: () => void;
   markSelectedHunkFixed: () => void;
   toggleDecidedHunks: () => void;
@@ -297,6 +299,8 @@ function builtinCommandHandlers(
     "hunk.review.editSelectedFile": { run: () => options.triggerEditSelectedFile() },
     "hunk.review.editSelectedFileSplit": { run: () => options.triggerEditSelectedFileSplit() },
     "hunk.review.acceptSelectedHunk": { run: () => options.acceptSelectedHunk() },
+    "hunk.review.approveFile": { run: () => options.approveFile() },
+    "hunk.review.approveReview": { run: () => options.approveReview() },
     "hunk.review.rejectSelectedHunk": { run: () => options.rejectSelectedHunk() },
     "hunk.review.markSelectedHunkFixed": { run: () => options.markSelectedHunkFixed() },
     "hunk.view.toggleDecidedHunks": { run: () => options.toggleDecidedHunks() },
@@ -420,6 +424,8 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     triggerEditSelectedFileSplit: noop,
     triggerRefreshCurrentInput: noop,
     acceptSelectedHunk: noop,
+    approveFile: noop,
+    approveReview: noop,
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,

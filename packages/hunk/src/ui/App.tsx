@@ -73,6 +73,7 @@ import {
   resolveCodeViewportWidth,
 } from "./diff/codeColumns";
 import { useAppKeyboardShortcuts } from "./hooks/useAppKeyboardShortcuts";
+import { useBulkHunkApproval } from "./hooks/useBulkHunkApproval";
 import { useIntermediateRenderAfterMount } from "./hooks/useIntermediateRenderAfterMount";
 import { useCurrentReviewRefreshController } from "./hooks/useCurrentReviewRefreshController";
 import { useDiscardSelectedHunk } from "./hooks/useDiscardSelectedHunk";
@@ -1446,6 +1447,17 @@ export function App({
     ],
   );
 
+  const refreshDecisions = useCallback(() => setReviewFileRevision((revision) => revision + 1), []);
+  const { approveFile, approveReview } = useBulkHunkApproval({
+    files: reviewUnitFiles,
+    selectedFileId: selectedFile?.id,
+    repo: reviewRepo,
+    store: reviewFileStore,
+    dialogs: hunkDialogs,
+    refresh: refreshDecisions,
+    notice: showSessionNotice,
+  });
+
   /** Accept the selected hunk, or clear the decision when it is already accepted. */
   const acceptSelectedHunk = useCallback(() => {
     decideSelectedHunk((current) => (current === "accepted" ? undefined : "accepted"));
@@ -1754,6 +1766,8 @@ export function App({
         triggerEditSelectedFileSplit,
         triggerRefreshCurrentInput,
         acceptSelectedHunk,
+        approveFile,
+        approveReview,
         rejectSelectedHunk,
         markSelectedHunkFixed,
         toggleDecidedHunks,

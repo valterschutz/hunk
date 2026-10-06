@@ -131,6 +131,8 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
       },
       {
         commandIds: [
+          "hunk.review.approveFile",
+          "hunk.review.approveReview",
           "hunk.review.acceptSelectedHunk",
           "hunk.review.rejectSelectedHunk",
           "hunk.review.markSelectedHunkFixed",

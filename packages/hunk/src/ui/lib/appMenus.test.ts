@@ -74,6 +74,8 @@ function createTestCommands(overrides: Partial<BuildAppCommandsOptions> = {}) {
     triggerEditSelectedFile: noop,
     triggerEditSelectedFileSplit: noop,
     acceptSelectedHunk: noop,
+    approveFile: noop,
+    approveReview: noop,
     rejectSelectedHunk: noop,
     markSelectedHunkFixed: noop,
     toggleDecidedHunks: noop,
@@ -139,6 +141,8 @@ describe("buildAppMenus", () => {
       "Accept selected hunk",
       "Reject selected hunk",
       "Mark selected hunk fixed",
+      "Approve undecided hunks in file",
+      "Approve entire review…",
       "Reload",
       "Quit",
     ]);
@@ -206,6 +210,8 @@ describe("buildAppMenus", () => {
       "hunk.review.acceptSelectedHunk",
       "hunk.review.rejectSelectedHunk",
       "hunk.review.markSelectedHunkFixed",
+      "hunk.review.approveFile",
+      "hunk.review.approveReview",
       "hunk.app.refresh",
       "hunk.app.quit",
     ]);
@@ -285,6 +291,8 @@ describe("buildAppMenus", () => {
       "Accept selected hunk",
       "Reject selected hunk",
       "Mark selected hunk fixed",
+      "Approve undecided hunks in file",
+      "Approve entire review…",
       "Quit",
     ]);
   });

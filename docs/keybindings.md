@@ -114,6 +114,8 @@ Review and shared commands:
 | `hunk.app.refresh`                             | Refresh the review                                           | `r`                          |
 | `hunk.app.toggleFocusArea`                     | Switch focus between files and filter                        | `tab`                        |
 | `hunk.app.toggleHelp`                          | Toggle help                                                  | `?`                          |
+| `hunk.review.approveFile`                      | Approve undecided hunks in the selected file                 | —                            |
+| `hunk.review.approveReview`                    | Approve undecided hunks in the entire review…                | —                            |
 | `hunk.review.acceptSelectedHunk`               | Accept the selected hunk, or clear its decision              | `+`                          |
 | `hunk.review.alignCurrentLineBottom`           | Align current line to viewport bottom                        | _(none)_                     |
 | `hunk.review.alignCurrentLineCenter`           | Center current line in viewport                              | _(none)_                     |

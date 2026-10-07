@@ -88,6 +88,8 @@ export function monochromeLogTheme(theme: AppTheme, terminalMode: ThemeMode): Ap
     badgeAdded: foreground,
     badgeRemoved: foreground,
     badgeNeutral: foreground,
+    modeBadgeBackground: background,
+    modeBadgeForeground: foreground,
     fileNew: foreground,
     fileDeleted: foreground,
     fileRenamed: foreground,

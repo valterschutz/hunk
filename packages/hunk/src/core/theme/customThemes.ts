@@ -88,6 +88,8 @@ export const CUSTOM_THEME_COLOR_KEYS = [
   "badgeAdded",
   "badgeRemoved",
   "badgeNeutral",
+  "modeBadgeBackground",
+  "modeBadgeForeground",
   "fileNew",
   "fileDeleted",
   "fileRenamed",

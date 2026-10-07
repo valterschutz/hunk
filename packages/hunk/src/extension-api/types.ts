@@ -682,6 +682,10 @@ export interface CustomThemeConfig {
   badgeAdded?: string;
   badgeRemoved?: string;
   badgeNeutral?: string;
+  /** Background of the keyboard-mode status badge (e.g. the "t…" prefix hint); defaults to a modified-accent chrome color. */
+  modeBadgeBackground?: string;
+  /** Foreground of the keyboard-mode status badge; defaults to panelAlt. */
+  modeBadgeForeground?: string;
   fileNew?: string;
   fileDeleted?: string;
   fileRenamed?: string;
@@ -1299,6 +1303,10 @@ export interface ExtensionPaintTheme {
   badgeAdded: string;
   badgeRemoved: string;
   badgeNeutral: string;
+  /** Background of the keyboard-mode status badge (e.g. the "t…" prefix hint). */
+  modeBadgeBackground: string;
+  /** Foreground of the keyboard-mode status badge. */
+  modeBadgeForeground: string;
   fileNew: string;
   fileDeleted: string;
   fileRenamed: string;

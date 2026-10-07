@@ -144,7 +144,7 @@ export function StatusLine({
             height: 1,
             width: layout.badge.width,
             overflow: "hidden",
-            backgroundColor: theme.badgeNeutral,
+            backgroundColor: theme.modeBadgeBackground,
             marginLeft: 1,
             flexShrink: 0,
           }}
@@ -153,7 +153,7 @@ export function StatusLine({
             onExitMode?.();
           }}
         >
-          <text fg={theme.panelAlt}>{` ${layout.badge.text} `}</text>
+          <text fg={theme.modeBadgeForeground}>{` ${layout.badge.text} `}</text>
         </box>
       ) : null}
     </box>

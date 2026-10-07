@@ -55,6 +55,10 @@ export interface AppTheme {
   badgeAdded: string;
   badgeRemoved: string;
   badgeNeutral: string;
+  /** Background of the keyboard-mode status badge (e.g. the "t…" prefix hint). */
+  modeBadgeBackground: string;
+  /** Foreground of the keyboard-mode status badge. */
+  modeBadgeForeground: string;
   fileNew: string;
   fileDeleted: string;
   fileRenamed: string;

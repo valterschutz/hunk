@@ -21,6 +21,8 @@ export function toExtensionPaintTheme(theme: AppTheme): ExtensionPaintTheme {
     badgeAdded: theme.badgeAdded,
     badgeRemoved: theme.badgeRemoved,
     badgeNeutral: theme.badgeNeutral,
+    modeBadgeBackground: theme.modeBadgeBackground,
+    modeBadgeForeground: theme.modeBadgeForeground,
     fileNew: theme.fileNew,
     fileDeleted: theme.fileDeleted,
     fileRenamed: theme.fileRenamed,

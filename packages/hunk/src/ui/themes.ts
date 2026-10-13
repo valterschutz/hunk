@@ -446,10 +446,20 @@ export function themeTuning(theme: AppTheme): ThemeTuning {
  * Return a copy of a theme whose neutral surfaces allow the terminal background through while
  * added/removed row tints stay painted. Both the interactive TUI and static pager hosts use
  * this so diff rows keep their semantic backgrounds on translucent terminals.
+ *
+ * A change row painted in the plain surface color carries no tint, so it is a neutral surface
+ * too and goes transparent with the rest; the cursor line then marks it like a context row.
  */
 export function withTransparentSurfaces(theme: AppTheme): AppTheme {
+  const surface = theme.contextBg.toLowerCase();
+  const rowBg = (color: string) =>
+    color.toLowerCase() === surface ? TRANSPARENT_BACKGROUND : color;
   return {
     ...theme,
+    addedBg: rowBg(theme.addedBg),
+    removedBg: rowBg(theme.removedBg),
+    movedAddedBg: rowBg(theme.movedAddedBg),
+    movedRemovedBg: rowBg(theme.movedRemovedBg),
     background: TRANSPARENT_BACKGROUND,
     panel: TRANSPARENT_BACKGROUND,
     panelAlt: TRANSPARENT_BACKGROUND,

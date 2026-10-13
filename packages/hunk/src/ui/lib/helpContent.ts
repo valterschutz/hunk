@@ -52,7 +52,7 @@ const HELP_SECTIONS: readonly HelpSectionSpec[] = [
       },
       {
         commandIds: ["hunk.review.previousHunk", "hunk.review.nextHunk"],
-        description: "previous / next hunk in file",
+        description: "previous / next hunk",
       },
       {
         commandIds: ["hunk.review.previousFile", "hunk.review.nextFile"],

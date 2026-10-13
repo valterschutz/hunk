@@ -87,6 +87,8 @@ export interface ReviewIntentFacts {
   annotations?: ReviewAnnotationIndex;
   /** Eligible review targets for plain navigation, distinct from visible diff content. */
   eligibleHunkIndicesByFileKey?: ReadonlyMap<string, readonly number[]>;
+  /** Whether plain hunk navigation continues into neighbouring files; unset means it does. */
+  hunkNavigationCrossesFiles?: boolean;
 }
 
 export type ReviewIntent =
@@ -396,6 +398,7 @@ function planSelectionMove(
     {
       files: selectReviewNavigationFiles(state),
       eligibleHunkIndicesByFileKey: facts.eligibleHunkIndicesByFileKey,
+      hunkNavigationCrossesFiles: facts.hunkNavigationCrossesFiles,
       annotations: facts.annotations ?? EMPTY_REVIEW_ANNOTATION_INDEX,
       notes: selectNavigableStoredReviewNotes(state).map((item) => ({
         fileKey: item.fileKey,

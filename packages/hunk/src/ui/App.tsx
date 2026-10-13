@@ -400,6 +400,7 @@ export function App({
     wholeFileByDefault: bootstrap.input.options.wholeFile ?? false,
     onWholeFileModeChange,
     eligibleHunkIndicesByFileId: decisionsProjection.eligibleHunkIndicesByFileId,
+    hunkNavigationCrossesFiles: bootstrap.input.options.hunkNavigationCrossesFiles ?? true,
   });
   // The producer plans brokered actions against the store this controller owns, so a
   // remote action and a key press reach the same state through the same intent path.

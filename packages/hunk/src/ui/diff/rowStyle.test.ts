@@ -81,6 +81,28 @@ describe("cursorLineHighlightBg", () => {
     expect(relativeLuminance(marked)).toBeGreaterThan(relativeLuminance("#000000"));
   });
 
+  test("uses cursorLineBg on untinted change rows once the surface goes transparent", () => {
+    // A theme that paints changed rows in the plain surface color marks changes by sign and word
+    // emphasis alone. Its rows carry no diff hue to preserve, so on a transparent surface they
+    // turn transparent with it and take the theme's own cursor line like any context row.
+    const untinted = {
+      ...DARK,
+      addedBg: DARK.contextBg,
+      removedBg: DARK.contextBg.toUpperCase(),
+      cursorLineBg: "#11111b",
+    };
+    const theme = withTransparentSurfaces(untinted);
+    for (const kind of ["addition", "deletion"] as const) {
+      const baseBg = unifiedCellPalette(kind, theme).contentBg;
+      expect(baseBg).toBe(TRANSPARENT_BACKGROUND);
+      expect(cursorLineHighlightBg(baseBg, theme)).toBe("#11111b");
+    }
+    // Tinted rows keep their paint on a transparent surface.
+    expect(unifiedCellPalette("addition", withTransparentSurfaces(DARK)).contentBg).toBe(
+      DARK.addedBg,
+    );
+  });
+
   test("ignores cursorLineBg on added and removed rows, keeping the hue-preserving lift", () => {
     // A fixed named swatch has no reliable lightness relationship to every diff color's own
     // background — on a removed row already close to the swatch's own tone, blending toward it

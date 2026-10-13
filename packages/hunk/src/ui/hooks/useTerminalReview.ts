@@ -331,6 +331,7 @@ export function useTerminalReview({
   wholeFileByDefault = false,
   onWholeFileModeChange,
   eligibleHunkIndicesByFileId,
+  hunkNavigationCrossesFiles = true,
 }: {
   files: DiffFile[];
   /** Start the review at the selected file's first rendered source line. */
@@ -355,6 +356,8 @@ export function useTerminalReview({
   onWholeFileModeChange?: (fileId: string, whole: boolean) => void;
   /** Plain review navigation targets; source-line and note browsing remain unrestricted. */
   eligibleHunkIndicesByFileId?: ReadonlyMap<string, readonly number[]>;
+  /** Let `[` and `]` continue into neighbouring files rather than stopping at file boundaries. */
+  hunkNavigationCrossesFiles?: boolean;
   /**
    * Identity of the review's input as a whole.
    *
@@ -984,7 +987,7 @@ export function useTerminalReview({
       const previousFileId = getSelection().fileId;
       const outcome = runIntent(
         { type: "selection/move", scope, delta },
-        { annotations, eligibleHunkIndicesByFileKey },
+        { annotations, eligibleHunkIndicesByFileKey, hunkNavigationCrossesFiles },
       );
       if (scope === "file" && getSelection().fileId !== previousFileId) {
         requestFileStartAfterJump();
@@ -996,6 +999,7 @@ export function useTerminalReview({
       eligibleHunkIndicesByFileId,
       eligibleHunkIndicesByFileKey,
       getSelection,
+      hunkNavigationCrossesFiles,
       requestFileStartAfterJump,
       revealLineCursor,
       runIntent,

@@ -243,6 +243,16 @@ Show only the selected file in the review stream, so scrolling stays inside it a
 
 ---
 
+**`hunk_navigation_crosses_files`**
+
+Let `[` and `]` (`hunk.review.previousHunk` / `nextHunk`) continue into the previous or next file. With `false` they stop at the selected file's first and last hunks, and `,` and `.` are the way between files.
+
+- **Type:** boolean
+- **Accepted:** `true` or `false`
+- **Built-in default:** `true`
+
+---
+
 **`whole_file`**
 
 Open every file already expanded to its whole content, as if `z` (`hunk.review.toggleFileContext`) had been pressed for each one. Folding a file back by hand still works as usual.
@@ -474,6 +484,8 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 | `custom_theme.badgeAdded`          | Override the badgeAdded semantic color.          |
 | `custom_theme.badgeRemoved`        | Override the badgeRemoved semantic color.        |
 | `custom_theme.badgeNeutral`        | Override the badgeNeutral semantic color.        |
+| `custom_theme.modeBadgeBackground` | Override the modeBadgeBackground semantic color. |
+| `custom_theme.modeBadgeForeground` | Override the modeBadgeForeground semantic color. |
 | `custom_theme.fileNew`             | Override the fileNew semantic color.             |
 | `custom_theme.fileDeleted`         | Override the fileDeleted semantic color.         |
 | `custom_theme.fileRenamed`         | Override the fileRenamed semantic color.         |

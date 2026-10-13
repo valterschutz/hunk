@@ -77,19 +77,19 @@ describe("selection movement intent", () => {
     annotatedFileKeys: new Set(["beta"]),
   };
 
-  test("plans a hunk move within the selected file and reports where it landed", () => {
-    const state = { ...createTestReviewState(), selection: { fileKey: "alpha", hunkIndex: 0 } };
+  test("plans a move over the visible stream and reports where it landed", () => {
+    const state = { ...createTestReviewState(), selection: { fileKey: "alpha", hunkIndex: 1 } };
 
     expect(planReviewIntent(state, { type: "selection/move", scope: "hunk", delta: 1 })).toEqual({
       actions: [
         {
           type: "selection/select",
-          fileKey: "alpha",
-          hunkIndex: 1,
-          reveal: { anchor: "hunk", scrollToNote: false },
+          fileKey: "beta",
+          hunkIndex: 0,
+          reveal: { anchor: "file-top", scrollToNote: false },
         },
       ],
-      outcome: { type: "selection/changed", fileKey: "alpha", hunkIndex: 1 },
+      outcome: { type: "selection/changed", fileKey: "beta", hunkIndex: 0 },
     });
   });
 
@@ -108,7 +108,7 @@ describe("selection movement intent", () => {
       selection: { fileKey: "alpha", hunkIndex: 1 },
     };
 
-    // Beta is filtered out, so alpha remains the selected file and its last hunk is a hard stop.
+    // Beta is filtered out, so the stream ends at alpha's last hunk and the move goes nowhere.
     expect(planReviewIntent(state, { type: "selection/move", scope: "hunk", delta: 1 })).toEqual({
       actions: [],
     });

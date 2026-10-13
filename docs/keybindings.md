@@ -136,14 +136,14 @@ Review and shared commands:
 | `hunk.review.nextAnnotatedFile`                | Next annotated file                                          | _(none)_                     |
 | `hunk.review.nextAnnotatedHunk`                | Next annotated hunk                                          | `}`                          |
 | `hunk.review.nextFile`                         | Next file                                                    | `.`                          |
-| `hunk.review.nextHunk`                         | Next hunk in the selected file                               | `]`                          |
+| `hunk.review.nextHunk`                         | Next hunk                                                    | `]`                          |
 | `hunk.review.nextNote`                         | Next review note                                             | _(none)_                     |
 | `hunk.review.pageDown`                         | Scroll down one page                                         | `pagedown`, `space`, `f`     |
 | `hunk.review.pageUp`                           | Scroll up one page                                           | `pageup`, `b`, `shift+space` |
 | `hunk.review.previousAnnotatedFile`            | Previous annotated file                                      | _(none)_                     |
 | `hunk.review.previousAnnotatedHunk`            | Previous annotated hunk                                      | `{`                          |
 | `hunk.review.previousFile`                     | Previous file                                                | `,`                          |
-| `hunk.review.previousHunk`                     | Previous hunk in the selected file                           | `[`                          |
+| `hunk.review.previousHunk`                     | Previous hunk                                                | `[`                          |
 | `hunk.review.previousNote`                     | Previous review note                                         | _(none)_                     |
 | `hunk.review.rejectSelectedHunk`               | Reject the selected hunk, or clear its decision              | `-`                          |
 | `hunk.review.replyToActiveNote`                | Reply to active review note                                  | `R`                          |
@@ -184,6 +184,10 @@ Review and shared commands:
 | `hunk.view.toggleLineReviewMode`               | Toggle standard-hunk / changed-line review units             | `H`                          |
 | `hunk.view.toggleLineWrap`                     | Toggle line wrapping                                         | `w`                          |
 | `hunk.view.toggleMenuBar`                      | Toggle menu bar                                              | `M`                          |
+
+`[` and `]` step through the hunks of the whole review, continuing into the previous or next
+file at a file's first or last hunk and stopping at the ends of the review. Set
+`hunk_navigation_crosses_files = false` to stop them at the selected file's edges instead.
 
 `H` switches between standard patch hunks and individual changed rows. Accept, reject, fixed,
 discard, and extension staging/marking commands act on the selected unit; the status line confirms

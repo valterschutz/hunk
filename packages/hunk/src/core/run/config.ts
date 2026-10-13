@@ -568,6 +568,15 @@ export const CONFIG_REFERENCE_OPTIONS: readonly ConfigReferenceOption[] = [
       "Show only the selected file in the review stream, so scrolling stays inside it and `,` and `.` are the way between files. The sidebar still lists every file.",
   },
   {
+    key: "hunk_navigation_crosses_files",
+    property: "hunkNavigationCrossesFiles",
+    type: "boolean",
+    accepted: "`true` or `false`",
+    runtimeDefault: true,
+    description:
+      "Let `[` and `]` (`hunk.review.previousHunk` / `nextHunk`) continue into the previous or next file. With `false` they stop at the selected file's first and last hunks, and `,` and `.` are the way between files.",
+  },
+  {
     key: "whole_file",
     property: "wholeFile",
     type: "boolean",
@@ -1265,6 +1274,8 @@ function mergeOptions(base: CommonOptions, overrides: CommonOptions): CommonOpti
     shownHunks: overrides.shownHunks ?? base.shownHunks,
     oneFileAtATime: overrides.oneFileAtATime ?? base.oneFileAtATime,
     wholeFile: overrides.wholeFile ?? base.wholeFile,
+    hunkNavigationCrossesFiles:
+      overrides.hunkNavigationCrossesFiles ?? base.hunkNavigationCrossesFiles,
     cursorScroll: overrides.cursorScroll ?? base.cursorScroll,
     extensions: overrides.extensions ?? base.extensions,
     extensionPaths: overrides.extensionPaths ?? base.extensionPaths,

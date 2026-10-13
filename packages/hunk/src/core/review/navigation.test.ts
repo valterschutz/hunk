@@ -92,13 +92,19 @@ describe("review selection movement", () => {
     };
     expect(move(filtered, at("alpha", 0), "hunk", 1).at).toBe("alpha:1");
     expect(move(filtered, at("alpha", 1), "hunk", -1).at).toBeNull();
-    expect(move(filtered, at("alpha", 1), "hunk", 1).at).toBeNull();
+    // A file without eligible targets is passed over on the way to the next one.
+    expect(move(filtered, at("alpha", 1), "hunk", 1).at).toBe("gamma:1");
+    expect(move(filtered, at("gamma", 1), "hunk", -1).at).toBe("alpha:1");
+    expect(move(filtered, at("gamma", 1), "hunk", 1).at).toBeNull();
     expect(move(filtered, at("alpha", 1), "file", 1).at).toBe("gamma:1");
     expect(move(filtered, at("gamma", 0), "file", -1).at).toBe("alpha:1");
     expect(move(filtered, at("beta", 1), "file", 1).at).toBe("gamma:1");
-    expect(move(filtered, at("beta", 1), "hunk", 1).at).toBeNull();
+    expect(move(filtered, at("beta", 1), "hunk", 1).at).toBe("gamma:1");
     expect(move(filtered, at("alpha", 0), "hunk", -1).at).toBeNull();
     expect(move(filtered, at("alpha", 0), "hunk", 0).at).toBeNull();
+    const withinFile = { ...filtered, hunkNavigationCrossesFiles: false };
+    expect(move(withinFile, at("alpha", 1), "hunk", 1).at).toBeNull();
+    expect(move(withinFile, at("beta", 1), "hunk", 1).at).toBeNull();
     const exhaustedEdges = {
       ...filtered,
       eligibleHunkIndicesByFileKey: new Map([
@@ -109,17 +115,37 @@ describe("review selection movement", () => {
     };
     expect(move(exhaustedEdges, at("alpha", 0), "file", -1).at).toBeNull();
     expect(move(exhaustedEdges, at("gamma", 0), "file", 1).at).toBeNull();
+    expect(move(exhaustedEdges, at("alpha", 0), "hunk", 1).at).toBe("beta:0");
+    expect(move(exhaustedEdges, at("gamma", 0), "hunk", 1).at).toBeNull();
     expect(move(filtered, at("alpha", 1), "annotated-hunk", 1).at).toBe("beta:1");
   });
 
-  test("steps hunks only within the selected file", () => {
-    expect(move(model(), at("alpha", 0), "hunk", 1).at).toBe("alpha:1");
-    expect(move(model(), at("alpha", 0), "hunk", 3).at).toBe("alpha:1");
-    expect(move(model(), at("alpha", 1), "hunk", 1).at).toBeNull();
-    expect(move(model(), at("beta", 0), "hunk", -1).at).toBeNull();
+  test("steps hunks across file boundaries and stops at both ends", () => {
+    expect(move(model(), at("alpha", 1), "hunk", 1).at).toBe("beta:0");
+    expect(move(model(), at("beta", 0), "hunk", -1).at).toBe("alpha:1");
+    expect(move(model(), at("alpha", 0), "hunk", 3).at).toBe("beta:1");
+    // Clamping, not wrapping: the ends of the stream are where hunk navigation stops.
+    expect(move(model(), at("gamma", 1), "hunk", 1).at).toBeNull();
+    expect(move(model(), at("alpha", 0), "hunk", -1).at).toBeNull();
   });
 
-  test("reveals the target hunk after a hunk move", () => {
+  test("steps hunks only within the selected file when crossing is turned off", () => {
+    const withinFile = { ...model(), hunkNavigationCrossesFiles: false };
+    expect(move(withinFile, at("alpha", 0), "hunk", 1).at).toBe("alpha:1");
+    expect(move(withinFile, at("alpha", 0), "hunk", 3).at).toBe("alpha:1");
+    expect(move(withinFile, at("alpha", 1), "hunk", 1).at).toBeNull();
+    expect(move(withinFile, at("beta", 0), "hunk", -1).at).toBeNull();
+  });
+
+  test("reveals the file header only when a hunk move crosses forward into another file", () => {
+    expect(move(model(), at("alpha", 1), "hunk", 1).reveal).toEqual({
+      anchor: "file-top",
+      scrollToNote: false,
+    });
+    expect(move(model(), at("beta", 0), "hunk", -1).reveal).toEqual({
+      anchor: "hunk",
+      scrollToNote: false,
+    });
     expect(move(model(), at("alpha", 0), "hunk", 1).reveal).toEqual({
       anchor: "hunk",
       scrollToNote: false,
@@ -228,14 +254,11 @@ describe("review selection movement", () => {
     expect(move(annotated, at("alpha", 0), "annotated-hunk", 1).at).toBe("alpha:0");
   });
 
-  test("requires a selected file for plain hunk navigation", () => {
-    expect(move(model(), at(null, 0), "hunk", 1).at).toBeNull();
-    expect(move(model(), at("hidden", 4), "hunk", -1).at).toBeNull();
-  });
-
-  test("starts annotated navigation from an edge when outside the stream", () => {
+  test("starts from an edge when the current position is not on the stream", () => {
     const annotated = model(annotationIndex({ beta: [0], gamma: [1] }));
 
+    expect(move(model(), at(null, 0), "hunk", 1).at).toBe("alpha:0");
+    expect(move(model(), at(null, 0), "hunk", -1).at).toBe("gamma:1");
     expect(move(annotated, at("hidden", 4), "annotated-hunk", 1).at).toBe("beta:0");
     expect(move(annotated, at("hidden", 4), "annotated-hunk", -1).at).toBe("gamma:1");
   });

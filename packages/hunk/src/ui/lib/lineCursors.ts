@@ -26,6 +26,23 @@ export interface LineCursor {
   expandedGapKey?: string;
 }
 
+/** Check whether an individual decision addresses an eligible hunk rather than surrounding context. */
+export function isEligibleReviewCursor(
+  fileId: string | null,
+  hunkIndex: number,
+  eligibleHunkIndicesByFileId: ReadonlyMap<string, readonly number[]>,
+  cursor: LineCursor | null,
+): boolean {
+  return (
+    fileId !== null &&
+    (eligibleHunkIndicesByFileId.get(fileId)?.includes(hunkIndex) ?? false) &&
+    (cursor === null ||
+      (cursor.fileId === fileId &&
+        cursor.hunkIndex === hunkIndex &&
+        cursor.expandedGapKey === undefined))
+  );
+}
+
 export const EMPTY_LINE_CURSORS: LineCursor[] = [];
 
 const cursorsBySectionGeometry = new WeakMap<DiffSectionGeometry, LineCursor[]>();

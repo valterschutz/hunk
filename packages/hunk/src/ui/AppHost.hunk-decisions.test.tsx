@@ -16,6 +16,7 @@ import { projectDiffFilesToReviewUnits } from "../core/changeset/reviewUnits";
 import { COMMIT_STATUS_FILE_NAME, createReviewFileStore } from "../core/process/reviewFileStore";
 import { HUNK_STATES, type HunkRecord, type HunkState } from "../core/review/reviewFile";
 import { resolveTheme } from "./themes";
+import { dimRailColor } from "./diff/rowStyle";
 
 const { TestAppHost: AppHost } = await import("../../../../test/helpers/app-host");
 
@@ -564,7 +565,7 @@ describe("AppHost hunk decisions", () => {
     expect(setup.captureCharFrame()).toContain("● ● ● ●");
   });
 
-  test("a file read whole stays whole when a decision hides one of its hunks", async () => {
+  test("whole-file context keeps decided diff rows, but only eligible hunks receive decisions", async () => {
     const reviewFile = createReviewFile();
     const bootstrap = createBootstrap(reviewFile);
     const [sample, other] = bootstrap.changeset.files;
@@ -589,9 +590,130 @@ describe("AppHost hunk decisions", () => {
 
     await pressKeys(setup, "+");
 
-    const frame = setup.captureCharFrame();
-    expect(frame).toContain("1 hidden");
+    let frame = setup.captureCharFrame();
+    expect(frame).toContain("first change");
+    expect(frame).toContain("line 3");
     expect(frame).toContain("line 9");
+    expect(frame).toContain("1 context");
+    expect(frame).not.toContain("1 hidden");
+    const theme = resolveTheme("github-dark-default", null);
+    expect(railColorOfLine(setup, "first change")).toBe(
+      dimRailColor(theme.acceptedRailColor, theme).toLowerCase(),
+    );
+
+    // A previous-hunk jump cannot select the accepted context hunk.
+    await pressKeys(setup, "[");
+    expect(hunkRecords(reviewFile)).toHaveLength(1);
+    // The line above the second hunk is visible context, not a nearby decision target.
+    await pressKeys(setup, "k+");
+    expect(hunkRecords(reviewFile)).toHaveLength(1);
+    expect(setup.captureCharFrame()).toContain("No eligible review target");
+    await pressKeys(setup, "]+");
+    expect(hunkRecords(reviewFile)).toHaveLength(2);
+    expect(setup.captureCharFrame()).toContain("first change");
+    expect(setup.captureCharFrame()).toContain("second change");
+    // Automatic completion advances to the next file, while the completed whole file remains context.
+    await pressKeys(setup, "+");
+    expect(hunkRecords(reviewFile)).toHaveLength(3);
+    expect(setup.captureCharFrame()).toContain("No undecided hunks");
+    expect(setup.captureCharFrame()).toContain("line 9");
+    await pressKeys(setup, "+-=");
+    expect(hunkRecords(reviewFile)).toHaveLength(3);
+
+    // Folding restores visibility filtering; enabling all states restores review eligibility.
+    await pressKeys(setup, "z");
+    frame = setup.captureCharFrame();
+    expect(frame).not.toContain("first change");
+    expect(frame).toContain("3 hidden");
+    await pressKeys(setup, "V+");
+    expect(hunkRecords(reviewFile)).toHaveLength(2);
+  });
+
+  test("whole_file starts with complete decided content and no eligible review target", async () => {
+    const reviewFile = createReviewFile();
+    const bootstrap = createBootstrap(reviewFile);
+    const files = bootstrap.changeset.files.map((file, index) => ({
+      ...file,
+      sourceFetcher: createTestSourceFetcher((side) =>
+        index === 0
+          ? side === "old"
+            ? BEFORE
+            : AFTER
+          : side === "old"
+            ? OTHER_BEFORE
+            : OTHER_AFTER,
+      ),
+    }));
+    const store = createReviewFileStore(reviewFile);
+    for (const file of files)
+      for (const hunk of file.metadata.hunks) {
+        store.setHunkDecision({
+          hunk: {
+            id: diffHunkIdentity(file, hunk),
+            repo: "test",
+            path: file.path,
+            oldStart: hunk.deletionStart,
+            newStart: hunk.additionStart,
+          },
+          state: "accepted",
+        });
+      }
+    setup = await testRender(
+      <AppHost
+        bootstrap={{
+          ...bootstrap,
+          input: { ...bootstrap.input, options: { ...bootstrap.input.options, wholeFile: true } },
+          changeset: { ...bootstrap.changeset, files },
+        }}
+      />,
+      WIDE,
+    );
+    await flush(setup);
+    await flush(setup);
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("first change");
+    expect(frame).toContain("second change");
+    expect(frame).toContain("other change");
+    expect(frame).toContain("line 9");
+    expect(frame).toContain("no undecided hunks");
+    expect(frame).toContain("3 context");
+    await pressKeys(setup, "+-=");
+    expect(hunkRecords(reviewFile)).toHaveLength(3);
+  });
+
+  test("whole-file line review keeps decided rows while targeting the remaining changed row", async () => {
+    const reviewFile = createReviewFile();
+    const bootstrap = createAdjacentLineBootstrap(reviewFile);
+    const file = {
+      ...bootstrap.changeset.files[0]!,
+      sourceFetcher: createTestSourceFetcher((side) =>
+        side === "old"
+          ? lines("before", "old one", "old two", "after")
+          : lines("before", "new one", "new two", "after"),
+      ),
+    };
+    setup = await testRender(
+      <AppHost
+        bootstrap={{
+          ...bootstrap,
+          input: { ...bootstrap.input, options: { ...bootstrap.input.options, wholeFile: true } },
+          changeset: { ...bootstrap.changeset, files: [file] },
+        }}
+      />,
+      WIDE,
+    );
+    await flush(setup);
+    await flush(setup);
+    await pressKeys(setup, "H]+");
+    expect(setup.captureCharFrame()).toContain("new two");
+    expect(setup.captureCharFrame()).toContain("old two");
+    expect(setup.captureCharFrame()).toContain("1 context");
+    expect(hunkRecords(reviewFile)).toHaveLength(1);
+    await pressKeys(setup, "+");
+    expect(hunkRecords(reviewFile)).toHaveLength(2);
+    expect(setup.captureCharFrame()).toContain("new one");
+    expect(setup.captureCharFrame()).toContain("new two");
+    expect(setup.captureCharFrame()).toContain("No undecided hunks");
   });
 
   test("a review of uncommitted changes records no commit review", async () => {

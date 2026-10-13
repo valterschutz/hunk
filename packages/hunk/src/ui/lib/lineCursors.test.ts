@@ -17,11 +17,30 @@ import {
   findLineCursorAt,
   findNextLineCursor,
   firstLineCursorInHunk,
+  isEligibleReviewCursor,
   lineCursorAtFileEdge,
   reuseEquivalentLineCursors,
   resolveLineCursor,
   type LineCursor,
 } from "./lineCursors";
+
+test("individual decisions require eligible content at the actual cursor", () => {
+  const eligible = new Map([["file", [1]]]);
+  const cursor: LineCursor = {
+    fileId: "file",
+    hunkIndex: 1,
+    stableKey: "row",
+    target: { side: "new", line: 10 },
+  };
+  expect(isEligibleReviewCursor("file", 1, eligible, cursor)).toBe(true);
+  expect(isEligibleReviewCursor("file", 1, eligible, null)).toBe(true);
+  expect(isEligibleReviewCursor("file", 0, eligible, { ...cursor, hunkIndex: 0 })).toBe(false);
+  expect(isEligibleReviewCursor("file", 1, eligible, { ...cursor, expandedGapKey: "gap" })).toBe(
+    false,
+  );
+  expect(isEligibleReviewCursor("file", 1, eligible, { ...cursor, fileId: "other" })).toBe(false);
+  expect(isEligibleReviewCursor(null, 1, eligible, null)).toBe(false);
+});
 
 const theme = resolveTheme("github-dark-default", null);
 

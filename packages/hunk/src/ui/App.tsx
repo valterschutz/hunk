@@ -21,10 +21,12 @@ import {
   diffHunkIdentity,
   fileReviewStatus,
   filterHunksByState,
+  hunkState,
+  nextEligibleReviewHunk,
 } from "../core/changeset/hunkDecisions";
+import { projectReviewFileKeys } from "../core/review/document";
 import { projectDiffFilesToReviewUnits, type ReviewUnit } from "../core/changeset/reviewUnits";
 import {
-  HUNK_DECISIONS,
   HUNK_STATES,
   persistableNoteRecords,
   restoreNoteRecords,
@@ -119,7 +121,7 @@ import {
   isBundledExtensionId,
 } from "./lib/sessionRegistrations";
 import type { CurrentLineAlignment } from "./lib/hunkScroll";
-import type { LineCursor } from "./lib/lineCursors";
+import { isEligibleReviewCursor, type LineCursor } from "./lib/lineCursors";
 import type { ReviewVerticalStop } from "./lib/reviewVerticalStops";
 import { selectReviewStreamFiles } from "./lib/reviewState";
 import { useFilePresentationController } from "./fileViews/useFilePresentationController";
@@ -316,17 +318,53 @@ export function App({
   const [shownHunkStates, setShownHunkStates] = useState<ReadonlySet<HunkState>>(
     () => new Set(bootstrap.input.options.shownHunks ?? ["undecided"]),
   );
-  const decidedHunksShown = HUNK_DECISIONS.some((decision) => shownHunkStates.has(decision));
+  const reviewFileKeys = useMemo(
+    () => projectReviewFileKeys(reviewUnitFiles, { sourceLabel: bootstrap.changeset.sourceLabel }),
+    [reviewUnitFiles, bootstrap.changeset.sourceLabel],
+  );
+  const [wholeContentByFileKey, setWholeContentByFileKey] = useState<ReadonlyMap<string, boolean>>(
+    () => new Map(),
+  );
+  const wholeContentFileIds = useMemo(
+    () =>
+      new Set(
+        reviewUnitFiles
+          .filter(
+            (file) =>
+              file.sourceFetcher &&
+              (wholeContentByFileKey.get(reviewFileKeys.get(file.id)!) ??
+                bootstrap.input.options.wholeFile ??
+                false),
+          )
+          .map((file) => file.id),
+      ),
+    [reviewUnitFiles, reviewFileKeys, wholeContentByFileKey, bootstrap.input.options.wholeFile],
+  );
+  const onWholeFileModeChange = useCallback(
+    (fileId: string, whole: boolean) => {
+      const key = reviewFileKeys.get(fileId);
+      if (!key) return;
+      setWholeContentByFileKey((current) => {
+        if (current.get(key) === whole) return current;
+        return new Map(current).set(key, whole);
+      });
+    },
+    [reviewFileKeys],
+  );
+  const [pendingDecisionTarget, setPendingDecisionTarget] = useState<{
+    fileId: string;
+    identity: string;
+  } | null>(null);
   const decisionsProjection = useMemo(
-    () => filterHunksByState(reviewUnitFiles, hunkDecisions, shownHunkStates),
-    [reviewUnitFiles, hunkDecisions, shownHunkStates],
+    () => filterHunksByState(reviewUnitFiles, hunkDecisions, shownHunkStates, wholeContentFileIds),
+    [reviewUnitFiles, hunkDecisions, shownHunkStates, wholeContentFileIds],
   );
   const reviewFiles = decisionsProjection.files;
-  // While any decided state is shown, the rail marks each decided hunk with its decision;
+  // Every visible decided hunk keeps its rail mark, including whole-file context;
   // an unresolved conflict region is always marked, whatever the reviewer decided about it.
   const hunkDecisionsByFileId = useMemo(() => {
     const byFileId = new Map<string, Map<number, HunkRailMark>>();
-    if (decidedHunksShown && hunkDecisions.size > 0) {
+    if (hunkDecisions.size > 0) {
       for (const [fileId, identities] of decisionsProjection.hunkIdentitiesByFileId) {
         const decisions = new Map<number, HunkRailMark>();
         identities.forEach((identity, index) => {
@@ -343,7 +381,7 @@ export function App({
       byFileId.set(file.id, marks);
     }
     return byFileId.size > 0 ? byFileId : undefined;
-  }, [decidedHunksShown, decisionsProjection, hunkDecisions]);
+  }, [decisionsProjection, hunkDecisions]);
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
   const noteGeometryRef = useRef<AgentNoteGeometrySnapshot | null>(null);
@@ -360,6 +398,8 @@ export function App({
     sourceLabel: bootstrap.changeset.sourceLabel,
     stmlEnabled,
     wholeFileByDefault: bootstrap.input.options.wholeFile ?? false,
+    onWholeFileModeChange,
+    eligibleHunkIndicesByFileId: decisionsProjection.eligibleHunkIndicesByFileId,
   });
   // The producer plans brokered actions against the store this controller owns, so a
   // remote action and a key press reach the same state through the same intent path.
@@ -503,6 +543,17 @@ export function App({
   const selectedHunkDecision =
     selectedHunkIdentity === undefined ? undefined : hunkDecisions.get(selectedHunkIdentity);
   const selectedFileId = selectedFile?.id ?? null;
+  useEffect(() => {
+    if (!pendingDecisionTarget) return;
+    const index =
+      decisionsProjection.hunkIdentitiesByFileId
+        .get(pendingDecisionTarget.fileId)
+        ?.indexOf(pendingDecisionTarget.identity) ?? -1;
+    if (index >= 0) {
+      review.selectHunk(pendingDecisionTarget.fileId, index);
+      setPendingDecisionTarget(null);
+    }
+  }, [decisionsProjection, pendingDecisionTarget, review.selectHunk]);
   const approvedFileIds = useMemo(
     () =>
       new Set(
@@ -532,6 +583,15 @@ export function App({
     () => (cursorLine === "off" ? null : review.lineCursor),
     [cursorLine, review.lineCursor],
   );
+  const selectedReviewTargetEligible = isEligibleReviewCursor(
+    selectedFileId,
+    selectedHunkIndex,
+    decisionsProjection.eligibleHunkIndicesByFileId,
+    activeLineCursor,
+  );
+  const hasEligibleReviewTargets = [
+    ...decisionsProjection.eligibleHunkIndicesByFileId.values(),
+  ].some((indices) => indices.length > 0);
   const sessionFileViews = useMemo(
     () => (extensions ? resolveExtensionFileViews(extensions.registry).views : []),
     [extensions],
@@ -712,11 +772,31 @@ export function App({
             { text: shownHunkStates.has(state) ? "●" : "○", tone: `rail-${state}` },
           ]),
           ...(count > 0 ? [{ text: ` ${count} hidden`, tone: "muted" as const }] : []),
+          ...(decisionsProjection.contextHunkCount > 0
+            ? [{ text: ` ${decisionsProjection.contextHunkCount} context`, tone: "muted" as const }]
+            : []),
         ],
         priority: 1,
       });
     }
-    if (decidedHunksShown && selectedHunkDecision !== undefined) {
+    if (reviewFileStore.enabled && !selectedReviewTargetEligible) {
+      hostItems.push({
+        id: "host:review-target",
+        spans: [
+          {
+            text:
+              !hasEligibleReviewTargets &&
+              shownHunkStates.size === 1 &&
+              shownHunkStates.has("undecided")
+                ? "no undecided hunks"
+                : "no eligible review target",
+            tone: "muted",
+          },
+        ],
+        priority: 1,
+      });
+    }
+    if (selectedHunkDecision !== undefined) {
       hostItems.push({
         id: "host:decided",
         spans: [{ text: `selected ${reviewUnit} ${selectedHunkDecision}`, tone: "muted" }],
@@ -741,11 +821,13 @@ export function App({
     reviewFileStore.enabled,
     reviewUnit,
     selectedHunkDecision,
-    decidedHunksShown,
+    selectedReviewTargetEligible,
+    hasEligibleReviewTargets,
     shownHunkStates,
     statusLineState,
     statusNoticeText,
     decisionsProjection.hiddenHunkCount,
+    decisionsProjection.contextHunkCount,
   ]);
   const statusBarVisible = statusLineHasContent(statusLineSnapshot, keyboardModeHint ?? null);
   const bodyHeight = Math.max(
@@ -1424,6 +1506,17 @@ export function App({
         showSessionNotice(`Set review_file in your config to decide ${reviewUnit}s`);
         return;
       }
+      const cursor = cursorLine === "off" ? null : review.getLineCursor();
+      const eligible = isEligibleReviewCursor(
+        selectedFile?.id ?? null,
+        selectedHunkIndex,
+        decisionsProjection.eligibleHunkIndicesByFileId,
+        cursor,
+      );
+      if (!eligible) {
+        showSessionNotice("No eligible review target");
+        return;
+      }
       const hunk = selectedFile?.metadata.hunks[selectedHunkIndex];
       if (!selectedFile || !hunk || selectedHunkIdentity === undefined) {
         showSessionNotice(`No ${reviewUnit} selected`);
@@ -1448,9 +1541,33 @@ export function App({
         );
         return;
       }
+      if (!shownHunkStates.has(hunkState(state))) {
+        const decisions = new Map(hunkDecisions);
+        if (state === undefined) decisions.delete(selectedHunkIdentity);
+        else decisions.set(selectedHunkIdentity, state);
+        const target = nextEligibleReviewHunk(
+          reviewUnitFiles,
+          decisions,
+          shownHunkStates,
+          selectedFile.id,
+          selectedHunkIdentity,
+        );
+        setPendingDecisionTarget(target);
+        if (!target)
+          showSessionNotice(
+            shownHunkStates.size === 1 && shownHunkStates.has("undecided")
+              ? "No undecided hunks"
+              : "No eligible review target",
+          );
+      }
       setReviewFileRevision((revision) => revision + 1);
     },
     [
+      cursorLine,
+      review.getLineCursor,
+      decisionsProjection.eligibleHunkIndicesByFileId,
+      reviewUnitFiles,
+      shownHunkStates,
       hunkDecisions,
       reviewFileStore,
       reviewRepo,

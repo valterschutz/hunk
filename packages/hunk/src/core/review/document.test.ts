@@ -4,7 +4,7 @@ import {
   createTestSourceFetcher,
   lines,
 } from "../../../../../test/helpers/diff-helpers";
-import { projectReviewDocument, reviewEmptyDiffReason } from "./document";
+import { projectReviewDocument, projectReviewFileKeys, reviewEmptyDiffReason } from "./document";
 import type { DiffFile } from "../changeset/model";
 
 /** Build one small parsed file, optionally with expandable source. */
@@ -30,6 +30,21 @@ describe("projectReviewDocument", () => {
       ["beta.ts", "beta"],
     ]);
     expect(new Set(document.files.map((file) => file.key)).size).toBe(2);
+  });
+
+  test("addresses view preferences like the document across runtime-id changes and duplicate paths", () => {
+    const files = [testFile("first", { path: "same.ts" }), testFile("second", { path: "same.ts" })];
+    const options = { sourceLabel: "review" };
+    const keys = projectReviewFileKeys(files, options);
+    expect([...keys]).toEqual(
+      projectReviewDocument(files, options).files.map((file) => [file.runtimeId, file.key]),
+    );
+    expect(keys.get("first")).not.toBe(keys.get("second"));
+    const reloaded = projectReviewFileKeys(
+      files.map((file) => ({ ...file, id: `${file.id}:reload` })),
+      options,
+    );
+    expect([...reloaded.values()]).toEqual([...keys.values()]);
   });
 
   test("projects hunks, line arrays, and the parser's row totals", () => {

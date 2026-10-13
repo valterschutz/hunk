@@ -329,6 +329,8 @@ export function useTerminalReview({
   sourceLabel = "",
   stmlEnabled = false,
   wholeFileByDefault = false,
+  onWholeFileModeChange,
+  eligibleHunkIndicesByFileId,
 }: {
   files: DiffFile[];
   /** Start the review at the selected file's first rendered source line. */
@@ -349,6 +351,10 @@ export function useTerminalReview({
    * opens whole again like any other new file.
    */
   wholeFileByDefault?: boolean;
+  /** Publish whole-file requests before the app projects decision-filtered content. */
+  onWholeFileModeChange?: (fileId: string, whole: boolean) => void;
+  /** Plain review navigation targets; source-line and note browsing remain unrestricted. */
+  eligibleHunkIndicesByFileId?: ReadonlyMap<string, readonly number[]>;
   /**
    * Identity of the review's input as a whole.
    *
@@ -927,6 +933,17 @@ export function useTerminalReview({
   lineCursorsForRevealRef.current = lineCursors;
   const visibleFilesRef = useRef(visibleFiles);
   visibleFilesRef.current = visibleFiles;
+  const eligibleHunkIndicesByFileKey = useMemo(
+    () =>
+      eligibleHunkIndicesByFileId === undefined
+        ? undefined
+        : new Map(
+            [...keyByFileId].map(
+              ([fileId, key]) => [key, eligibleHunkIndicesByFileId.get(fileId) ?? []] as const,
+            ),
+          ),
+    [eligibleHunkIndicesByFileId, keyByFileId],
+  );
 
   /**
    * Step the selection through one navigable scope.
@@ -939,7 +956,12 @@ export function useTerminalReview({
     (scope: ReviewSelectionScope, delta: number) => {
       if (scope === "hunk" && delta !== 0) {
         const selection = getSelection();
-        if (selection.fileId !== null && selection.hunkIndex !== null) {
+        if (
+          selection.fileId !== null &&
+          selection.hunkIndex !== null &&
+          (eligibleHunkIndicesByFileId === undefined ||
+            eligibleHunkIndicesByFileId.get(selection.fileId)?.includes(selection.hunkIndex))
+        ) {
           const direction = delta > 0 ? 1 : -1;
           const landing = findCurrentHunkLandingCursor(
             lineCursorsForRevealRef.current,
@@ -960,13 +982,24 @@ export function useTerminalReview({
       }
 
       const previousFileId = getSelection().fileId;
-      const outcome = runIntent({ type: "selection/move", scope, delta }, { annotations });
+      const outcome = runIntent(
+        { type: "selection/move", scope, delta },
+        { annotations, eligibleHunkIndicesByFileKey },
+      );
       if (scope === "file" && getSelection().fileId !== previousFileId) {
         requestFileStartAfterJump();
       }
       return outcome;
     },
-    [annotations, getSelection, requestFileStartAfterJump, revealLineCursor, runIntent],
+    [
+      annotations,
+      eligibleHunkIndicesByFileId,
+      eligibleHunkIndicesByFileKey,
+      getSelection,
+      requestFileStartAfterJump,
+      revealLineCursor,
+      runIntent,
+    ],
   );
 
   /**
@@ -1198,6 +1231,7 @@ export function useTerminalReview({
         return;
       }
 
+      onWholeFileModeChange?.(file.id, true);
       setWholeFileKeys((current) => {
         if (current.has(fileKey)) return current;
         const next = new Set(current);
@@ -1214,7 +1248,7 @@ export function useTerminalReview({
         }
       }
     },
-    [applyGapToggle, fileByKey, startSourceLoad, store],
+    [applyGapToggle, fileByKey, onWholeFileModeChange, startSourceLoad, store],
   );
 
   /**
@@ -1240,6 +1274,7 @@ export function useTerminalReview({
       return;
     }
 
+    onWholeFileModeChange?.(file.id, false);
     setWholeFileKeys((current) => {
       const next = new Set(current);
       next.delete(fileKey);
@@ -1251,7 +1286,7 @@ export function useTerminalReview({
         applyGapToggle(file, { type: "expansion/toggle", fileKey, gapId });
       }
     }
-  }, [applyGapToggle, expandFileToWhole, fileByKey, store]);
+  }, [applyGapToggle, expandFileToWhole, fileByKey, onWholeFileModeChange, store]);
 
   // Files `wholeFileByDefault` has already opened whole, so a reviewer who folds one back
   // by hand is never fought on the next render. Keyed by semantic file key: content that

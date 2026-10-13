@@ -81,6 +81,37 @@ describe("review selection movement", () => {
     ]);
   });
 
+  test("plain navigation skips ineligible targets without restricting note browsing", () => {
+    const filtered: ReviewNavigationModel = {
+      ...model(annotationIndex({ alpha: [0], beta: [1] })),
+      eligibleHunkIndicesByFileKey: new Map([
+        ["alpha", [1]],
+        ["beta", []],
+        ["gamma", [1]],
+      ]),
+    };
+    expect(move(filtered, at("alpha", 0), "hunk", 1).at).toBe("alpha:1");
+    expect(move(filtered, at("alpha", 1), "hunk", -1).at).toBeNull();
+    expect(move(filtered, at("alpha", 1), "hunk", 1).at).toBeNull();
+    expect(move(filtered, at("alpha", 1), "file", 1).at).toBe("gamma:1");
+    expect(move(filtered, at("gamma", 0), "file", -1).at).toBe("alpha:1");
+    expect(move(filtered, at("beta", 1), "file", 1).at).toBe("gamma:1");
+    expect(move(filtered, at("beta", 1), "hunk", 1).at).toBeNull();
+    expect(move(filtered, at("alpha", 0), "hunk", -1).at).toBeNull();
+    expect(move(filtered, at("alpha", 0), "hunk", 0).at).toBeNull();
+    const exhaustedEdges = {
+      ...filtered,
+      eligibleHunkIndicesByFileKey: new Map([
+        ["alpha", []],
+        ["beta", [0]],
+        ["gamma", []],
+      ]),
+    };
+    expect(move(exhaustedEdges, at("alpha", 0), "file", -1).at).toBeNull();
+    expect(move(exhaustedEdges, at("gamma", 0), "file", 1).at).toBeNull();
+    expect(move(filtered, at("alpha", 1), "annotated-hunk", 1).at).toBe("beta:1");
+  });
+
   test("steps hunks only within the selected file", () => {
     expect(move(model(), at("alpha", 0), "hunk", 1).at).toBe("alpha:1");
     expect(move(model(), at("alpha", 0), "hunk", 3).at).toBe("alpha:1");

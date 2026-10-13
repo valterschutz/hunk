@@ -123,7 +123,7 @@ export interface ProjectReviewDocumentOptions {
 }
 
 /** Project one diff file into the semantic file the review model addresses. */
-function projectReviewFile(file: DiffFile, sourceLabel: string, duplicateIndex: number) {
+function projectReviewFile(file: DiffFile, key: string) {
   const hunks = file.metadata.hunks.map(projectReviewHunk);
   const identityInput = contentIdentityInput(file, hunks);
   const contentIdentity = reviewFileContentIdentity(identityInput);
@@ -142,12 +142,7 @@ function projectReviewFile(file: DiffFile, sourceLabel: string, duplicateIndex: 
   const sourceAttested = file.sourceFetcher?.cacheKey !== undefined;
 
   return {
-    key: reviewFileKey({
-      sourceLabel,
-      path: file.path,
-      ...(file.previousPath !== undefined ? { previousPath: file.previousPath } : {}),
-      duplicateIndex,
-    }),
+    key,
     runtimeId: file.id,
     path: file.path,
     ...(file.previousPath !== undefined ? { previousPath: file.previousPath } : {}),
@@ -177,6 +172,29 @@ function projectReviewFile(file: DiffFile, sourceLabel: string, duplicateIndex: 
   } satisfies ReviewFileV1;
 }
 
+/** Address files without projecting their content, so view preferences survive runtime-id changes. */
+export function projectReviewFileKeys(
+  files: readonly DiffFile[],
+  { sourceLabel = "" }: ProjectReviewDocumentOptions = {},
+): ReadonlyMap<string, string> {
+  const occurrences = new Map<string, number>();
+  return new Map(
+    files.map((file) => {
+      const duplicateIndex = occurrences.get(file.path) ?? 0;
+      occurrences.set(file.path, duplicateIndex + 1);
+      return [
+        file.id,
+        reviewFileKey({
+          sourceLabel,
+          path: file.path,
+          ...(file.previousPath !== undefined ? { previousPath: file.previousPath } : {}),
+          duplicateIndex,
+        }),
+      ];
+    }),
+  );
+}
+
 /**
  * Project one ordered list of diff files into the semantic review document.
  *
@@ -188,16 +206,8 @@ export function projectReviewDocument(
   files: readonly DiffFile[],
   { sourceLabel = "" }: ProjectReviewDocumentOptions = {},
 ): ReviewDocumentV1 {
-  const occurrences = new Map<string, number>();
-  return {
-    files: files.map((file) => {
-      // One path can legitimately appear twice in a changeset; the occurrence keeps the
-      // two entries addressable apart.
-      const occurrence = occurrences.get(file.path) ?? 0;
-      occurrences.set(file.path, occurrence + 1);
-      return projectReviewFile(file, sourceLabel, occurrence);
-    }),
-  };
+  const keys = projectReviewFileKeys(files, { sourceLabel });
+  return { files: files.map((file) => projectReviewFile(file, keys.get(file.id)!)) };
 }
 
 export type ReviewEmptyDiffReason =

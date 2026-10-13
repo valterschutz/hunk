@@ -85,6 +85,8 @@ export interface ReviewIntentFacts {
    * full set.
    */
   annotations?: ReviewAnnotationIndex;
+  /** Eligible review targets for plain navigation, distinct from visible diff content. */
+  eligibleHunkIndicesByFileKey?: ReadonlyMap<string, readonly number[]>;
 }
 
 export type ReviewIntent =
@@ -393,6 +395,7 @@ function planSelectionMove(
   const target = planReviewSelectionMove(
     {
       files: selectReviewNavigationFiles(state),
+      eligibleHunkIndicesByFileKey: facts.eligibleHunkIndicesByFileKey,
       annotations: facts.annotations ?? EMPTY_REVIEW_ANNOTATION_INDEX,
       notes: selectNavigableStoredReviewNotes(state).map((item) => ({
         fileKey: item.fileKey,

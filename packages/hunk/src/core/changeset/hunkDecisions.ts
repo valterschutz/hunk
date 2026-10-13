@@ -1,19 +1,19 @@
 /**
- * Hides the hunks whose decision state the reviewer filtered out from the files a review renders.
+ * Projects hunk-state filters into visible diff content and eligible review targets.
  *
  * A reviewer working through a commit accepts or rejects each hunk; the decision has to
  * survive a restart, a rebase that shifts line numbers, and a sync to another machine, so a
  * hunk is identified by its content (`reviewHunkIdentity`) rather than by its position. By default only undecided hunks are shown;
  * the reviewer can show or hide each state (undecided, accepted, rejected, fixed) on its own.
  *
- * Hiding rebuilds each file's parsed metadata with the decided hunks removed, so every
- * downstream consumer (row planning, navigation, notes, identity) sees a smaller diff
- * rather than a special case. The per-side line arrays are kept whole; only the hunk
+ * Folded files rebuild parsed metadata with excluded hunks removed. Whole-file requests
+ * retain the complete metadata and identify eligible original hunk indices separately,
+ * so rendering preserves decided changes without making them decision targets. The per-side line arrays are kept whole; only the hunk
  * list and the row geometry that Pierre derives from it are recomputed, the same way
- * Pierre's own parser lays hunks out. A file whose every hunk is decided leaves the
- * review entirely.
+ * Pierre's own parser lays hunks out. An exhausted folded file leaves the review;
+ * an exhausted whole file remains visible as context.
  *
- * Known limitation: the gap between two kept hunks may now contain hidden changes, so
+ * Known folded-file limitation: the gap between two kept hunks may contain hidden changes, so
  * its old and new sides no longer span the same number of lines. The gap keeps the
  * new-side length, as Pierre's parser does, and expanding it pairs the two sides by
  * offset, which can misalign rows inside such a gap.
@@ -25,12 +25,16 @@ import { hunkRows, relayoutHunks, type DiffHunk } from "./hunkLayout";
 import type { DiffFile } from "./model";
 
 export interface HunkDecisionsProjection {
-  /** The files to review, with filtered-out hunks removed and files left empty dropped. */
+  /** Visible files: complete whole-file diffs and filtered folded diffs. */
   files: DiffFile[];
-  /** For each kept file id, the identity of each kept hunk, in hunk order. */
+  /** Content identities of rendered hunks in their rendered order. */
   hunkIdentitiesByFileId: ReadonlyMap<string, readonly string[]>;
-  /** How many hunks the projection removed. */
+  /** Eligible indices in each rendered file; whole-file content keeps its original indices. */
+  eligibleHunkIndicesByFileId: ReadonlyMap<string, readonly number[]>;
+  /** How many hunks the projection removed from view. */
   hiddenHunkCount: number;
+  /** How many visible hunks are context rather than eligible review targets. */
+  contextHunkCount: number;
 }
 
 function identityFile(file: DiffFile) {
@@ -104,8 +108,37 @@ export function hunkState(decision: HunkDecision | undefined): HunkState {
   return decision ?? "undecided";
 }
 
+/** Find the next eligible review unit after a decision, wrapping files only when this file is exhausted. */
+export function nextEligibleReviewHunk(
+  files: readonly DiffFile[],
+  decisions: ReadonlyMap<string, HunkDecision>,
+  shown: ReadonlySet<HunkState>,
+  fileId: string,
+  identity: string,
+): { fileId: string; identity: string } | null {
+  const fileIndex = files.findIndex((file) => file.id === fileId);
+  if (fileIndex < 0) return null;
+  const eligible = (file: DiffFile) =>
+    file.metadata.hunks
+      .map((hunk, index) => ({ identity: diffHunkIdentity(file, hunk), index }))
+      .filter((hunk) => shown.has(hunkState(decisions.get(hunk.identity))));
+  const file = files[fileIndex]!;
+  const currentIndex = file.metadata.hunks.findIndex(
+    (hunk) => diffHunkIdentity(file, hunk) === identity,
+  );
+  const remaining = eligible(file);
+  const local = remaining.find((hunk) => hunk.index > currentIndex) ?? remaining.at(-1);
+  if (local) return { fileId, identity: local.identity };
+  for (let offset = 1; offset < files.length; offset += 1) {
+    const next = files[(fileIndex + offset) % files.length]!;
+    const target = eligible(next)[0];
+    if (target) return { fileId: next.id, identity: target.identity };
+  }
+  return null;
+}
+
 /**
- * Remove every hunk whose state is not shown, dropping files that have nothing left.
+ * Remove excluded hunks in folded files; retain complete whole-file diffs with separate eligibility.
  *
  * A file that loses no hunk is returned as the same object, so memoized consumers keep their
  * work for it.
@@ -114,9 +147,12 @@ export function filterHunksByState(
   files: readonly DiffFile[],
   decisions: ReadonlyMap<string, HunkDecision>,
   shown: ReadonlySet<HunkState>,
+  wholeFileIds: ReadonlySet<string> = new Set(),
 ): HunkDecisionsProjection {
   const hunkIdentitiesByFileId = new Map<string, readonly string[]>();
+  const eligibleHunkIndicesByFileId = new Map<string, readonly number[]>();
   let hiddenHunkCount = 0;
+  let contextHunkCount = 0;
   const projected: DiffFile[] = [];
 
   for (const file of files) {
@@ -136,16 +172,40 @@ export function filterHunksByState(
         keptIdentities.push(identity);
       }
     });
-    hiddenHunkCount += hiddenIdentities.length;
-
-    if (hiddenIdentities.length === 0) {
+    if (wholeFileIds.has(file.id)) {
+      // Keep the complete diff geometry: hidden changes cannot be reconstructed as source gaps.
       projected.push(file);
-      hunkIdentitiesByFileId.set(file.id, keptIdentities);
-    } else if (kept.length > 0) {
-      projected.push(withHunks(file, kept, hiddenIdentities));
-      hunkIdentitiesByFileId.set(file.id, keptIdentities);
+      hunkIdentitiesByFileId.set(file.id, identities);
+      eligibleHunkIndicesByFileId.set(
+        file.id,
+        identities.flatMap((identity, index) =>
+          shown.has(hunkState(decisions.get(identity))) ? [index] : [],
+        ),
+      );
+      contextHunkCount += hiddenIdentities.length;
+    } else {
+      hiddenHunkCount += hiddenIdentities.length;
+      if (hiddenIdentities.length === 0) {
+        projected.push(file);
+        hunkIdentitiesByFileId.set(file.id, keptIdentities);
+      } else if (kept.length > 0) {
+        projected.push(withHunks(file, kept, hiddenIdentities));
+        hunkIdentitiesByFileId.set(file.id, keptIdentities);
+      }
+      if (hunkIdentitiesByFileId.has(file.id)) {
+        eligibleHunkIndicesByFileId.set(
+          file.id,
+          keptIdentities.map((_identity, index) => index),
+        );
+      }
     }
   }
 
-  return { files: projected, hunkIdentitiesByFileId, hiddenHunkCount };
+  return {
+    files: projected,
+    hunkIdentitiesByFileId,
+    eligibleHunkIndicesByFileId,
+    hiddenHunkCount,
+    contextHunkCount,
+  };
 }

@@ -104,6 +104,8 @@ export interface ReviewNavigationModel {
   /** Navigable files in review order — the visible stream, not the whole document. */
   files: readonly ReviewNavigationFile[];
   annotations: ReviewAnnotationIndex;
+  /** Optional review-target subset for plain hunk/file moves; note navigation still browses all content. */
+  eligibleHunkIndicesByFileKey?: ReadonlyMap<string, readonly number[]>;
   /** Visible stored notes in exact rendered order; sidecar-only annotations stay excluded. */
   notes?: readonly ReviewNoteCursor[];
   /** Effective stored-note identity from which an exact-note move begins. */
@@ -262,7 +264,19 @@ function planHunkMove(
   }
 
   const cursors = reviewStreamCursors([selectedFile]);
-  const target = stepCursors(cursors, cursors, selection, delta);
+  const eligible = model.eligibleHunkIndicesByFileKey?.get(selectedFile.fileKey);
+  const targets =
+    eligible === undefined
+      ? cursors
+      : cursors.filter((cursor) => eligible.includes(cursor.hunkIndex));
+  if (
+    !targets.some((cursor) => cursorMatches(cursor, selection)) &&
+    !targets.some((cursor) =>
+      delta > 0 ? cursor.hunkIndex > selection.hunkIndex : cursor.hunkIndex < selection.hunkIndex,
+    )
+  )
+    return null;
+  const target = stepCursors(targets, cursors, selection, delta);
   if (!target || cursorMatches(target, selection)) {
     return null;
   }
@@ -286,17 +300,36 @@ function planFileMove(
     return null;
   }
 
-  const nextIndex = clamp(currentIndex + delta, 0, model.files.length - 1);
-  const nextFile = model.files[nextIndex];
+  const eligibility = model.eligibleHunkIndicesByFileKey;
+  const files =
+    eligibility === undefined
+      ? model.files
+      : model.files.filter((file) => (eligibility.get(file.fileKey)?.length ?? file.hunkCount) > 0);
+  if (
+    !files.some((file) => file.fileKey === selection.fileKey) &&
+    !files.some((file) => {
+      const index = model.files.indexOf(file);
+      return delta > 0 ? index > currentIndex : index < currentIndex;
+    })
+  )
+    return null;
+  const fileCursor = (file: ReviewNavigationFile) => ({ fileKey: file.fileKey, hunkIndex: 0 });
+  const target = stepCursors(
+    files.map(fileCursor),
+    model.files.map(fileCursor),
+    { ...selection, hunkIndex: 0 },
+    delta,
+  );
+  const nextFile = target ? files.find((file) => file.fileKey === target.fileKey) : undefined;
   // Standing at either end is a no-op rather than a re-selection: file navigation must
   // not scroll the viewport back to the current file's header on a key that did nothing.
-  if (nextIndex === currentIndex || !nextFile) {
+  if (!nextFile || nextFile.fileKey === selection.fileKey) {
     return null;
   }
 
   return {
     fileKey: nextFile.fileKey,
-    hunkIndex: REVIEW_FILE_JUMP_HUNK_INDEX,
+    hunkIndex: eligibility?.get(nextFile.fileKey)?.[0] ?? REVIEW_FILE_JUMP_HUNK_INDEX,
     reveal: REVIEW_FILE_JUMP_REVEAL,
   };
 }
@@ -429,6 +462,7 @@ export function planReviewSelectionMove(
   selection: ReviewSemanticSelection,
   move: ReviewSelectionMove,
 ): ReviewSelectionMoveTarget | null {
+  if (move.delta === 0) return null;
   switch (move.scope) {
     case "hunk":
       return planHunkMove(model, selection, move.delta);

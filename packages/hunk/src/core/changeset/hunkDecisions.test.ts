@@ -3,7 +3,12 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { createTestDiffFile } from "../../../../../test/helpers/diff-helpers";
 import { buildDiffFile } from "./diffFile";
 import type { DiffFile } from "./model";
-import { diffHunkIdentity, fileReviewStatus, filterHunksByState } from "./hunkDecisions";
+import {
+  diffHunkIdentity,
+  fileReviewStatus,
+  filterHunksByState,
+  nextEligibleReviewHunk,
+} from "./hunkDecisions";
 
 const HUNK_ONE = `@@ -1,6 +1,6 @@
  line 1
@@ -133,6 +138,39 @@ describe("fileReviewStatus", () => {
 
 const UNDECIDED = new Set(["undecided"] as const);
 
+describe("nextEligibleReviewHunk", () => {
+  test("stays local until exhausted, then advances in file order and wraps", () => {
+    const first = fileFromHunks([HUNK_ONE, HUNK_TWO], "first.txt");
+    const middle = fileFromHunks([HUNK_THREE], "middle.txt");
+    const last = fileFromHunks([HUNK_THREE], "last.txt");
+    const files = [first, middle, last];
+    const [one, two] = first.metadata.hunks.map((hunk) => diffHunkIdentity(first, hunk));
+    const mid = diffHunkIdentity(middle, middle.metadata.hunks[0]!);
+    const end = diffHunkIdentity(last, last.metadata.hunks[0]!);
+    const decisions = new Map<string, "accepted">([
+      [one!, "accepted"],
+      [mid, "accepted"],
+    ]);
+    expect(nextEligibleReviewHunk(files, decisions, UNDECIDED, first.id, one!)).toEqual({
+      fileId: first.id,
+      identity: two!,
+    });
+    decisions.set(two!, "accepted");
+    expect(nextEligibleReviewHunk(files, decisions, UNDECIDED, first.id, two!)).toEqual({
+      fileId: last.id,
+      identity: end,
+    });
+    decisions.delete(one!);
+    decisions.set(end, "accepted");
+    expect(nextEligibleReviewHunk(files, decisions, UNDECIDED, last.id, end)).toEqual({
+      fileId: first.id,
+      identity: one!,
+    });
+    decisions.set(one!, "accepted");
+    expect(nextEligibleReviewHunk(files, decisions, UNDECIDED, first.id, one!)).toBeNull();
+  });
+});
+
 describe("filterHunksByState", () => {
   test("returns the same file object and every hunk identity when nothing is decided", () => {
     const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
@@ -224,6 +262,26 @@ describe("filterHunksByState", () => {
     expect(open.hunkIdentitiesByFileId.get(file.id)).toEqual([two!, three!]);
 
     expect(filterHunksByState([file], decisions, new Set()).files).toEqual([]);
+  });
+
+  test("retains whole-file geometry and original identities while narrowing eligibility", () => {
+    const file = fileFromHunks([HUNK_ONE, HUNK_TWO, HUNK_THREE]);
+    const identities = file.metadata.hunks.map((hunk) => diffHunkIdentity(file, hunk));
+    const decisions = new Map([[identities[1]!, "accepted" as const]]);
+    const projection = filterHunksByState([file], decisions, UNDECIDED, new Set([file.id]));
+    expect(projection.files[0]).toBe(file);
+    expect(projection.hunkIdentitiesByFileId.get(file.id)).toEqual(identities);
+    expect(projection.eligibleHunkIndicesByFileId.get(file.id)).toEqual([0, 2]);
+    expect(projection.hiddenHunkCount).toBe(0);
+    expect(projection.contextHunkCount).toBe(1);
+
+    const none = filterHunksByState([file], decisions, new Set(), new Set([file.id]));
+    expect(none.files[0]).toBe(file);
+    expect(none.eligibleHunkIndicesByFileId.get(file.id)).toEqual([]);
+    expect(none.contextHunkCount).toBe(3);
+    expect(filterHunksByState([file], decisions, UNDECIDED).files[0]?.metadata.hunks).toHaveLength(
+      2,
+    );
   });
 
   test("passes a file without hunks through untouched", () => {

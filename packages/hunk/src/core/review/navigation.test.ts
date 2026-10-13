@@ -137,9 +137,9 @@ describe("review selection movement", () => {
     expect(move(withinFile, at("beta", 0), "hunk", -1).at).toBeNull();
   });
 
-  test("reveals the file header only when a hunk move crosses forward into another file", () => {
+  test("reveals the destination hunk for both forward and backward cross-file moves", () => {
     expect(move(model(), at("alpha", 1), "hunk", 1).reveal).toEqual({
-      anchor: "file-top",
+      anchor: "hunk",
       scrollToNote: false,
     });
     expect(move(model(), at("beta", 0), "hunk", -1).reveal).toEqual({

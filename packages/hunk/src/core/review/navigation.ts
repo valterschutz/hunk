@@ -15,9 +15,9 @@
  *   long-standing behavior and is named here instead of falling out of whichever
  *   arithmetic each copy happened to use. A caller can narrow plain hunk navigation to the
  *   selected file (`hunkNavigationCrossesFiles`), where it clamps at the file's ends.
- * - **A move carries its own reveal request** (B3). "Next hunk" crossing forward into
- *   another file puts that file's header on screen; crossing backward reveals the hunk
- *   itself; annotated-hunk navigation asks for the note. Callers do not re-decide this.
+ * - **A move carries its own reveal request** (B3). Hunk navigation reveals the target
+ *   hunk in either direction, including across files; file navigation reveals the header;
+ *   annotated-hunk navigation asks for the note. Callers do not re-decide this.
  *
  * The model this plans over is structural — file keys and hunk counts, plus an annotation
  * index the consumer supplies. Which hunks count as annotated depends on note sources the
@@ -299,13 +299,11 @@ function planHunkMove(
     return null;
   }
 
-  // Forward jumps into another file land on its header, so the reviewer sees which file
-  // they entered. Backward jumps reveal the hunk itself: the target usually sits near the
-  // bottom of the previous file, and a header alignment would leave it off screen.
-  const crossesFileForward = target.fileKey !== selection.fileKey && delta > 0;
+  // Reveal the destination hunk in either direction. Whole-file context can put even
+  // a file's first hunk far below its header; file navigation owns header alignment.
   return {
     ...target,
-    reveal: { anchor: crossesFileForward ? "file-top" : "hunk", scrollToNote: false },
+    reveal: { anchor: "hunk", scrollToNote: false },
   };
 }
 

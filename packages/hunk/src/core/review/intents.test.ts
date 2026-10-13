@@ -86,7 +86,7 @@ describe("selection movement intent", () => {
           type: "selection/select",
           fileKey: "beta",
           hunkIndex: 0,
-          reveal: { anchor: "file-top", scrollToNote: false },
+          reveal: { anchor: "hunk", scrollToNote: false },
         },
       ],
       outcome: { type: "selection/changed", fileKey: "beta", hunkIndex: 0 },

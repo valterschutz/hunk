@@ -119,8 +119,8 @@ export const REVIEW_NAVIGATION_FIXTURES: readonly ReviewNavigationFixture[] = [
         // Hunk navigation at an end does nothing at all, like file navigation.
         { to: null },
         { to: null },
-        // Crossing forward into another file puts that file's header on screen.
-        { to: { file: 1, hunkIndex: 0 }, reveal: FILE_TOP_REVEAL },
+        // Crossing either direction reveals the hunk, even if whole-file context precedes it.
+        { to: { file: 1, hunkIndex: 0 }, reveal: HUNK_REVEAL },
         // Crossing backward reveals the hunk itself, near the previous file's end.
         { to: { file: 0, hunkIndex: 1 }, reveal: HUNK_REVEAL },
         // File navigation at an end does nothing at all.

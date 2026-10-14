@@ -18,6 +18,10 @@
       "types": "./src/diff-target.ts",
       "import": "./src/diff-target.ts"
     },
+    "./hunk-span": {
+      "types": "./src/hunk-span.ts",
+      "import": "./src/hunk-span.ts"
+    },
     "./large-file": {
       "types": "./src/large-file.ts",
       "import": "./src/large-file.ts"

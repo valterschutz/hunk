@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from "react";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../../../core/run/reviewGap";
-import type { HunkRailMark } from "../../diff/rowStyle";
+import type { HunkMarks } from "../../diff/rowStyle";
 import { DEFAULT_TAB_WIDTH } from "../../../core/run/tabWidth";
 import {
   DEFAULT_WHEEL_SCROLL_LINES,
@@ -334,7 +334,7 @@ export function DiffPane({
   scrollRef,
   selectedFileId,
   selectedHunkIndex,
-  hunkDecisionsByFileId,
+  hunkMarksByFileId,
   activeNoteId,
   noteActionKeyLabels,
   cursorLine = "off",
@@ -419,7 +419,7 @@ export function DiffPane({
   selectedFileId?: string;
   selectedHunkIndex: number;
   /** Decisions by file id and hunk index, present only while decided hunks are shown. */
-  hunkDecisionsByFileId?: ReadonlyMap<string, ReadonlyMap<number, HunkRailMark>>;
+  hunkMarksByFileId?: ReadonlyMap<string, ReadonlyMap<number, HunkMarks>>;
   activeNoteId?: string;
   noteActionKeyLabels?: { delete: string; edit: string; reply: string };
   cursorLine?: CursorLine;
@@ -2668,7 +2668,7 @@ export function DiffPane({
                         headerStatsWidth={headerStatsWidth}
                         layout={layout}
                         selectedHunkIndex={file.id === selectedFileId ? selectedHunkIndex : -1}
-                        hunkDecisions={hunkDecisionsByFileId?.get(file.id)}
+                        hunkMarks={hunkMarksByFileId?.get(file.id)}
                         copySelectedRowRanges={copySelectedRowKeysByFile.get(file.id)}
                         copySelectedSide={copySelectionSide}
                         cursorHighlight={

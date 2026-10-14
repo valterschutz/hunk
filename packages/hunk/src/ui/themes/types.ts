@@ -35,12 +35,16 @@ export interface AppTheme {
   removedRailColor: string;
   /** Rail marker beside context lines and hunk headers of the active hunk. */
   contextRailColor: string;
-  /** Rail marker beside every row of a hunk the reviewer accepted, when decided hunks are shown. */
-  acceptedRailColor: string;
-  /** Rail marker beside every row of a hunk the reviewer rejected. */
-  rejectedRailColor: string;
-  /** Rail marker beside every row of a rejected hunk the reviewer has since fixed. */
-  fixedRailColor: string;
+  /** Dot before the header of a hunk the reviewer accepted, and its hunk-state filter dot. */
+  acceptedDotColor: string;
+  /** Dot before the header of a hunk the reviewer rejected. */
+  rejectedDotColor: string;
+  /** Dot before the header of a rejected hunk the reviewer has since fixed. */
+  fixedDotColor: string;
+  /** Rail marker beside every row of a working-copy hunk whose changes are all staged. */
+  stagedRailColor: string;
+  /** Rail marker beside every row of a working-copy hunk with both staged and unstaged changes. */
+  partlyStagedRailColor: string;
   /** Rail marker beside every row of a conflict region the reviewer has not resolved yet. */
   conflictRailColor: string;
   /**

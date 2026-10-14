@@ -9,6 +9,8 @@ import type {
   ExtensionVcsDiscardHunkRequest,
   ExtensionVcsHistoryReviewAction,
   ExtensionVcsHistoryReviewOptions,
+  ExtensionVcsStageHunkRequest,
+  ExtensionVcsStagingPatches,
   ExtensionVcsWatchPlan,
 } from "../../extension-api/types";
 import type { DiffFile } from "../changeset/model";
@@ -43,6 +45,7 @@ export type VcsReviewOperationKind = VcsReviewOperation["kind"];
 export interface VcsOperation<Input extends VcsReviewInput> {
   load(input: Input, context: VcsLoadContext): Promise<VcsPatchResult>;
   discardHunk?: (request: ExtensionVcsDiscardHunkRequest, context: VcsLoadContext) => Promise<void>;
+  stageHunk?: (request: ExtensionVcsStageHunkRequest, context: VcsLoadContext) => Promise<void>;
   watchSignature?: (input: Input, context: VcsLoadContext) => string | Promise<string>;
   watchPlan?: (input: Input, context: VcsLoadContext) => ExtensionVcsWatchPlan;
 }
@@ -99,6 +102,8 @@ export interface VcsPatchResult {
   extraFiles?: DiffFile[];
   /** Conflicted working copies Hunk synthesizes into conflict reviews, listed first. */
   conflictedFiles?: ExtensionVcsConflictedFile[];
+  /** Zero-context patches splitting a staging-aware working-copy review at the index. */
+  staging?: ExtensionVcsStagingPatches;
 }
 
 /** Complete ordered VCS capability set used throughout one session. */

@@ -69,6 +69,7 @@ describe("app command catalog", () => {
       "hunk.app.quit",
       "hunk.app.openAgentSkill",
       "hunk.review.discardSelectedHunk",
+      "hunk.review.toggleSelectedHunkStaged",
       "hunk.app.refresh",
       "hunk.review.editSelectedFile",
       "hunk.review.editSelectedFileSplit",

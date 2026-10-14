@@ -127,6 +127,8 @@ export interface BuildAppCommandsOptions {
   jumpLineCursorToFileEdge: (edge: "start" | "end") => void;
   deleteActiveNote?: () => void;
   discardSelectedHunk: () => void;
+  /** Stage or unstage the selected hunk; reviews without staging report that instead. */
+  toggleSelectedHunkStaging: () => void;
   editActiveNote?: () => void;
   replyToActiveNote?: () => void;
   /** Step shared semantic selection through one scope. */
@@ -246,6 +248,7 @@ function builtinCommandHandlers(
       isEnabled: () => options.canDiscardSelectedHunk,
       run: () => options.discardSelectedHunk(),
     },
+    "hunk.review.toggleSelectedHunkStaged": { run: () => options.toggleSelectedHunkStaging() },
     "hunk.review.halfPageDown": { run: (_key, count) => options.scrollDiff(count, "half") },
     "hunk.review.halfPageUp": { run: (_key, count) => options.scrollDiff(-count, "half") },
     "hunk.review.stepDown": { run: (_key, count) => options.stepDiffLine(count) },
@@ -398,6 +401,7 @@ const NOOP_COMMAND_OPTIONS: BuildAppCommandsOptions = (() => {
     alignCurrentLine: noop,
     applyFilePresentationToAllMatching: noop,
     discardSelectedHunk: noop,
+    toggleSelectedHunkStaging: noop,
     focusFilter: noop,
     jumpLineCursorToFileEdge: noop,
     moveSelection: noop,

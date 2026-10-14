@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { buildSelectedHunkPatch } from "../../core/changeset/discardHunk";
+import { hunkTarget } from "../../core/changeset/staging";
 import type { DiffFile } from "../../core/changeset/model";
 import type { CliInput } from "../../core/run/commandInputs";
 import { canDiscardVcsHunk, discardVcsHunk } from "../../core/vcs";
@@ -42,10 +43,13 @@ export function useDiscardSelectedHunk({
 
   const confirmation = useMemo(() => {
     if (input.kind !== "vcs") return "";
-    return input.staged
-      ? `This removes the ${unitLabel} from the index. Your working tree is unchanged.`
+    if (input.staged) {
+      return `This removes the ${unitLabel} from the index. Your working tree is unchanged.`;
+    }
+    return file?.staging
+      ? `This reverts the ${unitLabel}'s unstaged changes in your working tree; staged changes stay. This cannot be undone.`
       : `This reverts the ${unitLabel} in your working tree. This cannot be undone.`;
-  }, [input, unitLabel]);
+  }, [file?.staging, input, unitLabel]);
 
   const discardSelectedHunk = useCallback(() => {
     if (
@@ -82,7 +86,13 @@ export function useDiscardSelectedHunk({
         }
 
         try {
-          await discardVcsHunk(input, patchText, { cwd }, catalog);
+          await discardVcsHunk(
+            input,
+            patchText,
+            { cwd },
+            catalog,
+            file.staging ? hunkTarget(file, hunk) : undefined,
+          );
           showNotice(
             input.staged
               ? `Removed selected ${unitLabel} from the index`

@@ -9,6 +9,7 @@ const PACKAGE_ROOT = join(REPO_ROOT, "packages", "hunk-vcs");
 const EXPECTED_EXPORTS = [
   "./async-process",
   "./diff-target",
+  "./hunk-span",
   "./large-file",
   "./path",
   "./review-info",

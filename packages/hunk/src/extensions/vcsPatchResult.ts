@@ -16,6 +16,7 @@ import type {
   ExtensionVcsExtraFile,
   ExtensionVcsFileSourceReader,
   ExtensionVcsPatchResult,
+  ExtensionVcsStagingPatches,
   ExtensionReviewDescriptor,
 } from "../extension-api/types";
 import { validateExtensionReviewDescriptor } from "../core/reviewDescriptor";
@@ -185,6 +186,19 @@ function toInternalExtraFile(
   );
 }
 
+/** Validate the staging patches: both zero-context patches must be present as text. */
+function validateStagingPatches(value: unknown): ExtensionVcsStagingPatches | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "object" || value === null) {
+    throw new Error("VCS staging must be an object.");
+  }
+  const { stagedPatchText, unstagedPatchText } = value as Record<string, unknown>;
+  if (typeof stagedPatchText !== "string" || typeof unstagedPatchText !== "string") {
+    throw new Error("VCS staging needs stagedPatchText and unstagedPatchText strings.");
+  }
+  return { stagedPatchText, unstagedPatchText };
+}
+
 /** Validate the conflicted-file list: bounded repo-relative paths, optional one-file patches. */
 function validateConflictedFiles(value: unknown): ExtensionVcsConflictedFile[] | undefined {
   if (value === undefined) return undefined;
@@ -249,5 +263,6 @@ export function toInternalVcsPatchResult(result: ExtensionVcsPatchResult): VcsPa
       toInternalExtraFile(entry, index, result.repoRoot, sourceFetcherBuilder),
     ),
     conflictedFiles: validateConflictedFiles(result.conflictedFiles),
+    staging: validateStagingPatches(result.staging),
   };
 }

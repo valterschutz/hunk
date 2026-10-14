@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_HUNK_GAP } from "../../core/run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../../core/run/tabWidth";
 import type { DiffFile } from "../../core/changeset/model";
-import type { HunkRailMark } from "./rowStyle";
+import type { HunkMarks } from "./rowStyle";
 import type { LayoutMode } from "../../core/run/commandInputs";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import { AgentInlineNote } from "../components/panes/AgentInlineNote";
@@ -27,6 +27,7 @@ import { buildDiffSectionRowPlan, type DiffSectionRowPlan } from "./diffSectionR
 import { resolveVisiblePlannedRowWindow, type VisibleBodyBounds } from "./rowWindowing";
 import { diffMessage, fitText } from "./plannedRowText";
 import { DiffRowView } from "./DiffRowView";
+import { isPlannedCodeReviewRow } from "./reviewRenderPlan";
 import { plannedRowMatchesCursor, type CursorHighlight } from "./cursorHighlight";
 import { resolveCodeRowNoteTarget } from "./codeRowAffordance";
 import { useHighlightedDiff } from "./useHighlightedDiff";
@@ -84,7 +85,7 @@ export function DiffSectionBody({
   hoverClearSignal = 0,
   width,
   selectedHunkIndex,
-  hunkDecisions,
+  hunkMarks,
   sectionGeometry,
   shouldLoadHighlight = true,
   offloadLargeDiff = false,
@@ -120,8 +121,8 @@ export function DiffSectionBody({
   hoverClearSignal?: number;
   width: number;
   selectedHunkIndex: number;
-  /** Decisions on this file's hunks by hunk index, when decided hunks are shown. */
-  hunkDecisions?: ReadonlyMap<number, HunkRailMark>;
+  /** Rail marks and decisions of this file's hunks, by hunk index. */
+  hunkMarks?: ReadonlyMap<number, HunkMarks>;
   sectionGeometry?: DiffSectionGeometry;
   shouldLoadHighlight?: boolean;
   offloadLargeDiff?: boolean;
@@ -300,6 +301,27 @@ export function DiffSectionBody({
     return next;
   }, [plannedRows]);
 
+  // A hunk's decision dot sits on its header; a hunk drawn without one (hidden headers, or a
+  // whole-file view) carries the dot on its first code row instead.
+  const decisionDotRowKeys = useMemo(() => {
+    const headedHunks = new Set<number>();
+    if (showHunkHeaders) {
+      for (const plannedRow of plannedRows) {
+        if (plannedRow.kind === "diff-row" && plannedRow.row.type === "hunk-header") {
+          headedHunks.add(plannedRow.row.hunkIndex);
+        }
+      }
+    }
+    const keys = new Set<string>();
+    for (const plannedRow of plannedRows) {
+      if (plannedRow.kind !== "diff-row" || !isPlannedCodeReviewRow(plannedRow)) continue;
+      if (plannedRow.row.isExpansionRow || headedHunks.has(plannedRow.row.hunkIndex)) continue;
+      headedHunks.add(plannedRow.row.hunkIndex);
+      keys.add(plannedRow.key);
+    }
+    return keys;
+  }, [plannedRows, showHunkHeaders]);
+
   /** One shared hover handler for every diff row; DiffRowView passes the hovered row's key. */
   const handleHoverRow = useCallback(
     (rowKey: string) => {
@@ -457,7 +479,8 @@ export function DiffSectionBody({
               codeHorizontalOffset={codeHorizontalOffset}
               theme={theme}
               selected={!isExpansionRow && plannedRow.row.hunkIndex === selectedHunkIndex}
-              decision={isExpansionRow ? undefined : hunkDecisions?.get(plannedRow.row.hunkIndex)}
+              marks={isExpansionRow ? undefined : hunkMarks?.get(plannedRow.row.hunkIndex)}
+              carriesDecisionDot={decisionDotRowKeys.has(plannedRow.key)}
               copySelectedRowRange={copySelectedRowRanges?.get(plannedRow.key)}
               copySelectedSide={copySelectedSide}
               cursorHighlight={isCursorRow ? cursorHighlight : undefined}

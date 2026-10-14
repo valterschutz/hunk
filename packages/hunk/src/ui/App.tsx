@@ -79,6 +79,7 @@ import { useBulkHunkApproval } from "./hooks/useBulkHunkApproval";
 import { useIntermediateRenderAfterMount } from "./hooks/useIntermediateRenderAfterMount";
 import { useCurrentReviewRefreshController } from "./hooks/useCurrentReviewRefreshController";
 import { useDiscardSelectedHunk } from "./hooks/useDiscardSelectedHunk";
+import { useToggleSelectedHunkStaging } from "./hooks/useToggleSelectedHunkStaging";
 import { useExtensionCommandRunner } from "./hooks/useExtensionCommandRunner";
 import { useExtensionDialogController } from "./hooks/useExtensionDialogController";
 import { useExtensionEventContextProvider } from "./hooks/useExtensionEventContextProvider";
@@ -146,7 +147,8 @@ import {
 } from "./lib/openInEditor";
 import { resolveConflictRegion } from "../core/vcs/conflicts";
 import type { ConflictResolutionChoice } from "../core/changeset/model";
-import type { HunkRailMark } from "./diff/rowStyle";
+import type { HunkMarks, HunkRailMark } from "./diff/rowStyle";
+import { containingPatchHunk, hunkStagingState } from "../core/changeset/staging";
 import { collapseHomePath, createReviewFileStore } from "../core/process/reviewFileStore";
 import { resolveResponsiveLayout } from "./lib/responsive";
 import type { WorkspaceRefreshRequest } from "./currentReviewRefresh";
@@ -360,28 +362,39 @@ export function App({
     [reviewUnitFiles, hunkDecisions, shownHunkStates, wholeContentFileIds],
   );
   const reviewFiles = decisionsProjection.files;
-  // Every visible decided hunk keeps its rail mark, including whole-file context;
-  // an unresolved conflict region is always marked, whatever the reviewer decided about it.
-  const hunkDecisionsByFileId = useMemo(() => {
-    const byFileId = new Map<string, Map<number, HunkRailMark>>();
-    if (hunkDecisions.size > 0) {
-      for (const [fileId, identities] of decisionsProjection.hunkIdentitiesByFileId) {
-        const decisions = new Map<number, HunkRailMark>();
-        identities.forEach((identity, index) => {
-          const decision = hunkDecisions.get(identity);
-          if (decision !== undefined) decisions.set(index, decision);
-        });
-        if (decisions.size > 0) byFileId.set(fileId, decisions);
-      }
-    }
+  // Every visible decided hunk shows its decision as a dot, including whole-file context. The
+  // rail shows where a working-copy hunk sits relative to the index, classified through the
+  // patch hunk a line unit was split from; an unresolved conflict region's rail is always marked.
+  const hunkMarksByFileId = useMemo(() => {
+    const patchFilesById = new Map(experimentalFiles.map((file) => [file.id, file]));
+    const byFileId = new Map<string, Map<number, HunkMarks>>();
     for (const file of decisionsProjection.files) {
-      if (!file.conflict || file.conflict.regions.length === 0) continue;
-      const marks = byFileId.get(file.id) ?? new Map<number, HunkRailMark>();
-      for (const region of file.conflict.regions) marks.set(region.hunkIndex, "conflict");
-      byFileId.set(file.id, marks);
+      const identities = decisionsProjection.hunkIdentitiesByFileId.get(file.id);
+      const conflictHunks = new Set(file.conflict?.regions.map((region) => region.hunkIndex));
+      const patchFile = patchFilesById.get(file.id) ?? file;
+      const marks = new Map<number, HunkMarks>();
+      file.metadata.hunks.forEach((hunk, index) => {
+        const identity = identities?.[index];
+        const decision = identity === undefined ? undefined : hunkDecisions.get(identity);
+        const staging = file.staging
+          ? hunkStagingState(file.staging, containingPatchHunk(patchFile, hunk))
+          : undefined;
+        const rail: HunkRailMark | undefined = conflictHunks.has(index)
+          ? "conflict"
+          : staging === "unstaged"
+            ? undefined
+            : staging;
+        if (decision !== undefined || rail !== undefined) {
+          marks.set(index, {
+            ...(rail !== undefined ? { rail } : {}),
+            ...(decision !== undefined ? { decision } : {}),
+          });
+        }
+      });
+      if (marks.size > 0) byFileId.set(file.id, marks);
     }
     return byFileId.size > 0 ? byFileId : undefined;
-  }, [decisionsProjection, hunkDecisions]);
+  }, [decisionsProjection, experimentalFiles, hunkDecisions]);
   // App computes layout geometry below this hook call, so the controller reads
   // the current values through a ref instead of a render-time parameter.
   const noteGeometryRef = useRef<AgentNoteGeometrySnapshot | null>(null);
@@ -1435,6 +1448,17 @@ export function App({
     unitLabel: reviewUnit,
   });
 
+  const { toggleSelectedHunkStaging } = useToggleSelectedHunkStaging({
+    catalog: bootstrap.reloadContext.vcsCatalog,
+    cwd: bootstrap.reloadContext.repoRoot ?? bootstrap.reloadContext.cwd,
+    file: selectedFile,
+    hunk: review.selectedHunk,
+    input: bootstrap.input,
+    patchFile: experimentalFiles.find((file) => file.id === selectedFile?.id),
+    refresh: () => refreshCurrentInput({ reason: "manual" }),
+    showNotice: showSessionNotice,
+  });
+
   const {
     closeExtensionTrustPrompt,
     denyRepoExtensions,
@@ -1910,6 +1934,10 @@ export function App({
           });
         },
         discardSelectedHunk,
+        // A pager has no index to stage into, and Space pages there as it does in `less`.
+        toggleSelectedHunkStaging: pagerMode
+          ? () => scrollDiff(1, "viewport")
+          : toggleSelectedHunkStaging,
         editActiveNote: () => {
           if (activeEditableNoteId) startUserNoteEdit(activeEditableNoteId);
         },
@@ -2283,7 +2311,7 @@ export function App({
             scrollRef={diffScrollRef}
             selectedFileId={selectedFile?.id}
             selectedHunkIndex={selectedHunkIndex}
-            hunkDecisionsByFileId={hunkDecisionsByFileId}
+            hunkMarksByFileId={hunkMarksByFileId}
             activeNoteId={activeNoteId}
             noteActionKeyLabels={noteActionKeyLabels}
             scrollToNote={review.scrollToNote}

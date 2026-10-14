@@ -668,12 +668,16 @@ export interface CustomThemeConfig {
   removedRailColor?: string;
   /** Rail marker beside context lines and hunk headers; defaults to lineNumberFg. */
   contextRailColor?: string;
-  /** Rail marker beside every row of an accepted hunk; defaults to addedRailColor. */
-  acceptedRailColor?: string;
-  /** Rail marker beside every row of a rejected hunk; defaults to removedRailColor. */
-  rejectedRailColor?: string;
-  /** Rail marker beside every row of an fixed hunk; defaults to contextRailColor. */
-  fixedRailColor?: string;
+  /** Dot before the header of an accepted hunk; defaults to addedSignColor. */
+  acceptedDotColor?: string;
+  /** Dot before the header of a rejected hunk; defaults to removedSignColor. */
+  rejectedDotColor?: string;
+  /** Dot before the header of a fixed hunk; defaults to lineNumberFg. */
+  fixedDotColor?: string;
+  /** Rail marker beside every row of a fully staged hunk; defaults to addedSignColor. */
+  stagedRailColor?: string;
+  /** Rail marker beside every row of a partly staged hunk; defaults to fileModified. */
+  partlyStagedRailColor?: string;
   /** Rail marker beside every row of an unresolved conflict; defaults to fileConflicted. */
   conflictRailColor?: string;
   /** Fixed color the current line lifts toward; unset keeps the computed white/black tint. */
@@ -1149,6 +1153,22 @@ export interface ExtensionVcsPatchResult {
    * from the working copy's markers.
    */
   conflictedFiles?: ExtensionVcsConflictedFile[];
+  /**
+   * Index state of a working-copy review whose `patchText` runs from the base revision to the
+   * working copy, so staged and unstaged changes show together.
+   *
+   * Hunk marks each displayed hunk as staged, partly staged, or unstaged from these patches,
+   * and offers `stageHunk` on it. Leave it out of every other review.
+   */
+  staging?: ExtensionVcsStagingPatches;
+}
+
+/** Zero-context patches splitting a working-copy review at the index. */
+export interface ExtensionVcsStagingPatches {
+  /** `-U0` patch from the base revision to the index, with the review patch's rename detection. */
+  stagedPatchText: string;
+  /** `-U0` patch from the index to the working copy. */
+  unstagedPatchText: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1192,12 +1212,50 @@ export interface ExtensionVcsWatchPlan {
   targets: ExtensionVcsWatchTarget[];
 }
 
+/** One side of a unified-diff hunk header: first line and line count. */
+export interface ExtensionVcsLineSpan {
+  start: number;
+  count: number;
+}
+
+/**
+ * One displayed hunk of a staging-aware review, addressed by file and line spans.
+ *
+ * The spans are the hunk's `@@` header in the review patch: `oldSpan` counts lines of the
+ * base revision and `newSpan` lines of the working copy.
+ */
+export interface ExtensionVcsHunkTarget {
+  /** Repo-root-relative path of the file on the new side. */
+  path: string;
+  /** Path on the old side, when the review shows the file as renamed. */
+  previousPath?: string;
+  /** Whether the VCS does not track the file yet. */
+  untracked: boolean;
+  oldSpan: ExtensionVcsLineSpan;
+  newSpan: ExtensionVcsLineSpan;
+}
+
 /** One review operation an adapter implements. */
 export interface ExtensionVcsDiscardHunkRequest {
   /** The current-changes review whose new-side state will be changed. */
   input: ExtensionVcsDiffInput;
   /** A one-file unified patch containing exactly the selected displayed hunk. */
   patchText: string;
+  /**
+   * The selected hunk, present when the review reported `staging`.
+   *
+   * Such a review runs from the base revision to the working copy, so `patchText` also spans
+   * staged changes; discarding reverts only the hunk's unstaged changes in the working copy.
+   */
+  hunk?: ExtensionVcsHunkTarget;
+}
+
+/** Move one displayed hunk of a staging-aware review into or out of the index. */
+export interface ExtensionVcsStageHunkRequest {
+  input: ExtensionVcsDiffInput;
+  hunk: ExtensionVcsHunkTarget;
+  /** `stage` adds the hunk's unstaged changes to the index; `unstage` removes its staged ones. */
+  action: "stage" | "unstage";
 }
 
 export interface ExtensionVcsOperation<Input> {
@@ -1232,6 +1290,15 @@ export interface ExtensionVcsWorkingTreeOperation extends ExtensionVcsOperation<
    */
   discardHunk?(
     request: ExtensionVcsDiscardHunkRequest,
+    context: ExtensionVcsLoadContext,
+  ): Promise<void>;
+  /**
+   * Stage or unstage one displayed hunk of a review that reported `staging`.
+   *
+   * Providers should refuse rather than guess when the index no longer matches the review.
+   */
+  stageHunk?(
+    request: ExtensionVcsStageHunkRequest,
     context: ExtensionVcsLoadContext,
   ): Promise<void>;
 }

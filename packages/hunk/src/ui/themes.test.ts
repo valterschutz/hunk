@@ -413,9 +413,11 @@ describe("themes", () => {
     expect(mocha.addedRailColor).toBe(mocha.addedSignColor);
     expect(mocha.removedRailColor).toBe(mocha.removedSignColor);
     expect(mocha.contextRailColor).toBe(mocha.lineNumberFg);
-    expect(mocha.acceptedRailColor).toBe(mocha.addedSignColor);
-    expect(mocha.rejectedRailColor).toBe(mocha.removedSignColor);
-    expect(mocha.fixedRailColor).toBe(mocha.lineNumberFg);
+    expect(mocha.acceptedDotColor).toBe(mocha.addedSignColor);
+    expect(mocha.rejectedDotColor).toBe(mocha.removedSignColor);
+    expect(mocha.fixedDotColor).toBe(mocha.lineNumberFg);
+    expect(mocha.stagedRailColor).toBe(mocha.addedSignColor);
+    expect(mocha.partlyStagedRailColor).toBe(mocha.fileModified);
 
     const railOnly = resolveTheme(
       "custom",
@@ -430,24 +432,25 @@ describe("themes", () => {
     expect(railOnly.addedRailColor).toBe("#cba6f7");
     expect(railOnly.removedRailColor).toBe("#cba6f7");
     expect(railOnly.contextRailColor).toBe("#cba6f7");
-    // The decision rails follow the plain rails until they are given their own colors.
-    expect(railOnly.acceptedRailColor).toBe("#cba6f7");
-    expect(railOnly.rejectedRailColor).toBe("#cba6f7");
-    expect(railOnly.fixedRailColor).toBe("#cba6f7");
+    // Decision dots and staging rails keep their own defaults when only the plain rails change.
+    expect(railOnly.acceptedDotColor).toBe(mocha.acceptedDotColor);
+    expect(railOnly.rejectedDotColor).toBe(mocha.rejectedDotColor);
+    expect(railOnly.fixedDotColor).toBe(mocha.fixedDotColor);
+    expect(railOnly.stagedRailColor).toBe(mocha.stagedRailColor);
 
     const decisionsOnly = resolveTheme(
       "custom",
       null,
       createTestCustomThemes({
         base: "catppuccin-mocha",
-        acceptedRailColor: "#a6e3a1",
-        rejectedRailColor: "#f38ba8",
-        fixedRailColor: "#89b4fa",
+        acceptedDotColor: "#a6e3a1",
+        rejectedDotColor: "#f38ba8",
+        fixedDotColor: "#89b4fa",
       }),
     );
-    expect(decisionsOnly.acceptedRailColor).toBe("#a6e3a1");
-    expect(decisionsOnly.rejectedRailColor).toBe("#f38ba8");
-    expect(decisionsOnly.fixedRailColor).toBe("#89b4fa");
+    expect(decisionsOnly.acceptedDotColor).toBe("#a6e3a1");
+    expect(decisionsOnly.rejectedDotColor).toBe("#f38ba8");
+    expect(decisionsOnly.fixedDotColor).toBe("#89b4fa");
     expect(decisionsOnly.addedRailColor).toBe(mocha.addedRailColor);
     expect(railOnly.addedSignColor).toBe(mocha.addedSignColor);
     expect(railOnly.removedSignColor).toBe(mocha.removedSignColor);

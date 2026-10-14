@@ -164,6 +164,7 @@ export function buildAppMenus({
         commandId: "hunk.review.discardSelectedHunk",
         label: lineReviewMode ? "Discard selected line…" : "Discard selected hunk…",
       },
+      { commandId: "hunk.review.toggleSelectedHunkStaged", label: "Stage/unstage selected hunk" },
       {
         commandId: "hunk.review.acceptSelectedHunk",
         label: lineReviewMode ? "Accept selected line" : "Accept selected hunk",

@@ -106,45 +106,70 @@ export function dimRailColor(color: string, theme: AppTheme) {
   return blendHex(color, theme.panel, 1 - themeTuning(theme).inactiveRailFade);
 }
 
-/** What paints a hunk's whole rail: the reviewer's decision, or a conflict still to resolve. */
-export type HunkRailMark = HunkDecision | "conflict";
+/**
+ * What paints a hunk's whole rail: where its changes sit relative to the index, or a conflict
+ * still to resolve. An unstaged hunk, and every hunk of a review without staging, has no mark
+ * and keeps the per-row rail colors.
+ */
+export type HunkRailMark = "staged" | "partly-staged" | "conflict";
 
-/** The rail color that marks a decided or conflicted hunk. */
-export function decisionRailColor(theme: AppTheme, decision: HunkRailMark) {
-  switch (decision) {
+/** What one hunk shows beside its code: a rail mark, and the reviewer's decision as a dot. */
+export interface HunkMarks {
+  rail?: HunkRailMark;
+  decision?: HunkDecision;
+}
+
+/** The rail color that marks a staged, partly staged, or conflicted hunk. */
+export function hunkRailMarkColor(theme: AppTheme, mark: HunkRailMark) {
+  switch (mark) {
     case "conflict":
       return theme.conflictRailColor;
-    case "accepted":
-      return theme.acceptedRailColor;
-    case "rejected":
-      return theme.rejectedRailColor;
-    case "fixed":
-      return theme.fixedRailColor;
+    case "staged":
+      return theme.stagedRailColor;
+    case "partly-staged":
+      return theme.partlyStagedRailColor;
   }
 }
 
-/** The rail color of a hunk in one state: its decision's color, or the neutral rail undecided. */
-export function hunkStateRailColor(theme: AppTheme, state: HunkState) {
-  return state === "undecided" ? neutralRailColor(theme) : decisionRailColor(theme, state);
+/** The dot marking a decided hunk, drawn before its header. */
+export function decisionDotMarker() {
+  return "●";
+}
+
+/** The dot color of one review decision. */
+export function decisionDotColor(theme: AppTheme, decision: HunkDecision) {
+  switch (decision) {
+    case "accepted":
+      return theme.acceptedDotColor;
+    case "rejected":
+      return theme.rejectedDotColor;
+    case "fixed":
+      return theme.fixedDotColor;
+  }
+}
+
+/** The dot color of a hunk in one state: its decision's color, or the neutral rail undecided. */
+export function hunkStateDotColor(theme: AppTheme, state: HunkState) {
+  return state === "undecided" ? neutralRailColor(theme) : decisionDotColor(theme, state);
 }
 
 /**
- * Finish one rail color: a decided hunk paints every row in its decision's color so the mark
- * reads along the whole hunk, and any hunk outside the selection recedes.
+ * Finish one rail color: a marked hunk paints every row in its mark's color so the state reads
+ * along the whole hunk, and any hunk outside the selection recedes.
  */
 function finishRailColor(
   color: string,
   theme: AppTheme,
   selected: boolean,
-  decision: HunkRailMark | undefined,
+  rail: HunkRailMark | undefined,
 ) {
-  const resolved = decision ? decisionRailColor(theme, decision) : color;
+  const resolved = rail ? hunkRailMarkColor(theme, rail) : color;
   return selected ? resolved : dimRailColor(resolved, theme);
 }
 
 /** Pick the rail color for a hunk header or collapsed-gap row. */
-export function metaRailColor(theme: AppTheme, selected: boolean, decision?: HunkRailMark) {
-  return finishRailColor(neutralRailColor(theme), theme, selected, decision);
+export function metaRailColor(theme: AppTheme, selected: boolean, rail?: HunkRailMark) {
+  return finishRailColor(neutralRailColor(theme), theme, selected, rail);
 }
 
 // An unfocused hunk recedes instead of disappearing: every color it paints contracts toward the
@@ -422,7 +447,7 @@ export function unifiedRailColor(
   kind: UnifiedLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  decision?: HunkRailMark,
+  rail?: HunkRailMark,
 ) {
   let color: string;
 
@@ -434,7 +459,7 @@ export function unifiedRailColor(
     color = neutralRailColor(theme);
   }
 
-  return finishRailColor(color, theme, selected, decision);
+  return finishRailColor(color, theme, selected, rail);
 }
 
 /** Pick the left split-view rail color from the old-side cell state. */
@@ -442,10 +467,10 @@ export function splitLeftRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  decision?: HunkRailMark,
+  rail?: HunkRailMark,
 ) {
   const color = kind === "deletion" ? theme.removedRailColor : neutralRailColor(theme);
-  return finishRailColor(color, theme, selected, decision);
+  return finishRailColor(color, theme, selected, rail);
 }
 
 /** Pick the right split-view rail color from the new-side cell state. */
@@ -453,10 +478,10 @@ export function splitRightRailColor(
   kind: SplitLineCell["kind"],
   theme: AppTheme,
   selected: boolean,
-  decision?: HunkRailMark,
+  rail?: HunkRailMark,
 ) {
   const color = kind === "addition" ? theme.addedRailColor : neutralRailColor(theme);
-  return finishRailColor(color, theme, selected, decision);
+  return finishRailColor(color, theme, selected, rail);
 }
 
 /** Pick split-view colors from the semantic diff cell kind. */

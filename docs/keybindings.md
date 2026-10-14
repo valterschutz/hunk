@@ -107,83 +107,84 @@ History-specific commands:
 
 Review and shared commands:
 
-| Command id                                     | Does                                                         | Default keys                 |
-| ---------------------------------------------- | ------------------------------------------------------------ | ---------------------------- |
-| `hunk.app.openAgentSkill`                      | Show agent skill                                             | _(none)_                     |
-| `hunk.app.quit`                                | Quit                                                         | `q`                          |
-| `hunk.app.refresh`                             | Refresh the review                                           | `r`                          |
-| `hunk.app.toggleFocusArea`                     | Switch focus between files and filter                        | `tab`                        |
-| `hunk.app.toggleHelp`                          | Toggle help                                                  | `?`                          |
-| `hunk.review.approveFile`                      | Approve undecided hunks in the selected file                 | —                            |
-| `hunk.review.approveReview`                    | Approve undecided hunks in the entire review…                | —                            |
-| `hunk.review.acceptSelectedHunk`               | Accept the selected hunk, or clear its decision              | `+`                          |
-| `hunk.review.alignCurrentLineBottom`           | Align current line to viewport bottom                        | _(none)_                     |
-| `hunk.review.alignCurrentLineCenter`           | Center current line in viewport                              | _(none)_                     |
-| `hunk.review.alignCurrentLineTop`              | Align current line to viewport top                           | _(none)_                     |
-| `hunk.review.clearSelection`                   | Clear the active visual selection                            | _(none)_                     |
-| `hunk.review.copySelection`                    | Copy the active visual selection                             | `y`                          |
-| `hunk.review.deleteActiveNote`                 | Delete active review note                                    | `D`                          |
-| `hunk.review.discardSelectedHunk`              | Discard the selected current-change hunk                     | `d`                          |
-| `hunk.review.editActiveNote`                   | Edit active review note                                      | `E`                          |
-| `hunk.review.editSelectedFileSplit`            | Open the selected file in your editor, in a split Herdr pane | `ctrl+e`                     |
-| `hunk.review.editSelectedFile`                 | Open the selected file in your editor                        | `e`                          |
-| `hunk.review.focusFilter`                      | Focus the file filter                                        | _(none)_                     |
-| `hunk.review.halfPageDown`                     | Scroll down half a page                                      | `ctrl+d`                     |
-| `hunk.review.halfPageUp`                       | Scroll up half a page                                        | `u`, `ctrl+u`                |
-| `hunk.review.jumpToBottom`                     | Jump to end                                                  | `G`, `end`                   |
-| `hunk.review.jumpToTop`                        | Jump to start                                                | `g`, `home`                  |
-| `hunk.review.markSelectedHunkFixed`            | Mark the selected hunk as fixed, or clear the fixed decision | `=`                          |
-| `hunk.review.nextAnnotatedFile`                | Next annotated file                                          | _(none)_                     |
-| `hunk.review.nextAnnotatedHunk`                | Next annotated hunk                                          | `}`                          |
-| `hunk.review.nextFile`                         | Next file                                                    | `.`                          |
-| `hunk.review.nextHunk`                         | Next hunk                                                    | `]`                          |
-| `hunk.review.nextNote`                         | Next review note                                             | _(none)_                     |
-| `hunk.review.pageDown`                         | Scroll down one page                                         | `pagedown`, `space`, `f`     |
-| `hunk.review.pageUp`                           | Scroll up one page                                           | `pageup`, `b`, `shift+space` |
-| `hunk.review.previousAnnotatedFile`            | Previous annotated file                                      | _(none)_                     |
-| `hunk.review.previousAnnotatedHunk`            | Previous annotated hunk                                      | `{`                          |
-| `hunk.review.previousFile`                     | Previous file                                                | `,`                          |
-| `hunk.review.previousHunk`                     | Previous hunk                                                | `[`                          |
-| `hunk.review.previousNote`                     | Previous review note                                         | _(none)_                     |
-| `hunk.review.rejectSelectedHunk`               | Reject the selected hunk, or clear its decision              | `-`                          |
-| `hunk.review.replyToActiveNote`                | Reply to active review note                                  | `R`                          |
-| `hunk.review.resolveConflictBase`              | Resolve the selected conflict with the base                  | `B`                          |
-| `hunk.review.resolveConflictBoth`              | Resolve the selected conflict with both sides, ours first    | `\|`                         |
-| `hunk.review.resolveConflictOurs`              | Resolve the selected conflict with our side                  | `<`                          |
-| `hunk.review.resolveConflictTheirs`            | Resolve the selected conflict with their side                | `>`                          |
-| `hunk.review.scrollCodeLeft`                   | Scroll code left (shifted scrolls fast)                      | `left`, `shift+left`         |
-| `hunk.review.scrollCodeRight`                  | Scroll code right (shifted scrolls fast)                     | `right`, `shift+right`       |
-| `hunk.review.startNote`                        | Add a review note                                            | `c`                          |
-| `hunk.review.startVisualSelection`             | Start visual line selection                                  | `v`                          |
-| `hunk.review.stepDown`                         | Move down one line or note                                   | `down`, `j`                  |
-| `hunk.review.stepUp`                           | Move up one line or note                                     | `up`, `k`                    |
-| `hunk.review.toggleFileContext`                | Show or hide the whole file around its hunks                 | `z`                          |
-| `hunk.review.toggleHunkGap`                    | Expand or collapse the selected context                      | _(none)_                     |
-| `hunk.search.find`                             | Search diff content                                          | `/`                          |
-| `hunk.search.next`                             | Next search match                                            | `n`                          |
-| `hunk.search.previous`                         | Previous search match                                        | `N`                          |
-| `hunk.view.applyFilePresentationToAllMatching` | Apply current file presentation to all matches               | _(none)_                     |
-| `hunk.view.cursorLineNumber`                   | Mark the current line number                                 | _(none)_                     |
-| `hunk.view.cursorLineOff`                      | Hide the current-line marker                                 | _(none)_                     |
-| `hunk.view.cursorLineRow`                      | Highlight the current row                                    | _(none)_                     |
-| `hunk.view.layoutAuto`                         | Auto layout                                                  | `0`                          |
-| `hunk.view.layoutSplit`                        | Split layout                                                 | `2`                          |
-| `hunk.view.layoutUnified`                      | Unified layout                                               | `1`                          |
-| `hunk.view.openThemeSelector`                  | Choose theme                                                 | `t`                          |
-| `hunk.view.toggleAgentNotes`                   | Toggle agent notes                                           | `a`                          |
-| `hunk.view.toggleCopyDecorations`              | Toggle copy decorations                                      | _(none)_                     |
-| `hunk.view.toggleDecidedHunks`                 | Show every hunk state, or only undecided hunks               | `V`                          |
-| `hunk.view.toggleAllHunkStates`                | Show every hunk state, or hide them all                      | _(none)_                     |
-| `hunk.view.toggleUndecidedHunks`               | Show or hide undecided hunks                                 | _(none)_                     |
-| `hunk.view.toggleAcceptedHunks`                | Show or hide accepted hunks                                  | _(none)_                     |
-| `hunk.view.toggleRejectedHunks`                | Show or hide rejected hunks                                  | _(none)_                     |
-| `hunk.view.toggleFixedHunks`                   | Show or hide fixed hunks                                     | _(none)_                     |
-| `hunk.view.toggleFilesPane`                    | Toggle files pane                                            | `s`                          |
-| `hunk.view.toggleHunkHeaders`                  | Toggle hunk headers                                          | `m`                          |
-| `hunk.view.toggleLineNumbers`                  | Toggle line numbers                                          | `l`                          |
-| `hunk.view.toggleLineReviewMode`               | Toggle standard-hunk / changed-line review units             | `H`                          |
-| `hunk.view.toggleLineWrap`                     | Toggle line wrapping                                         | `w`                          |
-| `hunk.view.toggleMenuBar`                      | Toggle menu bar                                              | `M`                          |
+| Command id                                     | Does                                                         | Default keys           |
+| ---------------------------------------------- | ------------------------------------------------------------ | ---------------------- |
+| `hunk.app.openAgentSkill`                      | Show agent skill                                             | _(none)_               |
+| `hunk.app.quit`                                | Quit                                                         | `q`                    |
+| `hunk.app.refresh`                             | Refresh the review                                           | `r`                    |
+| `hunk.app.toggleFocusArea`                     | Switch focus between files and filter                        | `tab`                  |
+| `hunk.app.toggleHelp`                          | Toggle help                                                  | `?`                    |
+| `hunk.review.approveFile`                      | Approve undecided hunks in the selected file                 | —                      |
+| `hunk.review.approveReview`                    | Approve undecided hunks in the entire review…                | —                      |
+| `hunk.review.acceptSelectedHunk`               | Accept the selected hunk, or clear its decision              | `+`                    |
+| `hunk.review.alignCurrentLineBottom`           | Align current line to viewport bottom                        | _(none)_               |
+| `hunk.review.alignCurrentLineCenter`           | Center current line in viewport                              | _(none)_               |
+| `hunk.review.alignCurrentLineTop`              | Align current line to viewport top                           | _(none)_               |
+| `hunk.review.clearSelection`                   | Clear the active visual selection                            | _(none)_               |
+| `hunk.review.copySelection`                    | Copy the active visual selection                             | `y`                    |
+| `hunk.review.deleteActiveNote`                 | Delete active review note                                    | `D`                    |
+| `hunk.review.discardSelectedHunk`              | Discard the selected current-change hunk                     | `d`                    |
+| `hunk.review.editActiveNote`                   | Edit active review note                                      | `E`                    |
+| `hunk.review.editSelectedFileSplit`            | Open the selected file in your editor, in a split Herdr pane | `ctrl+e`               |
+| `hunk.review.editSelectedFile`                 | Open the selected file in your editor                        | `e`                    |
+| `hunk.review.focusFilter`                      | Focus the file filter                                        | _(none)_               |
+| `hunk.review.halfPageDown`                     | Scroll down half a page                                      | `ctrl+d`               |
+| `hunk.review.halfPageUp`                       | Scroll up half a page                                        | `u`, `ctrl+u`          |
+| `hunk.review.jumpToBottom`                     | Jump to end                                                  | `G`, `end`             |
+| `hunk.review.jumpToTop`                        | Jump to start                                                | `g`, `home`            |
+| `hunk.review.markSelectedHunkFixed`            | Mark the selected hunk as fixed, or clear the fixed decision | `=`                    |
+| `hunk.review.nextAnnotatedFile`                | Next annotated file                                          | _(none)_               |
+| `hunk.review.nextAnnotatedHunk`                | Next annotated hunk                                          | `}`                    |
+| `hunk.review.nextFile`                         | Next file                                                    | `.`                    |
+| `hunk.review.nextHunk`                         | Next hunk                                                    | `]`                    |
+| `hunk.review.nextNote`                         | Next review note                                             | _(none)_               |
+| `hunk.review.pageDown`                         | Scroll down one page                                         | `pagedown`, `f`        |
+| `hunk.review.pageUp`                           | Scroll up one page                                           | `pageup`, `b`          |
+| `hunk.review.previousAnnotatedFile`            | Previous annotated file                                      | _(none)_               |
+| `hunk.review.previousAnnotatedHunk`            | Previous annotated hunk                                      | `{`                    |
+| `hunk.review.previousFile`                     | Previous file                                                | `,`                    |
+| `hunk.review.previousHunk`                     | Previous hunk                                                | `[`                    |
+| `hunk.review.previousNote`                     | Previous review note                                         | _(none)_               |
+| `hunk.review.rejectSelectedHunk`               | Reject the selected hunk, or clear its decision              | `-`                    |
+| `hunk.review.replyToActiveNote`                | Reply to active review note                                  | `R`                    |
+| `hunk.review.resolveConflictBase`              | Resolve the selected conflict with the base                  | `B`                    |
+| `hunk.review.resolveConflictBoth`              | Resolve the selected conflict with both sides, ours first    | `\|`                   |
+| `hunk.review.resolveConflictOurs`              | Resolve the selected conflict with our side                  | `<`                    |
+| `hunk.review.resolveConflictTheirs`            | Resolve the selected conflict with their side                | `>`                    |
+| `hunk.review.scrollCodeLeft`                   | Scroll code left (shifted scrolls fast)                      | `left`, `shift+left`   |
+| `hunk.review.scrollCodeRight`                  | Scroll code right (shifted scrolls fast)                     | `right`, `shift+right` |
+| `hunk.review.startNote`                        | Add a review note                                            | `c`                    |
+| `hunk.review.startVisualSelection`             | Start visual line selection                                  | `v`                    |
+| `hunk.review.stepDown`                         | Move down one line or note                                   | `down`, `j`            |
+| `hunk.review.stepUp`                           | Move up one line or note                                     | `up`, `k`              |
+| `hunk.review.toggleFileContext`                | Show or hide the whole file around its hunks                 | `z`                    |
+| `hunk.review.toggleHunkGap`                    | Expand or collapse the selected context                      | _(none)_               |
+| `hunk.review.toggleSelectedHunkStaged`         | Stage or unstage the selected hunk                           | `space`                |
+| `hunk.search.find`                             | Search diff content                                          | `/`                    |
+| `hunk.search.next`                             | Next search match                                            | `n`                    |
+| `hunk.search.previous`                         | Previous search match                                        | `N`                    |
+| `hunk.view.applyFilePresentationToAllMatching` | Apply current file presentation to all matches               | _(none)_               |
+| `hunk.view.cursorLineNumber`                   | Mark the current line number                                 | _(none)_               |
+| `hunk.view.cursorLineOff`                      | Hide the current-line marker                                 | _(none)_               |
+| `hunk.view.cursorLineRow`                      | Highlight the current row                                    | _(none)_               |
+| `hunk.view.layoutAuto`                         | Auto layout                                                  | `0`                    |
+| `hunk.view.layoutSplit`                        | Split layout                                                 | `2`                    |
+| `hunk.view.layoutUnified`                      | Unified layout                                               | `1`                    |
+| `hunk.view.openThemeSelector`                  | Choose theme                                                 | `t`                    |
+| `hunk.view.toggleAgentNotes`                   | Toggle agent notes                                           | `a`                    |
+| `hunk.view.toggleCopyDecorations`              | Toggle copy decorations                                      | _(none)_               |
+| `hunk.view.toggleDecidedHunks`                 | Show every hunk state, or only undecided hunks               | `V`                    |
+| `hunk.view.toggleAllHunkStates`                | Show every hunk state, or hide them all                      | _(none)_               |
+| `hunk.view.toggleUndecidedHunks`               | Show or hide undecided hunks                                 | _(none)_               |
+| `hunk.view.toggleAcceptedHunks`                | Show or hide accepted hunks                                  | _(none)_               |
+| `hunk.view.toggleRejectedHunks`                | Show or hide rejected hunks                                  | _(none)_               |
+| `hunk.view.toggleFixedHunks`                   | Show or hide fixed hunks                                     | _(none)_               |
+| `hunk.view.toggleFilesPane`                    | Toggle files pane                                            | `s`                    |
+| `hunk.view.toggleHunkHeaders`                  | Toggle hunk headers                                          | `m`                    |
+| `hunk.view.toggleLineNumbers`                  | Toggle line numbers                                          | `l`                    |
+| `hunk.view.toggleLineReviewMode`               | Toggle standard-hunk / changed-line review units             | `H`                    |
+| `hunk.view.toggleLineWrap`                     | Toggle line wrapping                                         | `w`                    |
+| `hunk.view.toggleMenuBar`                      | Toggle menu bar                                              | `M`                    |
 
 `[` and `]` step through the hunks of the whole review, continuing into the previous or next
 file at a file's first or last hunk and stopping at the ends of the review. Set
@@ -191,7 +192,15 @@ file at a file's first or last hunk and stopping at the ends of the review. Set
 
 `H` switches between standard patch hunks and individual changed rows. Accept, reject, fixed,
 discard, and extension staging/marking commands act on the selected unit; the status line confirms
-each mode change.
+each mode change. `Space` always stages or unstages the whole hunk the selected unit belongs to.
+
+`Space` stages or unstages the selected hunk of a `hunk diff` review, which shows staged and
+unstaged changes together. The rail beside a hunk shows where it stands: fully staged hunks paint
+it in `stagedRailColor`, partly staged ones in `partlyStagedRailColor`, and unstaged ones keep the
+plain rail. A staged hunk is unstaged; an unstaged or partly staged one is staged in full. Discarding
+(`d`) reverts only a hunk's unstaged changes, so unstage a fully staged hunk before discarding it.
+Reviews without an index (commits, ranges, `--staged`) report that there is nothing to stage;
+pager mode keeps `Space` for paging forward.
 
 The files-pane command follows the named `hunk:files` role. If an extension
 replaces that role, the command and **View → Files pane** toggle the resolved

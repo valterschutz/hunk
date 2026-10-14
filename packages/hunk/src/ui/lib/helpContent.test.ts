@@ -71,8 +71,8 @@ describe("buildHelpSections", () => {
   test("a row about one command lists every chord it answers to", () => {
     const sections = helpSections();
 
-    expect(keysFor(sections, "page down")).toBe("PageDown / Space / f");
-    expect(keysFor(sections, "page up")).toBe("PageUp / b / Shift+Space");
+    expect(keysFor(sections, "page down")).toBe("PageDown / f");
+    expect(keysFor(sections, "page up")).toBe("PageUp / b");
     expect(keysFor(sections, "jump to start")).toBe("gg / Home");
   });
 

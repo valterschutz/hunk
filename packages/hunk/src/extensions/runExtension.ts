@@ -144,9 +144,10 @@ function isThenable(value: unknown): value is Promise<void> {
 function toInternalVcsOperation(
   operation: ExtensionVcsOperation<VcsReviewInput>,
 ): VcsOperation<VcsReviewInput> {
-  const { discardHunk, watchSignature, watchPlan } =
+  const { discardHunk, stageHunk, watchSignature, watchPlan } =
     operation as ExtensionVcsOperation<VcsReviewInput> & {
       discardHunk?: NonNullable<VcsOperation<VcsReviewInput>["discardHunk"]>;
+      stageHunk?: NonNullable<VcsOperation<VcsReviewInput>["stageHunk"]>;
     };
 
   return {
@@ -161,6 +162,15 @@ function toInternalVcsOperation(
       async discardHunk(request, context) {
         try {
           await discardHunk.call(operation, request, context);
+        } catch (error) {
+          throw toUserFacingError(error);
+        }
+      },
+    }),
+    ...(typeof stageHunk === "function" && {
+      async stageHunk(request, context) {
+        try {
+          await stageHunk.call(operation, request, context);
         } catch (error) {
           throw toUserFacingError(error);
         }

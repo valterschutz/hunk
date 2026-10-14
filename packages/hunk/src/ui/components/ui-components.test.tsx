@@ -3740,48 +3740,49 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes()}
-        terminalHeight={43}
+        terminalHeight={44}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      43,
+      44,
     );
 
     const expectedRows = [
       "Controls help",
       "[Esc]",
       "Navigation",
-      "Up / Down                move through lines and notes",
-      "PageDown / Space / f     page down",
-      "PageUp / b / Shift+Space page up",
-      "Ctrl+D / u               half page down / up",
-      "[ / ]                    previous / next hunk",
-      ", / .                    previous / next file",
-      "{ / }                    annotated hunk / exact note",
-      "Left / Right             scroll code sideways (Shift = faster)",
-      "gg / Home                jump to start",
-      "G / End                  jump to end",
+      "Up / Down     move through lines and notes",
+      "PageDown / f  page down",
+      "PageUp / b    page up",
+      "Ctrl+D / u    half page down / up",
+      "[ / ]         previous / next hunk",
+      ", / .         previous / next file",
+      "{ / }         annotated hunk / exact note",
+      "Left / Right  scroll code sideways (Shift = faster)",
+      "gg / Home     jump to start",
+      "G / End       jump to end",
       "Mouse",
-      "Wheel                    scroll vertically",
-      "Shift+Wheel              scroll code horizontally",
+      "Wheel         scroll vertically",
+      "Shift+Wheel   scroll code horizontally",
       "View",
-      "1 / 2 / 0                unified / split / auto",
-      "s / t                    sidebar / theme selector",
-      "a                        toggle AI notes",
-      "z                        show whole file",
-      "l / w / m / M            lines / wrap / metadata / menu",
-      "e                        open file in $EDITOR",
+      "1 / 2 / 0     unified / split / auto",
+      "s / t         sidebar / theme selector",
+      "a             toggle AI notes",
+      "z             show whole file",
+      "l / w / m / M lines / wrap / metadata / menu",
+      "e             open file in $EDITOR",
       "Review",
-      "c                        create review note",
-      "+ / - / =                accept / reject / mark fixed",
-      "< / > / | / B            keep ours / theirs / both / base",
-      "V                        all hunk states / undecided only",
-      "Tab                      toggle files/filter focus",
-      "F10                      open menus",
-      "r                        reload the review",
-      "q                        quit",
+      "Space         stage / unstage selected hunk",
+      "c             create review note",
+      "+ / - / =     accept / reject / mark fixed",
+      "< / > / | / B keep ours / theirs / both / base",
+      "V             all hunk states / undecided only",
+      "Tab           toggle files/filter focus",
+      "F10           open menus",
+      "r             reload the review",
+      "q             quit",
     ] as const;
 
     for (const expectedRow of expectedRows) {
@@ -3863,13 +3864,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         commands={builtinCommandMatchProbes(keys)}
-        terminalHeight={43}
+        terminalHeight={44}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      43,
+      44,
     );
 
     expect(frame).toContain("Ctrl+X");

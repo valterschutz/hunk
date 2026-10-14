@@ -11,6 +11,8 @@ import {
   buildGitStatusArgs,
   discardGitHunk,
   listGitIgnoredDirectoryRoots,
+  resolveGitStagingBaseAsync,
+  stageGitHunk,
   listGitUntrackedFiles,
   parseGitIgnoredDirectoryRoots,
   resolveGitDiffEndpoints,
@@ -157,6 +159,164 @@ describe("discardGitHunk", () => {
     expect(git(repo, "diff", "--cached", "--summary")).toContain("rename before.txt => after.txt");
     expect(git(repo, "show", ":after.txt")).toBe("before\n");
     expect(await Bun.file(join(repo, "after.txt")).text()).toBe("after\n");
+  });
+});
+
+describe("stageGitHunk", () => {
+  // The first displayed hunk of a HEAD-to-working-tree review changing lines 3 and 17 of 20.
+  const firstHunk = {
+    path: "file.txt",
+    untracked: false,
+    oldSpan: { start: 1, count: 6 },
+    newSpan: { start: 1, count: 6 },
+  };
+
+  function createTwoHunkRepo() {
+    const repo = createTempRepo("hunk-git-stage-");
+    writeFileSync(join(repo, "file.txt"), numberedLines(20));
+    git(repo, "add", "file.txt");
+    git(repo, "commit", "-m", "base");
+    writeFileSync(
+      join(repo, "file.txt"),
+      numberedLines(20)
+        .replace("line 3\n", "line three\n")
+        .replace("line 17\n", "line seventeen\n"),
+    );
+    return repo;
+  }
+
+  test("stages only the selected hunk", async () => {
+    const repo = createTwoHunkRepo();
+
+    await stageGitHunk(makeGitInput(), { hunk: firstHunk, action: "stage" }, { cwd: repo });
+
+    expect(git(repo, "diff", "--cached")).toContain("+line three");
+    expect(git(repo, "diff", "--cached")).not.toContain("seventeen");
+    expect(git(repo, "diff")).toContain("+line seventeen");
+  });
+
+  test("stages the rest of a partly staged hunk", async () => {
+    const repo = createTwoHunkRepo();
+    await stageGitHunk(makeGitInput(), { hunk: firstHunk, action: "stage" }, { cwd: repo });
+    const current = await Bun.file(join(repo, "file.txt")).text();
+    writeFileSync(join(repo, "file.txt"), current.replace("line 4\n", "line four\n"));
+
+    await stageGitHunk(makeGitInput(), { hunk: firstHunk, action: "stage" }, { cwd: repo });
+
+    expect(git(repo, "diff", "--cached")).toContain("+line four");
+    expect(git(repo, "diff")).not.toContain("four");
+    expect(git(repo, "diff")).toContain("+line seventeen");
+  });
+
+  test("unstages only the selected hunk", async () => {
+    const repo = createTwoHunkRepo();
+    git(repo, "add", "file.txt");
+
+    await stageGitHunk(makeGitInput(), { hunk: firstHunk, action: "unstage" }, { cwd: repo });
+
+    expect(git(repo, "diff", "--cached")).not.toContain("three");
+    expect(git(repo, "diff", "--cached")).toContain("+line seventeen");
+    expect(git(repo, "diff")).toContain("+line three");
+  });
+
+  test("refuses to stage a hunk with nothing left to stage", async () => {
+    const repo = createTwoHunkRepo();
+    git(repo, "add", "file.txt");
+
+    await expect(
+      stageGitHunk(makeGitInput(), { hunk: firstHunk, action: "stage" }, { cwd: repo }),
+    ).rejects.toThrow("no unstaged changes");
+  });
+
+  test("stages an untracked file and unstages it back to untracked", async () => {
+    const repo = createTwoHunkRepo();
+    writeFileSync(join(repo, "fresh.txt"), "fresh\n");
+    const fresh = {
+      path: "fresh.txt",
+      untracked: true,
+      oldSpan: { start: 0, count: 0 },
+      newSpan: { start: 1, count: 1 },
+    };
+
+    await stageGitHunk(makeGitInput(), { hunk: fresh, action: "stage" }, { cwd: repo });
+    expect(git(repo, "diff", "--cached", "--name-only")).toBe("fresh.txt\n");
+
+    await stageGitHunk(
+      makeGitInput(),
+      { hunk: { ...fresh, untracked: false }, action: "unstage" },
+      { cwd: repo },
+    );
+    expect(git(repo, "diff", "--cached", "--name-only")).toBe("");
+    expect(git(repo, "status", "--porcelain", "--", "fresh.txt")).toBe("?? fresh.txt\n");
+  });
+
+  test("diffs an unborn branch against the empty tree and unstages from it", async () => {
+    const repo = createTempRepo("hunk-git-stage-unborn-");
+    writeFileSync(join(repo, "first.txt"), "first\n");
+    git(repo, "add", "first.txt");
+
+    const base = await resolveGitStagingBaseAsync(makeGitInput(), { cwd: repo });
+    expect(base).toBe(git(repo, "hash-object", "-t", "tree", "/dev/null").trim());
+
+    await stageGitHunk(
+      makeGitInput(),
+      {
+        hunk: {
+          path: "first.txt",
+          untracked: false,
+          oldSpan: { start: 0, count: 0 },
+          newSpan: { start: 1, count: 1 },
+        },
+        action: "unstage",
+      },
+      { cwd: repo },
+    );
+    expect(git(repo, "status", "--porcelain")).toBe("?? first.txt\n");
+  });
+
+  test("unstages a renamed file as a whole", async () => {
+    const repo = createTempRepo("hunk-git-stage-rename-");
+    writeFileSync(join(repo, "before.txt"), "before\n");
+    git(repo, "add", "before.txt");
+    git(repo, "commit", "-m", "base");
+    git(repo, "mv", "before.txt", "after.txt");
+
+    await stageGitHunk(
+      makeGitInput(),
+      {
+        hunk: {
+          path: "after.txt",
+          previousPath: "before.txt",
+          untracked: false,
+          oldSpan: { start: 1, count: 1 },
+          newSpan: { start: 1, count: 1 },
+        },
+        action: "unstage",
+      },
+      { cwd: repo },
+    );
+    expect(git(repo, "diff", "--cached", "--name-only")).toBe("");
+  });
+
+  test("discards only the unstaged part of a partly staged hunk", async () => {
+    const repo = createTwoHunkRepo();
+    await stageGitHunk(makeGitInput(), { hunk: firstHunk, action: "stage" }, { cwd: repo });
+    const staged = await Bun.file(join(repo, "file.txt")).text();
+    writeFileSync(join(repo, "file.txt"), staged.replace("line 4\n", "line four\n"));
+
+    await discardGitHunk(makeGitInput(), "unused combined patch", { cwd: repo }, firstHunk);
+
+    expect(await Bun.file(join(repo, "file.txt")).text()).toBe(staged);
+    expect(git(repo, "diff", "--cached")).toContain("+line three");
+  });
+
+  test("refuses to discard a fully staged hunk", async () => {
+    const repo = createTwoHunkRepo();
+    git(repo, "add", "file.txt");
+
+    await expect(
+      discardGitHunk(makeGitInput(), "unused combined patch", { cwd: repo }, firstHunk),
+    ).rejects.toThrow("fully staged");
   });
 });
 

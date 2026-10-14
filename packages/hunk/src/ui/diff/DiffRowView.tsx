@@ -1,5 +1,5 @@
 /** Dispatches planned diff rows to their focused mounted row views. */
-import type { HunkRailMark } from "./rowStyle";
+import type { HunkMarks } from "./rowStyle";
 import { memo } from "react";
 import type { UserNoteLineTarget } from "../../core/liveComments";
 import type { CopySelectedRowRange } from "../lib/diffSpatial";
@@ -26,8 +26,10 @@ export interface DiffRowViewProps {
   codeHorizontalOffset: number;
   theme: AppTheme;
   selected: boolean;
-  /** The decision on the hunk the row belongs to, when decided hunks are shown. */
-  decision?: HunkRailMark;
+  /** The rail mark and decision of the hunk the row belongs to. */
+  marks?: HunkMarks;
+  /** Whether this code row draws its hunk's decision dot, for a hunk shown without a header. */
+  carriesDecisionDot?: boolean;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -61,7 +63,8 @@ export const DiffRowView = memo(function DiffRowViewComponent({
   codeHorizontalOffset,
   theme,
   selected,
-  decision,
+  marks,
+  carriesDecisionDot = false,
   copySelectedRowRange,
   copySelectedSide,
   cursorHighlight,
@@ -78,7 +81,7 @@ export const DiffRowView = memo(function DiffRowViewComponent({
         width={width}
         theme={theme}
         selected={selected || copySelectedRowRange !== undefined}
-        decision={decision}
+        marks={marks}
         showHunkHeaders={showHunkHeaders}
         showAddNoteBadge={showAddNoteBadge}
         onHoverRow={onHoverRow}
@@ -99,7 +102,8 @@ export const DiffRowView = memo(function DiffRowViewComponent({
         codeHorizontalOffset={codeHorizontalOffset}
         theme={theme}
         selected={selected}
-        decision={decision}
+        rail={marks?.rail}
+        decisionDot={carriesDecisionDot ? marks?.decision : undefined}
         copySelectedRowRange={copySelectedRowRange}
         copySelectedSide={copySelectedSide}
         cursorHighlight={cursorHighlight}

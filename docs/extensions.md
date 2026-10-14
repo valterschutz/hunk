@@ -620,7 +620,15 @@ unstaged input, reverse the patch in the working tree. For staged input, remove 
 without changing the working tree. Reject range comparisons and stale patches rather than applying
 them with fuzz. Hunk confirms the destructive action and reloads the review after the hook succeeds.
 
-Every operation `load`, `discardHunk`, and `watchSignature` receives optional `context.signal`.
+A `working-tree-diff` that reports `staging` (see below) can also implement `stageHunk`. It
+receives the input, the selected hunk as an `ExtensionVcsHunkTarget` (path, previous path, whether
+the file is untracked, and the hunk's old- and new-side `@@` spans), and `action: "stage"` or
+`"unstage"`. Move only the changes touching the hunk, refuse when the index no longer matches, and
+let Hunk reload the review afterwards. In such a review `discardHunk` also receives the target as
+`hunk`: the patch then spans staged changes too, so revert only the hunk's unstaged changes.
+
+Every operation `load`, `discardHunk`, `stageHunk`, and `watchSignature` receives optional
+`context.signal`.
 Use asynchronous subprocess APIs, pass cancellation through, and terminate plus
 reap provider processes when it aborts; a synchronous spawn blocks Hunk's renderer
 and prevents the abort handler from running.
@@ -637,6 +645,7 @@ optional, and each optional field buys one thing. API version 24 adds `review`:
 | `sourceCacheKey`  | stable source-snapshot identity for highlight reuse across reloads         |
 | `extraFiles`      | files reviewed outside the patch, including skipped placeholders           |
 | `conflictedFiles` | working copies with conflict markers, reviewed as one hunk per conflict    |
+| `staging`         | index state of a working-copy review, marked per hunk and toggled by Space |
 
 Use the same `ExtensionReviewDescriptor` accepted by delegated CLI reviews. Return a `commit`
 descriptor when the operation resolves one reviewed commit, or a `comparison` descriptor when both
@@ -864,6 +873,25 @@ conflictedFiles: [
 Hunk never asks the VCS to mark a file resolved: once the markers are gone the
 file is an ordinary edit, and staging it stays with the VCS front end the
 reviewer came from.
+
+#### Staging
+
+A VCS with an index can show staged and unstaged changes in one working-copy
+review. Diff the base revision against the working copy in `patchText`, and
+split the same changes at the index in `staging`: `stagedPatchText` is a
+zero-context patch from the base revision to the index, `unstagedPatchText` one
+from the index to the working copy. Hunk compares each displayed hunk with the
+spans of both, paints its rail as staged, partly staged, or unstaged, and lets
+the reviewer toggle it with Space through `stageHunk`. Leave `staging` out of
+every other review — commits, ranges, and staged-only reviews have nothing to
+toggle.
+
+```ts
+staging: {
+  stagedPatchText: await runGit(ctx.cwd, "diff", "--cached", "--unified=0"),
+  unstagedPatchText: await runGit(ctx.cwd, "diff", "--unified=0"),
+},
+```
 
 #### Moved lines
 

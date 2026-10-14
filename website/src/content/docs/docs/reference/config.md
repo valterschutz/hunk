@@ -447,55 +447,57 @@ These deprecated IDs remain accepted by `theme` and `custom_theme.base`, then no
 
 `custom_theme.label` accepts a non-empty string. Every semantic color below accepts a six-digit `#rrggbb` value:
 
-| Key                                | Description                                      |
-| ---------------------------------- | ------------------------------------------------ |
-| `custom_theme.background`          | Override the background semantic color.          |
-| `custom_theme.panel`               | Override the panel semantic color.               |
-| `custom_theme.panelAlt`            | Override the panelAlt semantic color.            |
-| `custom_theme.border`              | Override the border semantic color.              |
-| `custom_theme.accent`              | Override the accent semantic color.              |
-| `custom_theme.accentMuted`         | Override the accentMuted semantic color.         |
-| `custom_theme.copyAction`          | Override the copyAction semantic color.          |
-| `custom_theme.text`                | Override the text semantic color.                |
-| `custom_theme.muted`               | Override the muted semantic color.               |
-| `custom_theme.addedBg`             | Override the addedBg semantic color.             |
-| `custom_theme.removedBg`           | Override the removedBg semantic color.           |
-| `custom_theme.movedAddedBg`        | Override the movedAddedBg semantic color.        |
-| `custom_theme.movedRemovedBg`      | Override the movedRemovedBg semantic color.      |
-| `custom_theme.contextBg`           | Override the contextBg semantic color.           |
-| `custom_theme.addedContentBg`      | Override the addedContentBg semantic color.      |
-| `custom_theme.removedContentBg`    | Override the removedContentBg semantic color.    |
-| `custom_theme.contextContentBg`    | Override the contextContentBg semantic color.    |
-| `custom_theme.addedContentFg`      | Override the addedContentFg semantic color.      |
-| `custom_theme.removedContentFg`    | Override the removedContentFg semantic color.    |
-| `custom_theme.addedSignColor`      | Override the addedSignColor semantic color.      |
-| `custom_theme.removedSignColor`    | Override the removedSignColor semantic color.    |
-| `custom_theme.lineNumberBg`        | Override the lineNumberBg semantic color.        |
-| `custom_theme.lineNumberFg`        | Override the lineNumberFg semantic color.        |
-| `custom_theme.addedRailColor`      | Override the addedRailColor semantic color.      |
-| `custom_theme.removedRailColor`    | Override the removedRailColor semantic color.    |
-| `custom_theme.contextRailColor`    | Override the contextRailColor semantic color.    |
-| `custom_theme.acceptedRailColor`   | Override the acceptedRailColor semantic color.   |
-| `custom_theme.rejectedRailColor`   | Override the rejectedRailColor semantic color.   |
-| `custom_theme.fixedRailColor`      | Override the fixedRailColor semantic color.      |
-| `custom_theme.conflictRailColor`   | Override the conflictRailColor semantic color.   |
-| `custom_theme.cursorLineBg`        | Override the cursorLineBg semantic color.        |
-| `custom_theme.selectedHunk`        | Override the selectedHunk semantic color.        |
-| `custom_theme.badgeAdded`          | Override the badgeAdded semantic color.          |
-| `custom_theme.badgeRemoved`        | Override the badgeRemoved semantic color.        |
-| `custom_theme.badgeNeutral`        | Override the badgeNeutral semantic color.        |
-| `custom_theme.modeBadgeBackground` | Override the modeBadgeBackground semantic color. |
-| `custom_theme.modeBadgeForeground` | Override the modeBadgeForeground semantic color. |
-| `custom_theme.fileNew`             | Override the fileNew semantic color.             |
-| `custom_theme.fileDeleted`         | Override the fileDeleted semantic color.         |
-| `custom_theme.fileRenamed`         | Override the fileRenamed semantic color.         |
-| `custom_theme.fileModified`        | Override the fileModified semantic color.        |
-| `custom_theme.fileUntracked`       | Override the fileUntracked semantic color.       |
-| `custom_theme.fileConflicted`      | Override the fileConflicted semantic color.      |
-| `custom_theme.noteBorder`          | Override the noteBorder semantic color.          |
-| `custom_theme.noteBackground`      | Override the noteBackground semantic color.      |
-| `custom_theme.noteTitleBackground` | Override the noteTitleBackground semantic color. |
-| `custom_theme.noteTitleText`       | Override the noteTitleText semantic color.       |
+| Key                                  | Description                                        |
+| ------------------------------------ | -------------------------------------------------- |
+| `custom_theme.background`            | Override the background semantic color.            |
+| `custom_theme.panel`                 | Override the panel semantic color.                 |
+| `custom_theme.panelAlt`              | Override the panelAlt semantic color.              |
+| `custom_theme.border`                | Override the border semantic color.                |
+| `custom_theme.accent`                | Override the accent semantic color.                |
+| `custom_theme.accentMuted`           | Override the accentMuted semantic color.           |
+| `custom_theme.copyAction`            | Override the copyAction semantic color.            |
+| `custom_theme.text`                  | Override the text semantic color.                  |
+| `custom_theme.muted`                 | Override the muted semantic color.                 |
+| `custom_theme.addedBg`               | Override the addedBg semantic color.               |
+| `custom_theme.removedBg`             | Override the removedBg semantic color.             |
+| `custom_theme.movedAddedBg`          | Override the movedAddedBg semantic color.          |
+| `custom_theme.movedRemovedBg`        | Override the movedRemovedBg semantic color.        |
+| `custom_theme.contextBg`             | Override the contextBg semantic color.             |
+| `custom_theme.addedContentBg`        | Override the addedContentBg semantic color.        |
+| `custom_theme.removedContentBg`      | Override the removedContentBg semantic color.      |
+| `custom_theme.contextContentBg`      | Override the contextContentBg semantic color.      |
+| `custom_theme.addedContentFg`        | Override the addedContentFg semantic color.        |
+| `custom_theme.removedContentFg`      | Override the removedContentFg semantic color.      |
+| `custom_theme.addedSignColor`        | Override the addedSignColor semantic color.        |
+| `custom_theme.removedSignColor`      | Override the removedSignColor semantic color.      |
+| `custom_theme.lineNumberBg`          | Override the lineNumberBg semantic color.          |
+| `custom_theme.lineNumberFg`          | Override the lineNumberFg semantic color.          |
+| `custom_theme.addedRailColor`        | Override the addedRailColor semantic color.        |
+| `custom_theme.removedRailColor`      | Override the removedRailColor semantic color.      |
+| `custom_theme.contextRailColor`      | Override the contextRailColor semantic color.      |
+| `custom_theme.acceptedDotColor`      | Override the acceptedDotColor semantic color.      |
+| `custom_theme.rejectedDotColor`      | Override the rejectedDotColor semantic color.      |
+| `custom_theme.fixedDotColor`         | Override the fixedDotColor semantic color.         |
+| `custom_theme.stagedRailColor`       | Override the stagedRailColor semantic color.       |
+| `custom_theme.partlyStagedRailColor` | Override the partlyStagedRailColor semantic color. |
+| `custom_theme.conflictRailColor`     | Override the conflictRailColor semantic color.     |
+| `custom_theme.cursorLineBg`          | Override the cursorLineBg semantic color.          |
+| `custom_theme.selectedHunk`          | Override the selectedHunk semantic color.          |
+| `custom_theme.badgeAdded`            | Override the badgeAdded semantic color.            |
+| `custom_theme.badgeRemoved`          | Override the badgeRemoved semantic color.          |
+| `custom_theme.badgeNeutral`          | Override the badgeNeutral semantic color.          |
+| `custom_theme.modeBadgeBackground`   | Override the modeBadgeBackground semantic color.   |
+| `custom_theme.modeBadgeForeground`   | Override the modeBadgeForeground semantic color.   |
+| `custom_theme.fileNew`               | Override the fileNew semantic color.               |
+| `custom_theme.fileDeleted`           | Override the fileDeleted semantic color.           |
+| `custom_theme.fileRenamed`           | Override the fileRenamed semantic color.           |
+| `custom_theme.fileModified`          | Override the fileModified semantic color.          |
+| `custom_theme.fileUntracked`         | Override the fileUntracked semantic color.         |
+| `custom_theme.fileConflicted`        | Override the fileConflicted semantic color.        |
+| `custom_theme.noteBorder`            | Override the noteBorder semantic color.            |
+| `custom_theme.noteBackground`        | Override the noteBackground semantic color.        |
+| `custom_theme.noteTitleBackground`   | Override the noteTitleBackground semantic color.   |
+| `custom_theme.noteTitleText`         | Override the noteTitleText semantic color.         |
 
 ### Syntax scopes
 

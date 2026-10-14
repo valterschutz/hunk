@@ -3,7 +3,7 @@ import type { DiffFile } from "../../../core/changeset/model";
 import type { LayoutMode } from "../../../core/run/commandInputs";
 import type { UserNoteLineTarget } from "../../../core/liveComments";
 import type { FileSourceStatus } from "../../diff/expandCollapsedRows";
-import type { HunkRailMark } from "../../diff/rowStyle";
+import type { HunkMarks } from "../../diff/rowStyle";
 import { DiffSectionBody, type ActiveAddNoteAffordance } from "../../diff/DiffSectionBody";
 import type { CursorHighlight } from "../../diff/cursorHighlight";
 import type { VisibleBodyBounds } from "../../diff/rowWindowing";
@@ -34,8 +34,8 @@ interface DiffSectionProps {
   headerStatsWidth: number;
   layout: Exclude<LayoutMode, "auto">;
   selectedHunkIndex: number;
-  /** Decisions on this file's hunks by hunk index, when decided hunks are shown. */
-  hunkDecisions?: ReadonlyMap<number, HunkRailMark>;
+  /** Rail marks and decisions of this file's hunks, by hunk index. */
+  hunkMarks?: ReadonlyMap<number, HunkMarks>;
   copySelectedRowRanges?: Map<string, CopySelectedRowRange>;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -79,7 +79,7 @@ function DiffSectionComponent({
   headerStatsWidth,
   layout,
   selectedHunkIndex,
-  hunkDecisions,
+  hunkMarks,
   copySelectedRowRanges,
   copySelectedSide,
   cursorHighlight,
@@ -218,7 +218,7 @@ function DiffSectionComponent({
           onRowPlanChange={onRowPlanChange}
           onToggleGap={onToggleGap}
           selectedHunkIndex={selectedHunkIndex}
-          hunkDecisions={hunkDecisions}
+          hunkMarks={hunkMarks}
           sectionGeometry={sectionGeometry}
           shouldLoadHighlight={shouldLoadHighlight}
           // The parent review stream owns scrolling across files.
@@ -247,7 +247,7 @@ export const DiffSection = memo(DiffSectionComponent, (previous, next) => {
     previous.headerStatsWidth === next.headerStatsWidth &&
     previous.layout === next.layout &&
     previous.selectedHunkIndex === next.selectedHunkIndex &&
-    previous.hunkDecisions === next.hunkDecisions &&
+    previous.hunkMarks === next.hunkMarks &&
     previous.copySelectedRowRanges === next.copySelectedRowRanges &&
     previous.copySelectedSide === next.copySelectedSide &&
     previous.cursorHighlight === next.cursorHighlight &&

@@ -2016,10 +2016,16 @@ describe("loadAppBootstrap source fetcher attachment", () => {
     expect(syncCalls).toEqual([]);
     expect(asyncCalls.some((call) => call.includes("rev-parse"))).toBe(true);
     expect(asyncCalls.some((call) => call.includes("diff"))).toBe(true);
-    expect(asyncCalls).toContainEqual([gitExecutable, "show", ":value.txt"]);
+    // A working-tree review reads its old side from HEAD, which the adapter pins to a commit.
+    expect(
+      asyncCalls.some(
+        (call) =>
+          call[0] === gitExecutable && call[1] === "show" && call[2]?.endsWith(":value.txt"),
+      ),
+    ).toBe(true);
   });
 
-  test("unstaged working-tree diffs read old source from the index when it differs from HEAD", async () => {
+  test("working-tree diffs read old source from HEAD even when the index differs", async () => {
     const dir = createTempRepo("hunk-source-git-wt-index-");
     writeFileSync(join(dir, "value.txt"), "committed\n");
     git(dir, "add", "value.txt");
@@ -2037,8 +2043,11 @@ describe("loadAppBootstrap source fetcher attachment", () => {
 
     const file = bootstrap.changeset.files[0];
     expect(file?.sourceFetcher).toBeDefined();
-    expect(await file?.sourceFetcher?.getFullText("old")).toBe("staged\n");
+    // Staged and unstaged changes show together, so the old side is the commit, not the index.
+    expect(await file?.sourceFetcher?.getFullText("old")).toBe("committed\n");
     expect(await file?.sourceFetcher?.getFullText("new")).toBe("working tree\n");
+    expect(file?.staging?.stagedOldSpans).toEqual([{ start: 1, count: 1 }]);
+    expect(file?.staging?.unstagedNewSpans).toEqual([{ start: 1, count: 1 }]);
   });
 
   test("`hunk show <ref>` resolves both sides through git blobs", async () => {

@@ -6,8 +6,10 @@ import {
   buildGitDiffArgs,
   buildGitDiffNumstatArgs,
   buildGitShowArgs,
+  buildGitStagingDiffArgs,
   buildGitStashShowArgs,
   discardGitHunk,
+  isGitStagingReview,
   listGitConflictedFilesAsync,
   listGitIgnoredDirectoryRoots,
   listGitUntrackedFilesAsync,
@@ -19,8 +21,10 @@ import {
   resolveGitDiffEndpointsAsync,
   resolveGitMetadata,
   resolveGitRepoRootAsync,
+  resolveGitStagingBaseAsync,
   runGitTextAsync,
   shouldSkipLargeTrackedDiff,
+  stageGitHunk,
   type GitBackedInput,
   type GitDiffEndpoints,
 } from "./commands";
@@ -42,6 +46,7 @@ import {
   type ExtensionVcsExtraFile,
   type ExtensionVcsFileSourceReader,
   type ExtensionVcsShowInput,
+  type ExtensionVcsStagingPatches,
   type ExtensionVcsWatchPlan,
   type HunkExtensionAPI,
 } from "hunkdiff/extension";
@@ -268,6 +273,23 @@ async function createGitDiffSourceCapabilityAsync(
     : undefined;
 }
 
+/** Load the two zero-context patches that split a staging-aware review at the index. */
+async function loadGitStagingPatches(
+  input: ExtensionVcsDiffInput,
+  options: { cwd: string; gitExecutable: string; signal?: AbortSignal },
+): Promise<ExtensionVcsStagingPatches> {
+  const [stagedPatchText, unstagedPatchText] = await Promise.all(
+    [true, false].map((cached) =>
+      runGitTextAsync({
+        input,
+        args: buildGitStagingDiffArgs(cached, input.pathspecs),
+        ...options,
+      }),
+    ),
+  );
+  return { stagedPatchText: stagedPatchText!, unstagedPatchText: unstagedPatchText! };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Watch plans                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -382,8 +404,11 @@ export function createGitVcsAdapter({
     },
     operations: {
       "working-tree-diff": {
-        async discardHunk({ input, patchText }, context) {
-          await discardGitHunk(input, patchText, context);
+        async discardHunk({ input, patchText, hunk }, context) {
+          await discardGitHunk(input, patchText, { ...context, gitExecutable }, hunk);
+        },
+        async stageHunk(request, context) {
+          await stageGitHunk(request.input, request, { ...context, gitExecutable });
         },
         async load(input, { cwd, signal }) {
           const repoRoot = await resolveGitRepoRootAsync(input, { cwd, gitExecutable, signal });
@@ -396,6 +421,11 @@ export function createGitVcsAdapter({
             gitExecutable,
             signal,
           );
+          // A staging-aware review diffs the base revision against the working copy, so
+          // staged changes stay in view; the index only decides how each hunk is marked.
+          const stagingBase = isGitStagingReview(input)
+            ? await resolveGitStagingBaseAsync(input, { cwd, gitExecutable, signal })
+            : undefined;
           const patchInput: ExtensionVcsDiffInput = comparison
             ? {
                 ...input,
@@ -405,7 +435,9 @@ export function createGitVcsAdapter({
                   to: comparison.endpoints.head,
                 },
               }
-            : input;
+            : stagingBase
+              ? { ...input, range: stagingBase, rangeEndpoints: undefined }
+              : input;
           const title = input.staged
             ? `${repoName} staged changes`
             : range
@@ -436,7 +468,13 @@ export function createGitVcsAdapter({
                 gitExecutable,
                 signal,
               )
-            : await createGitDiffSourceCapabilityAsync(input, repoRoot, cwd, gitExecutable, signal);
+            : await createGitDiffSourceCapabilityAsync(
+                patchInput,
+                repoRoot,
+                cwd,
+                gitExecutable,
+                signal,
+              );
           const untrackedPaths = await listGitUntrackedFilesAsync(input, {
             cwd,
             repoRoot,
@@ -500,6 +538,11 @@ export function createGitVcsAdapter({
             // review scale with the untracked file count.
             untrackedPaths,
             ...(conflictedFiles.length > 0 ? { conflictedFiles } : {}),
+            ...(stagingBase
+              ? {
+                  staging: await loadGitStagingPatches(input, { cwd, gitExecutable, signal }),
+                }
+              : {}),
           };
         },
         watchPlan(input, { cwd }) {
@@ -530,7 +573,19 @@ export function createGitVcsAdapter({
           const untrackedSignatures = untrackedPaths.map(
             (filePath) => `untracked:${statSignature(join(repoRoot, filePath))}`,
           );
-          return [trackedPatch, ...untrackedSignatures].join("\n---\n");
+          // Staging moves changes between the two patches without touching the working copy,
+          // so a staging-aware review also fingerprints the index side.
+          const stagedPatch = isGitStagingReview(input)
+            ? await runGitTextAsync({
+                input,
+                args: buildGitStagingDiffArgs(true, input.pathspecs),
+                cwd,
+                gitExecutable,
+                preventOptionalLocks: true,
+                signal,
+              })
+            : "";
+          return [trackedPatch, stagedPatch, ...untrackedSignatures].join("\n---\n");
         },
       },
       "revision-show": {

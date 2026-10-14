@@ -28,3 +28,11 @@ The current position in visible diff content, which can include unchanged lines 
 
 **Review target**:
 An eligible review unit addressed by an individual decision action. A cursor position need not have a review target.
+
+**Staging-aware review**:
+A review of current changes that shows staged and unstaged changes together, from the base revision to the working copy.
+_Avoid_: Combined view, working-tree diff (for this specific review)
+
+**Staging state**:
+Where a hunk's changes sit relative to the index in a staging-aware review: staged, partly staged, or unstaged. Shown on the rail and toggled per hunk, even in line review. Distinct from hunk state, which records the reviewer's decision.
+_Avoid_: Stage status, hunk state (for this meaning)

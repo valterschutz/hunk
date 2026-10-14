@@ -52,6 +52,7 @@ function createTestCommands(resolvedKeys?: ResolvedCommandKeys) {
     alignCurrentLine: record("alignCurrentLine"),
     applyFilePresentationToAllMatching: record("applyFilePresentationToAllMatching"),
     discardSelectedHunk: record("discardSelectedHunk"),
+    toggleSelectedHunkStaging: record("toggleSelectedHunkStaging"),
     focusFilter: record("focusFilter"),
     jumpLineCursorToFileEdge: record("jumpLineCursorToFileEdge"),
     moveSelection: record("moveSelection"),
@@ -102,12 +103,12 @@ describe("built-in command chords", () => {
       dispatchAppCommand(commands, keyEvent(fields))?.id;
 
     expect(press({ name: "pagedown" })).toBe("hunk.review.pageDown");
-    expect(press({ name: "space" })).toBe("hunk.review.pageDown");
     expect(press({ name: "f", sequence: "f" })).toBe("hunk.review.pageDown");
     expect(press({ name: "pageup" })).toBe("hunk.review.pageUp");
     expect(press({ name: "b", sequence: "b" })).toBe("hunk.review.pageUp");
-    // Shift-Space pages backward, and plain space must not.
-    expect(press({ name: "space", shift: true })).toBe("hunk.review.pageUp");
+    // Space stages, as in lazygit, so neither form of it pages the review.
+    expect(press({ name: "space" })).toBe("hunk.review.toggleSelectedHunkStaged");
+    expect(press({ name: "space", shift: true })).toBeUndefined();
     expect(press({ name: "down" })).toBe("hunk.review.stepDown");
     expect(press({ name: "j", sequence: "j" })).toBe("hunk.review.stepDown");
     expect(press({ name: "up" })).toBe("hunk.review.stepUp");
@@ -119,10 +120,9 @@ describe("built-in command chords", () => {
     expect(ran).toEqual([
       "scrollDiff:1,viewport",
       "scrollDiff:1,viewport",
-      "scrollDiff:1,viewport",
       "scrollDiff:-1,viewport",
       "scrollDiff:-1,viewport",
-      "scrollDiff:-1,viewport",
+      "toggleSelectedHunkStaging",
       "stepDiffLine:1",
       "stepDiffLine:1",
       "stepDiffLine:-1",
@@ -208,7 +208,8 @@ describe("built-in command chords", () => {
     const { commands } = createTestCommands();
     const labels = (id: string) => commands.find((command) => command.id === id)?.keyLabels;
 
-    expect(labels("hunk.review.pageUp")).toEqual(["PageUp", "b", "Shift+Space"]);
+    expect(labels("hunk.review.pageUp")).toEqual(["PageUp", "b"]);
+    expect(labels("hunk.review.toggleSelectedHunkStaged")).toEqual(["Space"]);
     expect(labels("hunk.review.jumpToTop")).toEqual(["gg", "Home"]);
     expect(labels("hunk.review.jumpToBottom")).toEqual(["G", "End"]);
     expect(labels("hunk.app.quit")).toEqual(["q"]);
@@ -246,7 +247,7 @@ describe("built-in commands under user keybindings", () => {
   test("claiming a key held by default takes it from its old owner only", () => {
     const { keys } = resolveCommandKeys({
       defaults: builtinCommandKeyDefaults(),
-      // "f" is one of page-down's three chords.
+      // "f" is one of page-down's two chords.
       userBindings: { "hunk.review.focusFilter": ["f", "/"] },
     });
     const { commands } = createTestCommands(keys);
@@ -255,8 +256,7 @@ describe("built-in commands under user keybindings", () => {
 
     expect(press({ name: "f", sequence: "f" })).toBe("hunk.review.focusFilter");
     expect(press({ name: "/", sequence: "/" })).toBe("hunk.review.focusFilter");
-    // Page-down keeps the chords nobody claimed.
-    expect(press({ name: "space" })).toBe("hunk.review.pageDown");
+    // Page-down keeps the chord nobody claimed.
     expect(press({ name: "pagedown" })).toBe("hunk.review.pageDown");
   });
 
@@ -304,9 +304,11 @@ describe("builtinCommandKeyDefaults", () => {
     expect(commands.every((command) => command.publicToExtensions)).toBe(true);
     expect(defaults.find((entry) => entry.id === "hunk.review.pageDown")?.defaultKeys).toEqual([
       "pagedown",
-      "space",
       "f",
     ]);
+    expect(
+      defaults.find((entry) => entry.id === "hunk.review.toggleSelectedHunkStaged")?.defaultKeys,
+    ).toEqual(["space"]);
     expect(
       defaults.find((entry) => entry.id === "hunk.review.discardSelectedHunk")?.defaultKeys,
     ).toEqual(["d"]);

@@ -124,7 +124,8 @@ Promise-returning VCS `watchSignature` hooks and watch cancellation require API
 version 25. Declare `{"hunk": {"apiVersion": 25}}` in the manifest, or branch on
 `hunk.apiVersion` and return signatures synchronously on older hosts. Use async
 I/O and honor `ctx.signal` on API 25; existing synchronous hooks remain supported.
-Optional current-change `discardHunk` hooks require API version 30.
+Optional current-change `discardHunk` hooks require API version 30, as do working-copy
+`staging` results and the `stageHunk` hook they enable.
 
 ### Generic CLI handlers
 

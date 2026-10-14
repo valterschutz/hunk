@@ -208,7 +208,7 @@ describe("PTY notes", () => {
       // the pre-scroll frame. The same page-down assertion in cursor-line.test.ts
       // brackets the key with the same waits.
       await session.waitIdle({ timeout: 300 });
-      await session.press("space");
+      await session.press("pagedown");
       await session.waitIdle({ timeout: 400 });
       const paged = await session.text({ immediate: true });
       expect(paged).not.toContain("export const line01 = 1;");

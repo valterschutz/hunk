@@ -3,9 +3,12 @@ import { isAbsolute, join, resolve } from "node:path";
 import {
   HunkExtensionUserError,
   type ExtensionVcsDiffInput,
+  type ExtensionVcsHunkTarget,
+  type ExtensionVcsLineSpan,
   type ExtensionVcsShowInput,
   type ExtensionVcsStashShowInput,
 } from "hunkdiff/extension";
+import { spanTouchesHunk } from "@hunk/vcs/hunk-span";
 import { LARGE_DIFF_FILE_MAX_BYTES, LARGE_DIFF_FILE_MAX_LINES } from "@hunk/vcs/large-file";
 import { normalizePathForOS } from "@hunk/vcs/path";
 import { describeDiffRange, describeDiffTargets } from "@hunk/vcs/diff-target";
@@ -552,11 +555,205 @@ export async function runGitTextAsync(options: RunGitTextOptions): Promise<strin
   return (await runGitCommandAsync(options)).stdout;
 }
 
-/** Reverse one reviewed hunk in the working tree, or in the index for a staged review. */
+/**
+ * Return whether a working-tree review is staging-aware: current changes, neither staged-only
+ * nor a revision range. Such a review diffs the base revision against the working copy, so
+ * staged and unstaged changes show together and each hunk can move across the index.
+ */
+export function isGitStagingReview(input: ExtensionVcsDiffInput) {
+  return !input.staged && input.range === undefined && input.rangeEndpoints === undefined;
+}
+
+/**
+ * Resolve the revision a staging-aware review compares the working copy with.
+ *
+ * That is `HEAD`, or Git's empty tree on an unborn branch, so a repository without commits still
+ * reviews everything it holds as added and can stage it.
+ */
+export async function resolveGitStagingBaseAsync(
+  input: ExtensionVcsDiffInput,
+  options: Omit<RunGitTextOptions, "input" | "args"> = {},
+) {
+  const head = await runGitCommandAsync({
+    input,
+    args: ["rev-parse", "--verify", "--quiet", "--end-of-options", "HEAD^{commit}"],
+    ...options,
+    acceptedExitCodes: [0, 1, 128],
+  });
+  if (head.exitCode === 0) return head.stdout.split("\n")[0]!.trim();
+  return (
+    await runGitTextAsync({
+      input,
+      args: ["hash-object", "-t", "tree", "--stdin"],
+      ...options,
+      stdin: "",
+    })
+  ).trim();
+}
+
+/**
+ * Build the zero-context diff that splits a staging-aware review at the index.
+ *
+ * `cached` diffs the base revision against the index, with the review patch's rename detection
+ * so old-side line numbers agree; otherwise it diffs the index against the working tree.
+ */
+export function buildGitStagingDiffArgs(cached: boolean, pathspecs?: string[]) {
+  const args = ["diff", "--no-ext-diff", "--no-color", "--unified=0", "--find-renames"];
+  if (cached) args.push("--cached");
+  appendGitPathspecs(args, pathspecs);
+  return withNormalizedDiffPrefixes(args);
+}
+
+/** One file's zero-context patch split into its file headers and its hunks. */
+interface ZeroContextFilePatch {
+  headers: string;
+  hunks: { text: string; oldSpan: ExtensionVcsLineSpan; newSpan: ExtensionVcsLineSpan }[];
+}
+
+/** Parse one `@@` header side, where an omitted count means one line. */
+function parseHeaderSpan(start: string, count: string | undefined): ExtensionVcsLineSpan {
+  return { start: Number(start), count: count === undefined ? 1 : Number(count) };
+}
+
+/** Split a one-file zero-context patch into headers and hunks; text without hunks has none. */
+function parseZeroContextFilePatch(patchText: string): ZeroContextFilePatch {
+  const firstHunk = patchText.search(/^@@ /m);
+  if (firstHunk < 0) return { headers: patchText, hunks: [] };
+  const hunks = patchText
+    .slice(firstHunk)
+    .split(/^(?=@@ )/m)
+    .map((text) => {
+      const header = text.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+      if (!header) throw new HunkExtensionUserError("Git produced an unreadable hunk header.");
+      return {
+        text,
+        oldSpan: parseHeaderSpan(header[1]!, header[2]),
+        newSpan: parseHeaderSpan(header[3]!, header[4]),
+      };
+    });
+  return { headers: patchText.slice(0, firstHunk), hunks };
+}
+
+/**
+ * Keep the zero-context hunks that touch one displayed hunk, as an applicable patch.
+ *
+ * Returns `null` when the file has changes but no text hunks (a binary or mode-only change),
+ * which only a whole-file operation can move, and an empty string when nothing touches it.
+ */
+function selectTouchingHunks(
+  patchText: string,
+  side: "old" | "new",
+  span: ExtensionVcsLineSpan,
+): string | null {
+  if (patchText.trim().length === 0) return "";
+  const patch = parseZeroContextFilePatch(patchText);
+  if (patch.hunks.length === 0) return null;
+  const touching = patch.hunks.filter((hunk) =>
+    spanTouchesHunk(span, side === "old" ? hunk.oldSpan : hunk.newSpan),
+  );
+  return touching.length === 0 ? "" : patch.headers + touching.map((hunk) => hunk.text).join("");
+}
+
+/** Remove every staged change of the given paths from the index, keeping the working copy. */
+async function unstageGitPaths(
+  input: ExtensionVcsDiffInput,
+  paths: string[],
+  options: Omit<RunGitTextOptions, "input" | "args">,
+) {
+  await runGitTextAsync({ input, args: ["reset", "--quiet", "--", ...paths], ...options });
+}
+
+/**
+ * Move one displayed hunk of a staging-aware review into or out of the index.
+ *
+ * Staging applies the hunk's index→working-tree changes to the index; unstaging reverse-applies
+ * its base→index changes there. Both apply zero-context hunks, so a hunk that is partly staged
+ * moves only the part still on the other side. Untracked, renamed, and binary files move
+ * as whole files, which is what Git can express for them.
+ */
+export async function stageGitHunk(
+  input: ExtensionVcsDiffInput,
+  { hunk, action }: { hunk: ExtensionVcsHunkTarget; action: "stage" | "unstage" },
+  options: Omit<RunGitTextOptions, "input" | "args" | "stdin"> = {},
+): Promise<void> {
+  if (!isGitStagingReview(input)) {
+    throw new HunkExtensionUserError("Only current changes can be staged or unstaged.");
+  }
+  const repoRoot = await resolveGitRepoRootAsync(input, options);
+  const commandOptions = { ...options, cwd: repoRoot };
+  const renamed = hunk.previousPath !== undefined && hunk.previousPath !== hunk.path;
+  const paths = renamed ? [hunk.previousPath!, hunk.path] : [hunk.path];
+
+  if (action === "stage") {
+    if (hunk.untracked) {
+      await runGitTextAsync({ input, args: ["add", "--", hunk.path], ...commandOptions });
+      return;
+    }
+    const patch = selectTouchingHunks(
+      await runGitTextAsync({
+        input,
+        args: buildGitStagingDiffArgs(false, [hunk.path]),
+        ...commandOptions,
+      }),
+      "new",
+      hunk.newSpan,
+    );
+    if (patch === null) {
+      await runGitTextAsync({ input, args: ["add", "--", hunk.path], ...commandOptions });
+      return;
+    }
+    if (patch === "") {
+      throw new HunkExtensionUserError("The selected hunk has no unstaged changes.");
+    }
+    await runGitTextAsync({
+      input,
+      args: ["apply", "--cached", "--unidiff-zero", "-"],
+      ...commandOptions,
+      stdin: patch,
+    });
+    return;
+  }
+
+  if (renamed) {
+    await unstageGitPaths(input, paths, commandOptions);
+    return;
+  }
+  const patch = selectTouchingHunks(
+    await runGitTextAsync({
+      input,
+      args: buildGitStagingDiffArgs(true, [hunk.path]),
+      ...commandOptions,
+    }),
+    "old",
+    hunk.oldSpan,
+  );
+  if (patch === null) {
+    await unstageGitPaths(input, paths, commandOptions);
+    return;
+  }
+  if (patch === "") {
+    throw new HunkExtensionUserError("The selected hunk has no staged changes.");
+  }
+  await runGitTextAsync({
+    input,
+    args: ["apply", "--cached", "--reverse", "--unidiff-zero", "-"],
+    ...commandOptions,
+    stdin: patch,
+  });
+}
+
+/**
+ * Reverse one reviewed hunk in the working tree, or in the index for a staged review.
+ *
+ * A staging-aware review passes the hunk as a target. When staged changes touch it, its patch
+ * spans them too, so only the hunk's index→working-tree changes are reverted, and a fully staged
+ * hunk is refused rather than silently reverting what the reviewer staged.
+ */
 export async function discardGitHunk(
   input: ExtensionVcsDiffInput,
   patchText: string,
   options: Omit<RunGitTextOptions, "input" | "args" | "stdin"> = {},
+  hunk?: ExtensionVcsHunkTarget,
 ): Promise<void> {
   if (input.range !== undefined || input.rangeEndpoints !== undefined) {
     throw new HunkExtensionUserError("Only current staged or unstaged changes can be discarded.");
@@ -566,12 +763,53 @@ export async function discardGitHunk(
   }
 
   const repoRoot = await resolveGitRepoRootAsync(input, options);
+  let reversePatch = patchText;
+  let reverseArgs = ["apply", "--reverse", "--recount", ...(input.staged ? ["--cached"] : []), "-"];
+  // Where no staged change touches the hunk the index still matches the base revision, so the
+  // review patch reverts exactly the selected unit, down to one changed line in line review.
+  const staged =
+    hunk && !hunk.untracked
+      ? selectTouchingHunks(
+          await runGitTextAsync({
+            input,
+            args: buildGitStagingDiffArgs(true, [hunk.path]),
+            ...options,
+            cwd: repoRoot,
+          }),
+          "old",
+          hunk.oldSpan,
+        )
+      : "";
+  if (hunk && staged !== "") {
+    const unstaged = selectTouchingHunks(
+      await runGitTextAsync({
+        input,
+        args: buildGitStagingDiffArgs(false, [hunk.path]),
+        ...options,
+        cwd: repoRoot,
+      }),
+      "new",
+      hunk.newSpan,
+    );
+    if (unstaged === null) {
+      throw new HunkExtensionUserError("Git cannot discard part of a binary or mode change.", {
+        suggestions: ["Restore the file from the index with `git restore` instead."],
+      });
+    }
+    if (unstaged === "") {
+      throw new HunkExtensionUserError("The selected hunk is fully staged.", {
+        suggestions: ["Unstage it first, then discard it."],
+      });
+    }
+    reversePatch = unstaged;
+    reverseArgs = ["apply", "--reverse", "--unidiff-zero", "-"];
+  }
   await runGitCommandAsync({
     input,
-    args: ["apply", "--reverse", "--recount", ...(input.staged ? ["--cached"] : []), "-"],
+    args: reverseArgs,
     ...options,
     cwd: repoRoot,
-    stdin: patchText,
+    stdin: reversePatch,
   });
 }
 

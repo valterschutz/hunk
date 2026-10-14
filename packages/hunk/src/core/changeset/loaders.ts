@@ -14,6 +14,7 @@ import { createSkippedBinaryMetadata, isProbablyBinaryFile } from "./binary";
 import { buildDiffFile, type BuildDiffFileOptions, type DiffFileSourceContext } from "./diffFile";
 import { createFileSourceFetcher, type FileSourceSpec } from "./fileSource";
 import { changesetFromPatch } from "./fromPatch";
+import { withStaging } from "./staging";
 import { DEFAULT_FILE_GAP, DEFAULT_HUNK_GAP } from "../run/reviewGap";
 import { DEFAULT_TAB_WIDTH } from "../run/tabWidth";
 import { resolveThemeTuning } from "../run/themeTuning";
@@ -262,10 +263,11 @@ async function loadVcsChangeset(
       agent: findSidecarFileContext(sidecar, file.path, file.previousPath),
     };
   });
+  const files = [...conflictedFiles, ...parsedChangeset.files, ...adapterFiles];
   return {
     changeset: {
       ...parsedChangeset,
-      files: [...conflictedFiles, ...parsedChangeset.files, ...adapterFiles],
+      files: result.staging ? withStaging(files, result.staging) : files,
     } satisfies Changeset,
     repoRoot: result.repoRoot,
     review: result.review,

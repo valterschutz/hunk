@@ -8,6 +8,7 @@ import type {
   ExtensionVcsHistoryRangeSelection,
   ExtensionVcsHistoryReviewAction,
   ExtensionVcsHistoryReviewOptions,
+  ExtensionVcsHunkTarget,
 } from "../../extension-api/types";
 import type { CliInput, VcsDiffCommandInput } from "../run/commandInputs";
 import type {
@@ -160,6 +161,7 @@ export async function discardVcsHunk(
   patchText: string,
   context: VcsLoadContext,
   catalog: VcsCatalog,
+  hunk?: ExtensionVcsHunkTarget,
 ): Promise<void> {
   const operation = getConfiguredVcsAdapter(input.options.vcs, catalog).operations[
     "working-tree-diff"
@@ -169,7 +171,33 @@ export async function discardVcsHunk(
       "Open current staged or unstaged changes with a VCS backend that supports discarding.",
     ]);
   }
-  await operation.discardHunk({ input, patchText }, context);
+  await operation.discardHunk({ input, patchText, ...(hunk ? { hunk } : {}) }, context);
+}
+
+/** Report whether the configured provider can stage and unstage hunks of a working-copy review. */
+export function canStageVcsHunk(input: VcsDiffCommandInput, catalog: VcsCatalog) {
+  if (input.staged || input.range !== undefined || input.rangeEndpoints !== undefined) return false;
+  const adapter = getConfiguredVcsAdapter(input.options.vcs, catalog);
+  return typeof adapter.operations["working-tree-diff"]?.stageHunk === "function";
+}
+
+/** Ask the selected provider to move one hunk of a staging-aware review into or out of the index. */
+export async function stageVcsHunk(
+  input: VcsDiffCommandInput,
+  hunk: ExtensionVcsHunkTarget,
+  action: "stage" | "unstage",
+  context: VcsLoadContext,
+  catalog: VcsCatalog,
+): Promise<void> {
+  const operation = getConfiguredVcsAdapter(input.options.vcs, catalog).operations[
+    "working-tree-diff"
+  ];
+  if (!canStageVcsHunk(input, catalog) || !operation?.stageHunk) {
+    throw new HunkUserError("This review cannot stage hunks.", [
+      "Open current changes with `hunk diff` in a VCS backend that supports staging.",
+    ]);
+  }
+  await operation.stageHunk({ input, hunk, action }, context);
 }
 
 /** Load a review through a provider-neutral adapter operation. */

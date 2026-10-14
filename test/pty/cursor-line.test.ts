@@ -597,7 +597,7 @@ describe("PTY current line", () => {
       await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
       await session.waitIdle({ timeout: 300 });
 
-      await session.press("space");
+      await session.press("pagedown");
       await session.waitIdle({ timeout: 400 });
 
       expect(await measureKeyScroll(session, "j", 12)).toBeLessThanOrEqual(1);
@@ -619,7 +619,7 @@ describe("PTY current line", () => {
       await session.waitForText(/View\s+Navigate\s+Agent\s+Help/, { timeout: 15_000 });
       await session.waitIdle({ timeout: 300 });
 
-      await session.press("space");
+      await session.press("pagedown");
       await session.waitIdle({ timeout: 400 });
       const paged = (await session.text({ immediate: true })).split("\n");
       const anchor = paged[12]?.trim() ?? "";

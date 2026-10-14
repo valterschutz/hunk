@@ -12,9 +12,13 @@ import { codeCellView, FULL_CODE_CELL_COL_RANGE, type CodeCellHighlight } from "
 import type { CursorHighlight } from "./cursorHighlight";
 import type { LineHighlightPaintIndex } from "./lineHighlightPaint";
 import type { CodeDiffRow, PlannedCodeReviewRow } from "./reviewRenderPlan";
+import type { HunkDecision } from "../../core/review/reviewFile";
 import {
   cursorLineHighlightBg,
+  decisionDotColor,
+  decisionDotMarker,
   diffRailMarker,
+  dimRailColor,
   selectionHighlightBg,
   splitLeftRailColor,
   splitRightRailColor,
@@ -34,8 +38,13 @@ export interface CodeRowViewProps {
   codeHorizontalOffset: number;
   theme: AppTheme;
   selected: boolean;
-  /** The decision on the hunk the row belongs to, when decided hunks are shown. */
-  decision?: HunkRailMark;
+  /** The staging or conflict mark of the hunk the row belongs to. */
+  rail?: HunkRailMark;
+  /**
+   * The decision on the row's hunk, drawn as a dot in place of the rail marker. Set only on the
+   * first row of a hunk shown without the header that otherwise carries the dot.
+   */
+  decisionDot?: HunkDecision;
   copySelectedRowRange?: CopySelectedRowRange;
   copySelectedSide?: "left" | "right";
   cursorHighlight?: CursorHighlight;
@@ -111,6 +120,17 @@ function renderAddNoteSpacer(key: string, width: number, bg: string) {
   );
 }
 
+/** Build the decision dot that replaces the first rail marker of a hunk shown without a header. */
+function decisionDotPrefix(decision: HunkDecision | undefined, theme: AppTheme, selected: boolean) {
+  if (!decision) return undefined;
+  const color = decisionDotColor(theme, decision);
+  return {
+    text: decisionDotMarker(),
+    fg: selected ? color : dimRailColor(color, theme),
+    bg: theme.panel,
+  };
+}
+
 /** Mount one split or unified code row with selection, cursor, guide, and affordance paint. */
 export function CodeRowView({
   plannedRow,
@@ -121,7 +141,8 @@ export function CodeRowView({
   codeHorizontalOffset,
   theme,
   selected,
-  decision,
+  rail,
+  decisionDot,
   copySelectedRowRange,
   copySelectedSide,
   cursorHighlight,
@@ -220,14 +241,14 @@ export function CodeRowView({
     // leaving its rail blank instead of drawing a marker lets the rail itself answer "does this
     // line belong to a hunk?".
     const railText = row.isExpansionRow ? " " : diffRailMarker();
-    const leftPrefix = {
+    const leftPrefix = decisionDotPrefix(decisionDot, theme, selected) ?? {
       text: railText,
-      fg: splitLeftRailColor(row.left.kind, theme, selected, decision),
+      fg: splitLeftRailColor(row.left.kind, theme, selected, rail),
       bg: theme.panel,
     };
     const rightPrefix = {
       text: railText,
-      fg: splitRightRailColor(row.right.kind, theme, selected, decision),
+      fg: splitRightRailColor(row.right.kind, theme, selected, rail),
       bg: theme.panel,
     };
 
@@ -348,9 +369,9 @@ export function CodeRowView({
   const addNoteTarget = resolveCodeRowNoteTarget(row);
   const addBadgeWidth = unifiedLayout.addNoteBadgeWidth;
   // See the split-view rail above: an expansion row draws no rail marker at all.
-  const prefix = {
+  const prefix = decisionDotPrefix(decisionDot, theme, selected) ?? {
     text: row.isExpansionRow ? " " : diffRailMarker(),
-    fg: unifiedRailColor(row.cell.kind, theme, selected, decision),
+    fg: unifiedRailColor(row.cell.kind, theme, selected, rail),
     bg: theme.panel,
   };
 

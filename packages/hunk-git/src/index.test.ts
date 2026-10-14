@@ -180,11 +180,18 @@ describe("GitVcsAdapter", () => {
     expect(await readSource?.({ ...trackedFile, side: "old" })).toBe("old\n");
     expect(await readSource?.({ ...trackedFile, side: "new" })).toBe("new\n");
 
+    // The review runs from HEAD to the working tree, so staging leaves both sources alone and
+    // moves the change from the unstaged patch to the staged one instead.
+    expect(result.staging?.stagedPatchText).toBe("");
+    expect(result.staging?.unstagedPatchText).toContain("@@ -1 +1 @@");
     git(repo, "add", "tracked.txt");
     const changedIndexResult = await GitVcsAdapter.operations["working-tree-diff"]!.load(input, {
       cwd: repo,
     });
-    expect(changedIndexResult.sourceCacheKey).not.toBe(result.sourceCacheKey);
+    expect(changedIndexResult.sourceCacheKey).toBe(result.sourceCacheKey);
+    expect(changedIndexResult.patchText).toContain("+new");
+    expect(changedIndexResult.staging?.stagedPatchText).toContain("@@ -1 +1 @@");
+    expect(changedIndexResult.staging?.unstagedPatchText).toBe("");
 
     // Untracked files come back as paths for Hunk to synthesize in-process:
     // one `git status` covers all of them instead of one `git diff --no-index`

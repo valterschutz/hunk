@@ -9,6 +9,7 @@
  */
 import type { FileDiffMetadata } from "@pierre/diffs";
 import type { AgentFileContext } from "../../extension-api/types";
+import type { LineSpan } from "@hunk/vcs/hunk-span";
 import type { FileSourceFetcher } from "./fileSource";
 
 /** One loaded review sidecar: the changeset summary plus every annotated file it names. */
@@ -37,6 +38,8 @@ export interface DiffFile {
   statsTruncated?: boolean;
   /** Present on a file the VCS reports as conflicted; see `DiffFileConflict`. */
   conflict?: DiffFileConflict;
+  /** Present on every file of a staging-aware working-copy review; see `DiffFileStaging`. */
+  staging?: DiffFileStaging;
   // Optional capability for fetching the file's full text on either side.
   // Loaders attach this when source content is reachable; absent when not.
   sourceFetcher?: FileSourceFetcher;
@@ -78,6 +81,18 @@ export interface DiffFileConflict {
   regions: readonly ConflictRegion[];
   /** Regions still carrying markers; the same count extensions see. */
   unresolved: number;
+}
+
+/**
+ * Where one file's changes sit relative to the index, in a review from the base revision to
+ * the working copy.
+ *
+ * Each list holds the `@@` spans of a zero-context patch: base→index changes on the old side,
+ * index→working-copy changes on the new side. Both are empty for an untracked file.
+ */
+export interface DiffFileStaging {
+  stagedOldSpans: readonly LineSpan[];
+  unstagedNewSpans: readonly LineSpan[];
 }
 
 export type DiffLineMoveKind = "moved";

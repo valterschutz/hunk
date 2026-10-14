@@ -143,6 +143,24 @@ function railColorOfLine(target: Awaited<ReturnType<typeof testRender>>, text: s
   return capturedTestColorToHex(rail?.fg)?.toLowerCase();
 }
 
+/**
+ * Return the decision dot's foreground for the hunk showing `text`: the dot on the nearest hunk
+ * header above that line, or on the hunk's first row when it has no header.
+ */
+function decisionDotColorOfLine(target: Awaited<ReturnType<typeof testRender>>, text: string) {
+  const lines = target.captureSpans().lines;
+  const lineIndex = lines.findIndex((candidate) =>
+    candidate.spans.some((span) => span.text.includes(text)),
+  );
+  for (let index = lineIndex; index >= 0; index -= 1) {
+    const spans = lines[index]!.spans;
+    const dot = spans.find((span) => span.text.includes("●"));
+    if (dot) return capturedTestColorToHex(dot.fg)?.toLowerCase();
+    if (spans.some((span) => span.text.includes("@@"))) return undefined;
+  }
+  return undefined;
+}
+
 async function flush(target: Awaited<ReturnType<typeof testRender>>) {
   await act(async () => {
     await target.renderOnce();
@@ -323,12 +341,13 @@ describe("AppHost hunk decisions", () => {
     // the accepted one, which the status line then names, and + clears it.
     await pressKeys(setup, "[");
     expect(setup.captureCharFrame()).toContain("selected hunk accepted");
-    expect(railColorOfLine(setup, "first change")).toBe(
-      resolveTheme("github-dark-default", null).acceptedRailColor.toLowerCase(),
+    const theme = resolveTheme("github-dark-default", null);
+    expect(decisionDotColorOfLine(setup, "first change")).toBe(
+      theme.acceptedDotColor.toLowerCase(),
     );
-    expect(railColorOfLine(setup, "second change")).not.toBe(
-      railColorOfLine(setup, "first change"),
-    );
+    expect(decisionDotColorOfLine(setup, "second change")).toBeUndefined();
+    // Decisions leave the rail to staging state, which this review does not have.
+    expect(railColorOfLine(setup, "first change")).toBe(theme.addedRailColor.toLowerCase());
 
     await pressKeys(setup, "+");
 
@@ -376,8 +395,8 @@ describe("AppHost hunk decisions", () => {
     frame = setup.captureCharFrame();
     expect(frame).toContain("first change");
     expect(frame).toContain("selected hunk rejected");
-    expect(railColorOfLine(setup, "first change")).toBe(
-      resolveTheme("github-dark-default", null).rejectedRailColor.toLowerCase(),
+    expect(decisionDotColorOfLine(setup, "first change")).toBe(
+      resolveTheme("github-dark-default", null).rejectedDotColor.toLowerCase(),
     );
 
     await pressKeys(setup, "=");
@@ -385,8 +404,8 @@ describe("AppHost hunk decisions", () => {
     expect(approvedFrame).toContain("selected hunk fixed");
     expect(approvedFrame).toContain("✓");
     expect(commitStatus(reviewFile)).toBe(`${COMMIT} approved\n`);
-    expect(railColorOfLine(setup, "first change")).toBe(
-      resolveTheme("github-dark-default", null).fixedRailColor.toLowerCase(),
+    expect(decisionDotColorOfLine(setup, "first change")).toBe(
+      resolveTheme("github-dark-default", null).fixedDotColor.toLowerCase(),
     );
     expect(hunkRecords(reviewFile).find((record) => record.state === "fixed")).toBeDefined();
   });
@@ -519,9 +538,9 @@ describe("AppHost hunk decisions", () => {
     expect(dots).toEqual(
       [
         theme.contextRailColor,
-        theme.acceptedRailColor,
-        theme.rejectedRailColor,
-        theme.fixedRailColor,
+        theme.acceptedDotColor,
+        theme.rejectedDotColor,
+        theme.fixedDotColor,
       ].map((color) => color.toLowerCase()),
     );
 
@@ -597,8 +616,8 @@ describe("AppHost hunk decisions", () => {
     expect(frame).toContain("1 context");
     expect(frame).not.toContain("1 hidden");
     const theme = resolveTheme("github-dark-default", null);
-    expect(railColorOfLine(setup, "first change")).toBe(
-      dimRailColor(theme.acceptedRailColor, theme).toLowerCase(),
+    expect(decisionDotColorOfLine(setup, "first change")).toBe(
+      dimRailColor(theme.acceptedDotColor, theme).toLowerCase(),
     );
 
     // A previous-hunk jump cannot select the accepted context hunk.

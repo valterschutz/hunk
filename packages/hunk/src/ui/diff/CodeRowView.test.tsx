@@ -434,7 +434,7 @@ test("CodeRowView overlays the nowrap add-note badge instead of shifting the not
   }
 });
 
-test("CodeRowView paints the rail of a decided hunk in its decision color", async () => {
+test("CodeRowView paints the rail of a staged hunk in its staging color", async () => {
   const theme = resolveTheme("catppuccin-mocha", null);
   const plannedRow: PlannedCodeReviewRow = {
     kind: "diff-row",
@@ -465,7 +465,7 @@ test("CodeRowView paints the rail of a decided hunk in its decision color", asyn
       codeHorizontalOffset={0}
       theme={theme}
       selected={true}
-      decision="accepted"
+      rail="staged"
     />,
     { width: 16, height: 1 },
   );
@@ -476,10 +476,62 @@ test("CodeRowView paints the rail of a decided hunk in its decision color", asyn
     });
     const spans = setup.captureSpans();
 
-    expect(foregroundForText(spans, "▌")).toBe(theme.acceptedRailColor.toLowerCase());
+    expect(foregroundForText(spans, "▌")).toBe(theme.stagedRailColor.toLowerCase());
     expect(foregroundForText(spans, "▌")).not.toBe(
       unifiedRailColor("deletion", theme, true).toLowerCase(),
     );
+  } finally {
+    await act(async () => {
+      setup.renderer.destroy();
+    });
+  }
+});
+
+test("CodeRowView draws the decision dot in place of the rail marker", async () => {
+  const theme = resolveTheme("catppuccin-mocha", null);
+  const plannedRow: PlannedCodeReviewRow = {
+    kind: "diff-row",
+    key: "diff-row:verified",
+    stableKey: "line:0:new:1",
+    fileId: "paint",
+    hunkIndex: 0,
+    row: {
+      type: "unified-line",
+      key: "verified",
+      fileId: "paint",
+      hunkIndex: 0,
+      cell: {
+        kind: "deletion",
+        sign: "-",
+        oldLineNumber: 1,
+        spans: [{ text: "verified" }],
+      },
+    },
+  };
+  const setup = await testRender(
+    <CodeRowView
+      plannedRow={plannedRow}
+      width={16}
+      lineNumberDigits={1}
+      showLineNumbers={false}
+      wrapLines={false}
+      codeHorizontalOffset={0}
+      theme={theme}
+      selected={true}
+      rail="staged"
+      decisionDot="rejected"
+    />,
+    { width: 16, height: 1 },
+  );
+
+  try {
+    await act(async () => {
+      await setup.renderOnce();
+    });
+    const spans = setup.captureSpans();
+
+    expect(foregroundForText(spans, "●")).toBe(theme.rejectedDotColor.toLowerCase());
+    expect(setup.captureCharFrame()).not.toContain("▌");
   } finally {
     await act(async () => {
       setup.renderer.destroy();

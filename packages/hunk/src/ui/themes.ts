@@ -260,9 +260,11 @@ function buildShikiTheme(themeId: BundledShikiThemeId): AppTheme {
     addedRailColor: addedSignColor,
     removedRailColor: removedSignColor,
     contextRailColor: lineNumberForeground,
-    acceptedRailColor: addedSignColor,
-    rejectedRailColor: removedSignColor,
-    fixedRailColor: lineNumberForeground,
+    acceptedDotColor: addedSignColor,
+    rejectedDotColor: removedSignColor,
+    fixedDotColor: lineNumberForeground,
+    stagedRailColor: addedSignColor,
+    partlyStagedRailColor: badgeModified,
     conflictRailColor: badgeRemoved,
     copyAction: lineNumberForeground,
     selectedHunk: blendHex(modifiedColor, editorBackground, selectedTint),
@@ -343,12 +345,18 @@ function buildCustomTheme(customTheme: NamedCustomThemeConfig) {
       customTheme.removedRailColor ?? customTheme.removedSignColor ?? baseTheme.removedRailColor,
     contextRailColor:
       customTheme.contextRailColor ?? customTheme.lineNumberFg ?? baseTheme.contextRailColor,
-    acceptedRailColor:
-      customTheme.acceptedRailColor ?? customTheme.addedRailColor ?? baseTheme.acceptedRailColor,
-    rejectedRailColor:
-      customTheme.rejectedRailColor ?? customTheme.removedRailColor ?? baseTheme.rejectedRailColor,
-    fixedRailColor:
-      customTheme.fixedRailColor ?? customTheme.contextRailColor ?? baseTheme.fixedRailColor,
+    // Decision dots follow the sign colors, not the rails: rails now carry staging state.
+    acceptedDotColor:
+      customTheme.acceptedDotColor ?? customTheme.addedSignColor ?? baseTheme.acceptedDotColor,
+    rejectedDotColor:
+      customTheme.rejectedDotColor ?? customTheme.removedSignColor ?? baseTheme.rejectedDotColor,
+    fixedDotColor: customTheme.fixedDotColor ?? customTheme.lineNumberFg ?? baseTheme.fixedDotColor,
+    stagedRailColor:
+      customTheme.stagedRailColor ?? customTheme.addedSignColor ?? baseTheme.stagedRailColor,
+    partlyStagedRailColor:
+      customTheme.partlyStagedRailColor ??
+      customTheme.fileModified ??
+      baseTheme.partlyStagedRailColor,
     conflictRailColor:
       customTheme.conflictRailColor ?? customTheme.fileConflicted ?? baseTheme.conflictRailColor,
     cursorLineBg: customTheme.cursorLineBg ?? baseTheme.cursorLineBg,

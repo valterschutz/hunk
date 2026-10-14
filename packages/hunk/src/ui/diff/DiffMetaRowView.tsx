@@ -5,7 +5,15 @@ import type { AppTheme } from "../themes";
 import { CODE_ROW_ADD_NOTE_BADGE_TEXT } from "./codeRowAffordance";
 import type { PlannedDiffMetaReviewRow } from "./reviewRenderPlan";
 import { fitText } from "./plannedRowText";
-import { diffRailMarker, type HunkRailMark, metaRailColor, unfocusedHunkTheme } from "./rowStyle";
+import {
+  decisionDotColor,
+  decisionDotMarker,
+  diffRailMarker,
+  dimRailColor,
+  type HunkMarks,
+  metaRailColor,
+  unfocusedHunkTheme,
+} from "./rowStyle";
 import { markNestedRowMouseAction } from "./rowMouseActions";
 
 export interface DiffMetaRowViewProps {
@@ -13,8 +21,8 @@ export interface DiffMetaRowViewProps {
   width: number;
   theme: AppTheme;
   selected: boolean;
-  /** The decision on the hunk the row belongs to, when decided hunks are shown. */
-  decision?: HunkRailMark;
+  /** The rail mark and decision of the hunk the row belongs to. */
+  marks?: HunkMarks;
   showHunkHeaders: boolean;
   showAddNoteBadge?: boolean;
   onHoverRow?: (rowKey: string) => void;
@@ -39,7 +47,7 @@ export function DiffMetaRowView({
   width,
   theme,
   selected,
-  decision,
+  marks,
   showHunkHeaders,
   showAddNoteBadge = false,
   onHoverRow,
@@ -64,9 +72,24 @@ export function DiffMetaRowView({
   const collapsedExpandable = row.type === "collapsed" && Boolean(onToggleGap);
   const labelText =
     row.type === "collapsed" ? collapsedRowLabel(row.text, collapsedExpandable) : row.text;
-  const label = fitText(labelText, Math.max(0, width - 1 - badgeWidth));
+  // A decided hunk's header leads with its decision dot; collapsed gaps carry no decision.
+  const decision = row.type === "hunk-header" ? marks?.decision : undefined;
+  const dotText = decision ? `${decisionDotMarker()} ` : "";
+  const label = fitText(labelText, Math.max(0, width - 1 - dotText.length - badgeWidth));
   // Headers and collapsed gaps belong to their hunk, so they fade with the code they introduce.
   const rowTheme = selected ? theme : unfocusedHunkTheme(theme);
+  const dot = decision ? (
+    <span
+      fg={
+        selected
+          ? decisionDotColor(theme, decision)
+          : dimRailColor(decisionDotColor(theme, decision), theme)
+      }
+      bg={rowTheme.panelAlt}
+    >
+      {dotText}
+    </span>
+  ) : null;
   const handleCollapsedClick =
     row.type === "collapsed" && onToggleGap
       ? () => onToggleGap(reviewGapId(row.position, row.hunkIndex))
@@ -86,9 +109,10 @@ export function DiffMetaRowView({
         onMouseUp={handleCollapsedClick}
       >
         <text>
-          <span fg={metaRailColor(theme, selected, decision)} bg={rowTheme.panelAlt}>
+          <span fg={metaRailColor(theme, selected, marks?.rail)} bg={rowTheme.panelAlt}>
             {diffRailMarker()}
           </span>
+          {dot}
           <span
             fg={row.type === "collapsed" ? rowTheme.muted : rowTheme.badgeNeutral}
             bg={rowTheme.panelAlt}
@@ -117,9 +141,10 @@ export function DiffMetaRowView({
         onMouseUp={handleCollapsedClick}
       >
         <text>
-          <span fg={metaRailColor(theme, selected, decision)} bg={rowTheme.panelAlt}>
+          <span fg={metaRailColor(theme, selected, marks?.rail)} bg={rowTheme.panelAlt}>
             {diffRailMarker()}
           </span>
+          {dot}
           <span
             fg={row.type === "collapsed" ? rowTheme.muted : rowTheme.badgeNeutral}
             bg={rowTheme.panelAlt}

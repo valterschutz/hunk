@@ -7,6 +7,7 @@ The package has no root export. Providers import only the leaf they need:
 
 - `@hunk/vcs/async-process`
 - `@hunk/vcs/diff-target`
+- `@hunk/vcs/hunk-span`
 - `@hunk/vcs/large-file`
 - `@hunk/vcs/path`
 - `@hunk/vcs/source`
